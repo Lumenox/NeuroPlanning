@@ -1,125 +1,92 @@
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <title>Test Connexion Supabase</title>
+    <style>
+        .highlight-active { background-color: #fef08a !important; }
+        .cell-input { width: 100%; border: none; background: transparent; text-align: center; }
+    </style>
+</head>
+<body class="p-8 bg-slate-100">
+
+    <div class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow-lg">
+        <h1 class="text-xl font-bold mb-4">Statut Connexion : <span id="status" class="text-orange-500">Vérification...</span></h1>
+        
+        <div class="mb-4 flex gap-4">
+            <input type="text" id="user" placeholder="Login (RN)" class="border p-1 text-sm">
+            <input type="password" id="pass" placeholder="Mdp (123)" class="border p-1 text-sm">
+            <button onclick="login()" class="bg-blue-600 text-white px-3 py-1 rounded">Connexion</button>
+        </div>
+
+        <table class="w-full border text-xs">
+            <thead>
+                <tr class="bg-slate-200" id="header-row"></tr>
+            </thead>
+            <tbody id="body-row"></tbody>
+        </table>
+    </div>
 
 <script>
-    // --- CONFIGURATION ---
-    // Remplacez par vos vraies clés trouvées dans Supabase (Settings > API)
-    const SUPABASE_URL = 'https://yseaujinbdwxpcelsywr.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_7uC727-tO92zxGsAwCqBnA_E9oX_Xw8';
-    
+    // CONFIGURATION A REMPLIR
+    const SUPABASE_URL = 'https://VOTRE_PROJET.supabase.co';
+    const SUPABASE_KEY = 'VOTRE_CLE_ANON';
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    let fullData = [];
-    let auth = { user: '', role: 'viewer', pwd: '' };
+    let auth = { role: 'viewer' };
+    const columns = ['date', 'heure', 'C_Periph', 'C_Cogn', 'UNV1', 'Garde', 'BOX1'];
 
-    // --- LOGIQUE DE CHARGEMENT ---
-    async function loadPlanning() {
-        // On récupère les données de la table 'planning' (votre CSV importé)
-        const { data, error } = await _supabase
-            .from('Planning')
-            .select('*')
-            .order('date', { ascending: true }); // Supabase crée souvent une colonne ID à l'import
-
-        if (error) {
-            console.error("Erreur Supabase:", error);
-            alert("Impossible de charger les données.");
-        } else {
-            fullData = data;
-            renderTable();
-        }
-    }
-
-    // --- LOGIQUE D'AFFICHAGE ---
-    function renderTable() {
-        const monthFilter = document.getElementById('monthFilter').value;
-        const highlight = document.getElementById('highlightDoc').value;
-        const body = document.getElementById('body-grid');
+    async function init() {
+        const { data, error } = await _supabase.from('planning_test').select('*');
         
-        // On définit les colonnes à afficher basées sur votre CSV
-        const columns = [
-            'date', 'heure', 
-            'C Periph', 'C Cogn', 'C sup', 'C Int1', 'C Int2', 
-            'UNV1', 'UNV2', 'USI1', 'USI2', 
-            'BIPv', 'BIPng', 'Garde', 
-            'BOX1', 'BOX2', 'BOX3', 'BOX4'
-        ];
-
-        // Filtrage des données par mois (format JJ/MM/AAAA)
-        const filteredData = fullData.filter(row => {
-            if(!row.date) return false;
-            return row.date.includes('/' + monthFilter + '/');
-        });
-
-        let html = "";
-        filteredData.forEach(row => {
-            html += `<tr class="border-b hover:bg-slate-50 transition-colors">`;
-            
-            columns.forEach(col => {
-                const val = row[col] || "";
-                const isFixed = (col === 'date' || col === 'heure');
-                const isHighlighted = (highlight && val === highlight) ? 'highlight-active' : '';
-                
-                if (isFixed) {
-                    html += `<td class="p-2 border-r sticky-col font-bold bg-slate-50 text-slate-600">${val}</td>`;
-                } else {
-                    // Si mode viewer ou pas les droits : input désactivé
-                    const canEdit = checkRights(col);
-                    html += `
-                        <td class="border-r p-0 ${isHighlighted}">
-                            <input class="cell-input font-bold" 
-                                   value="${val}" 
-                                   ${!canEdit ? 'disabled' : ''}
-                                   onchange="saveUpdate('${row.id}', '${col}', this.value)">
-                        </td>`;
-                }
-            });
-            html += `</tr>`;
-        });
-        body.innerHTML = html;
-    }
-
-    // --- LOGIQUE DE SÉCURITÉ ---
-    function checkRights(column) {
-        if (auth.role === 'admin-full') return true;
-        if (auth.role === 'admin-hospi') {
-            // Liste des colonnes autorisées pour AD
-            const hospiCols = ['C Periph', 'C Cogn', 'C sup', 'C Int1', 'C Int2', 'UNV1', 'UNV2', 'USI1', 'USI2'];
-            return hospiCols.includes(column);
-        }
-        return false;
-    }
-
-    // --- SAUVEGARDE EN DIRECT SUR SUPABASE ---
-    async function saveUpdate(id, column, newValue) {
-        const { error } = await _supabase
-            .from('planning')
-            .update({ [column]: newValue })
-            .eq('id', id);
-
         if (error) {
-            alert("Erreur de sauvegarde: " + error.message);
-            loadPlanning(); // Recharge pour annuler l'erreur visuelle
+            document.getElementById('status').innerText = "Erreur : " + error.message;
+            document.getElementById('status').className = "text-red-600";
+            console.error(error);
         } else {
-            // Mise à jour locale de la mémoire pour que le highlight fonctionne sans recharger
-            const index = fullData.findIndex(r => r.id == id);
-            fullData[index][column] = newValue;
-            console.log("Enregistré avec succès");
+            document.getElementById('status').innerText = "Connecté !";
+            document.getElementById('status').className = "text-green-600";
+            displayData(data);
         }
     }
 
-    // --- LOGIN ---
-    function login() {
-        const u = document.getElementById('user').value.toUpperCase();
-        const p = document.getElementById('pass').value;
-
-        if (u === 'RN' && p === '123') auth = { user: 'RN', role: 'admin-full' };
-        else if (u === 'AD' && p === '456') auth = { user: 'AD', role: 'admin-hospi' };
-        else return alert("Accès refusé");
-
-        document.getElementById('login-box').classList.add('hidden');
-        document.getElementById('logout-btn').classList.remove('hidden');
-        renderTable();
+    function displayData(data) {
+        const header = document.getElementById('header-row');
+        const body = document.getElementById('body-row');
+        
+        header.innerHTML = columns.map(c => `<th class="border p-2">${c}</th>`).join('');
+        
+        body.innerHTML = data.map(row => `
+            <tr>
+                ${columns.map(col => {
+                    const val = row[col] || "";
+                    const isReadOnly = (col === 'date' || col === 'heure' || auth.role === 'viewer');
+                    return `
+                        <td class="border p-0">
+                            <input class="cell-input" value="${val}" 
+                                   ${isReadOnly ? 'disabled' : ''} 
+                                   onchange="updateCell('${row.id}', '${col}', this.value)">
+                        </td>`;
+                }).join('')}
+            </tr>
+        `).join('');
     }
 
-    // Lancement au démarrage
-    window.onload = loadPlanning;
+    async function updateCell(id, column, value) {
+        const { error } = await _supabase.from('planning_test').update({ [column]: value }).eq('id', id);
+        if (error) alert("Erreur de sauvegarde");
+    }
+
+    function login() {
+        const u = document.getElementById('user').value;
+        const p = document.getElementById('pass').value;
+        if(u === 'RN' && p === '123') auth.role = 'admin-full';
+        init(); // On recharge pour débloquer les inputs
+    }
+
+    init();
 </script>
+</body>
+</html>
