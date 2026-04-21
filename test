@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>NeuroPlan v7 - LIVE</title>
+    <style>
+        .highlight-active { background-color: #fef08a !important; color: black; font-weight: bold; }
+        .sticky-col { position: sticky; left: 0; background: white; z-index: 10; border-right: 2px solid #cbd5e1; }
+        .header-sticky { position: sticky; top: 0; z-index: 30; }
+        .cell-input { width: 100%; text-align: center; font-size: 10px; border: none; background: transparent; height: 100%; }
+        table { border-collapse: separate; border-spacing: 0; }
+    </style>
+</head>
+<body class="bg-slate-50" onload="init()">
+    <nav class="bg-slate-900 text-white p-4 flex justify-between items-center header-sticky shadow-xl">
+        <div class="flex items-center gap-4">
+            <span class="text-2xl">🧠</span>
+            <h1 class="font-bold text-blue-400">NeuroPlan LIVE</h1>
+        </div>
+        
+        <div class="flex gap-4 items-center">
+            <select id="highlightDoc" onchange="renderTable()" class="bg-slate-800 text-yellow-400 text-xs p-1 rounded border border-slate-700">
+                <option value="">-- Highlight Médecin --</option>
+                <option value="RN">RN</option><option value="AD">AD</option><option value="MZ">MZ</option><option value="VP">VP</option>
+            </select>
+            <div id="login-box" class="flex gap-1">
+                <input type="text" id="user" placeholder="ID" class="w-12 text-black text-[10px] p-1 rounded">
+                <input type="password" id="pass" placeholder="Mdp" class="w-12 text-black text-[10px] p-1 rounded">
+                <button onclick="saveAuth()" class="bg-blue-600 px-2 py-1 text-[10px] rounded">Login</button>
+            </div>
+            <button id="logout-btn" onclick="logout()" class="hidden text-xs bg-red-600 px-2 py-1 rounded">Quitter Admin</button>
+        </div>
+    </nav>
+
+    <div class="p-4">
+        <div class="bg-white p-3 rounded-t-xl border border-slate-200 flex items-center gap-4">
+            <span class="text-xs font-bold uppercase text-slate-500">Mois :</span>
+            <select id="monthFilter" onchange="renderTable()" class="text-sm font-bold border rounded p-1">
+                <option value="11">Novembre 2025</option>
+                <option value="12">Décembre 2025</option>
+                <option value="01">Janvier 2026</option>
+            </select>
+        </div>
+
+        <div class="overflow-auto max-h-[80vh] border border-slate-200 bg-white rounded-b-xl shadow-2xl">
+            <table id="planningTable" class="w-full text-[10px]">
+                <thead class="header-sticky top-0 bg-slate-100 z-40">
+                    <tr id="header-row" class="text-center font-bold border-b bg-slate-200"></tr>
+                </thead>
+                <tbody id="body-grid"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let fullData = [];
+        let auth = { user: '', pwd: '', role: 'viewer' };
+
+        async function init() {
+            const resp = await fetch('/api/planning');
+            fullData = await resp.json();
+            renderTable();
+        }
+
+        function saveAuth() {
+            auth.user = document.getElementById('user').value.toUpperCase();
+            auth.pwd = document.getElementById('pass').value;
+            if(auth.user === 'RN') auth.role = 'admin-full';
+            else if(auth.user === 'AD') auth.role = 'admin-hospi';
+            document.getElementById('login-box').classList.add('hidden');
+            document.getElementById('logout-btn').classList.remove('hidden');
+            renderTable();
+        }
+
+        function renderTable() {
+            const month = document.getElementById('monthFilter').value;
+            const highlight = document.getElementById('highlightDoc').value;
+            const headerRow = document.getElementById('header-row');
+            const body = document.getElementById('body-grid');
+
+            // Filtrage par mois (basé sur le format JJ/MM/AAAA du CSV)
+            const filtered = fullData.filter(row => row.date && row.date.split('/')[1] === month);
+            
+            // Colonnes à afficher (selon votre CSV)
+            const cols = ['date', 'heure', 'C Periph', 'C Cogn', 'C sup', 'UNV1', 'UNV2', 'USI1', 'USI2', 'BIPv', 'BIPng', 'Garde', 'BOX1', 'BOX2'];
+            
+            headerRow.innerHTML = cols.map(c => `<th class="p-2 border-r ${c==='date'?'sticky-col':''}">${c}</th>`).join('');
+            
+            body.innerHTML = filtered.map(row => {
+                return `<tr class="border-b hover:bg-slate-50">
+                    ${cols.map(col => {
+                        const isDate = col === 'date' || col === 'heure';
+                        const val = row[col] || "";
+                        const isHigh = highlight && val === highlight ? 'highlight-active' : '';
+                        
+                        if(isDate) return `<td class="p-2 border-r ${col==='date'?'sticky-col':''} font-bold">${val}</td>`;
+                        
+                        return `<td class="border-r p-0 ${isHigh}">
+                            <input class="cell-input font-bold" value="${val}" 
+                                   onchange="updateData('${row.date}', '${row.heure}', '${col}', this.value)"
+                                   ${auth.role === 'viewer' ? 'disabled' : ''}>
+                        </td>`;
+                    }).join('')}
+                </tr>`;
+            }).join('');
+        }
+
+        async function updateData(date, heure, column, newValue) {
+            const resp = await fetch('/api/update', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ date, heure, column, newValue, user: auth.user, pwd: auth.pwd })
+            });
+            if(!resp.ok) alert("Erreur : Accès refusé ou problème serveur");
+        }
+
+        function logout() { location.reload(); }
+    </script>
+</body>
+</html>
