@@ -31,15 +31,15 @@
 
 <script>
     // CONFIGURATION A REMPLIR
-    const SUPABASE_URL = 'https://VOTRE_PROJET.supabase.co';
-    const SUPABASE_KEY = 'VOTRE_CLE_ANON';
+    const SUPABASE_URL = 'https://yseaujinbdwxpcelsywr.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_7uC727-tO92zxGsAwCqBnA_E9oX_Xw8';
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let auth = { role: 'viewer' };
     const columns = ['date', 'heure', 'C_Periph', 'C_Cogn', 'UNV1', 'Garde', 'BOX1'];
 
     async function init() {
-        const { data, error } = await _supabase.from('planning_test').select('*');
+        const { data, error } = await _supabase.from('planning').select('*');
         
         if (error) {
             document.getElementById('status').innerText = "Erreur : " + error.message;
