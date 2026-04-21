@@ -15,9 +15,9 @@
     async function loadPlanning() {
         // On récupère les données de la table 'planning' (votre CSV importé)
         const { data, error } = await _supabase
-            .from('planning')
+            .from('Planning')
             .select('*')
-            .order('id', { ascending: true }); // Supabase crée souvent une colonne ID à l'import
+            .order('date', { ascending: true }); // Supabase crée souvent une colonne ID à l'import
 
         if (error) {
             console.error("Erreur Supabase:", error);
