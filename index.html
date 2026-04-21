@@ -36,18 +36,25 @@
     const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let auth = { role: 'viewer' };
-    const columns = ['date', 'heure', 'C_Periph', 'C_Cogn', 'UNV1', 'Garde', 'BOX1'];
 
     async function init() {
-        const { data, error } = await _supabase.from('planning').select('*');
+        // On récupère tout de la table 'planning'
+        const { data, error } = await _supabase.from('planning').select('*').limit(10);
         
         if (error) {
             document.getElementById('status').innerText = "Erreur : " + error.message;
             document.getElementById('status').className = "text-red-600";
-            console.error(error);
+        } else if (data.length === 0) {
+            document.getElementById('status').innerText = "Connecté mais TABLE VIDE";
+            document.getElementById('status').className = "text-orange-500";
         } else {
-            document.getElementById('status').innerText = "Connecté !";
+            document.getElementById('status').innerText = "Connecté ! (" + data.length + " lignes)";
             document.getElementById('status').className = "text-green-600";
+            
+            // DEBUG : Affiche les données réelles dans la console (F12)
+            console.log("Colonnes détectées :", Object.keys(data[0]));
+            console.table(data); 
+
             displayData(data);
         }
     }
@@ -56,37 +63,20 @@
         const header = document.getElementById('header-row');
         const body = document.getElementById('body-row');
         
-        header.innerHTML = columns.map(c => `<th class="border p-2">${c}</th>`).join('');
+        // On prend les noms de colonnes RÉELS de Supabase au lieu de les deviner
+        const realColumns = Object.keys(data[0]);
+        
+        header.innerHTML = realColumns.map(c => `<th class="border p-2 bg-slate-200">${c}</th>`).join('');
         
         body.innerHTML = data.map(row => `
             <tr>
-                ${columns.map(col => {
+                ${realColumns.map(col => {
                     const val = row[col] || "";
-                    const isReadOnly = (col === 'date' || col === 'heure' || auth.role === 'viewer');
-                    return `
-                        <td class="border p-0">
-                            <input class="cell-input" value="${val}" 
-                                   ${isReadOnly ? 'disabled' : ''} 
-                                   onchange="updateCell('${row.id}', '${col}', this.value)">
-                        </td>`;
+                    return `<td class="border p-1 text-center font-bold">${val}</td>`;
                 }).join('')}
             </tr>
         `).join('');
     }
 
-    async function updateCell(id, column, value) {
-        const { error } = await _supabase.from('planning_test').update({ [column]: value }).eq('id', id);
-        if (error) alert("Erreur de sauvegarde");
-    }
-
-    function login() {
-        const u = document.getElementById('user').value;
-        const p = document.getElementById('pass').value;
-        if(u === 'RN' && p === '123') auth.role = 'admin-full';
-        init(); // On recharge pour débloquer les inputs
-    }
-
     init();
 </script>
-</body>
-</html>
