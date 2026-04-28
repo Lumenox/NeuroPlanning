@@ -3,7 +3,7 @@ to do list:
 -un conflit doit apparaitre si un médecin est positionné sur une des colonnes en même temps que le repos de garde (pas sur la colonne garde)
 -affichage du groupe: même couleur du groupe et de ses colonnes, enlever le "groupe de colonne" avec les colonnes (pour que l'alignement reste identique)
 
--système de gestion du conflit :  l'admin peut assumer le conflit et plutôt qu'un signal "rouge" et affichage du "conflit", la ligne est classée "jaune" et affichage "conflit accepté"
+-système de gestion du conflit :  l'admin peut assumer le conflit et plutôt qu'un signal "rouge" et affichage du "conflit", la ligne est classée "jaune" et affichage "conflit accepté", on peut faire cela par exemple en cliquant sur la cellule date de la ligne concernée
 
 D'autres onglets: filtre date et médecin aussi utilisable
 -onglet vacances/autres activités/enseignement/recherche qui intéragit aussi en terme de conflit
