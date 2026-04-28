@@ -248,6 +248,17 @@
     /* =============================================
        STATS PANEL (right sidebar)
     ============================================= */
+    #stats-content {
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+      max-height: 2000px;  /* valeur large = "ouvert" */
+    }
+    #stats-content.collapsed {
+      max-height: 0;
+    }
+    #stats-panel.collapsed {
+      width: 40px;  /* panneau réduit à juste la flèche */
+    }
     #stats-panel {
       width: 220px;
       background: var(--navy-mid);
@@ -576,17 +587,21 @@
   <label>Au</label>
   <input type="date" id="filter-date-to"   onchange="applyFilters()" />
 
-  <label>Créneau</label>
+  <!-- <label>Créneau</label>
   <select id="filter-heure" onchange="applyFilters()">
     <option value="">Tous</option>
     <option value="9h00">9h00 (matin)</option>
     <option value="13h30">13h30 (après-midi)</option>
-  </select>
+  </select> -->
 
   <input type="text" id="search-doctor" placeholder="🔍 Chercher un médecin…"
          oninput="applyFilters()" />
 
   <div class="sep"></div>
+
+  <label style="font-size:11px; color:var(--teal)">Colonnes :</label>
+  <div id="col-toggles" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+  <!-- Généré dynamiquement par JS -->
 
   <button class="btn-ghost" onclick="clearFilters()" style="font-size:11px">✕ Réinitialiser</button>
 </div>
@@ -614,11 +629,18 @@
 
   <!-- ---- STATS PANEL ---- -->
   <div id="stats-panel">
-    <div class="panel-title">Compteur gardes</div>
-    <div id="stats-list"></div>
-
-    <div id="conflict-summary">
-      Conflits détectés : <span class="conf-count" id="conflict-count">0</span>
+    <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>Compteur gardes</span>
+      <button onclick="toggleStatsPanel()" id="stats-toggle-btn"
+        style="background:none;border:none;color:var(--teal);cursor:pointer;font-size:16px;padding:0">
+        ›
+      </button>
+    </div>
+    <div id="stats-content">  <!-- ← enveloppe le contenu -->
+      <div id="stats-list"></div>
+      <div id="conflict-summary">
+        Conflits : <span class="conf-count" id="conflict-count">0</span>
+      </div>
     </div>
   </div>
 
@@ -671,8 +693,67 @@ const COLUMNS = [
   { key: 'Garde',    label: 'Garde',   group: 'garde'                  },
   { key: 'BOX1',     label: 'BOX 1',   group: 'box'                   },
   { key: 'BOX2',     label: 'BOX 2',   group: 'box'                   },
+  { key: 'BOX3',     label: 'BOX 3',   group: 'box'                   },
+  { key: 'BOX4',     label: 'BOX 4',   group: 'box'                   },
+  { key: 'BOX5',     label: 'BOX 5',   group: 'box'                   },
+  { key: 'BOX6',     label: 'BOX 6',   group: 'box'                   },
+  { key: 'BOX7',     label: 'BOX 7',   group: 'box'                   },
+  { key: 'BOX8',     label: 'BOX 8',   group: 'box'                   },
+  { key: 'BOX9',     label: 'BOX 9',   group: 'box'                   },
 ];
+// État des colonnes visibles — par défaut toutes actives
+const visibleCols = {};
+COLUMNS.forEach(col => { visibleCols[col.key] = true; });
+  
+function applyColVisibility() {
+  // Chaque colonne a un index dans COLUMNS
+  COLUMNS.forEach((col, index) => {
+    if (col.group === 'meta') return; // date/heure toujours visibles
 
+    const isVisible = visibleCols[col.key];
+    // On cible toutes les cellules de cette colonne (index + 1 car CSS est 1-based)
+    document.querySelectorAll(
+      `#planning-table th:nth-child(${index + 1}),
+       #planning-table td:nth-child(${index + 1})`
+    ).forEach(cell => {
+      cell.style.display = isVisible ? '' : 'none';
+    });
+  });
+
+  // Recalculer les stats sur ce qui est affiché
+  buildStats();
+}
+  
+function buildColToggles() {
+  const container = document.getElementById('col-toggles');
+  // On ne propose pas de toggle pour date/heure (colonnes fixes)
+  COLUMNS.filter(c => c.group !== 'meta').forEach(col => {
+    const label = document.createElement('label');
+    label.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;';
+
+    const cb = document.createElement('input');
+    cb.type    = 'checkbox';
+    cb.checked = true;
+    cb.dataset.col = col.key;
+    cb.addEventListener('change', () => {
+      visibleCols[col.key] = cb.checked;
+      applyColVisibility();  // <-- nouvelle fonction ci-dessous
+    });
+
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(col.label));
+    container.appendChild(label);
+  });
+}
+function toggleStatsPanel() {
+  const panel   = document.getElementById('stats-panel');
+  const content = document.getElementById('stats-content');
+  const btn     = document.getElementById('stats-toggle-btn');
+
+  const isCollapsed = content.classList.toggle('collapsed');
+  panel.classList.toggle('collapsed', isCollapsed);
+  btn.textContent = isCollapsed ? '‹' : '›';  // flèche change de sens
+}
 // Colonnes qui sont des postes médicaux (pour la détection de conflits et les stats)
 // = tout sauf date, heure
 const DOCTOR_COLS = COLUMNS.filter(c => c.group !== 'meta').map(c => c.key);
@@ -750,6 +831,7 @@ function logout() {
 ============================================================ */
 async function init() {
   buildTableHeader();
+  buildColToggles();
   await loadData();
   subscribeRealtime();
 }
@@ -821,10 +903,11 @@ function subscribeRealtime() {
 /* ============================================================
    FILTRES
 ============================================================ */
+let currentFilteredRows = [];  // variable globale en haut du script
 function applyFilters() {
   const dateFrom  = document.getElementById('filter-date-from').value;
   const dateTo    = document.getElementById('filter-date-to').value;
-  const heure     = document.getElementById('filter-heure').value;
+  /* const heure     = document.getElementById('filter-heure').value; */
   const docSearch = document.getElementById('search-doctor').value.trim().toLowerCase();
 
   let rows = allData.filter(row => {
@@ -833,7 +916,7 @@ function applyFilters() {
     if (dateTo   && row.date > dateTo)   return false;
 
     // Filtre créneau
-    if (heure && row.heure !== heure) return false;
+    // if (heure && row.heure !== heure) return false;
 
     // Filtre médecin (cherche dans toutes les colonnes de postes)
     if (docSearch) {
@@ -853,8 +936,10 @@ function applyFilters() {
 
     return true;
   });
-
+  currentFilteredRows = rows;  // sauvegarde avant renderTable
   renderTable(rows, docSearch || doctorFilter);
+  applyColVisibility()
+  buildStats();  // appelle buildStats sans argument
 }
 
 function clearFilters() {
@@ -1132,52 +1217,67 @@ async function saveAllPending() {
    STATISTIQUES (compteur par médecin)
 ============================================================ */
 function buildStats() {
-  const counts = {};
+  // Groupes à compter séparément
+  const groups = {
+    'UNV':   ['UNV1', 'UNV2'],
+    'USI':   ['USI1', 'USI2'],
+    'BIP':   ['BIPv', 'BIPng'],
+    'Garde': ['Garde'],
+    'BOX':   ['BOX1', 'BOX2'],
+    'Coord': ['C_Periph', 'C_Cogn', 'C_sup'],
+  };
 
-  allData.forEach(row => {
-    DOCTOR_COLS.forEach(col => {
-      const val = (row[col] || '').trim();
-      // On ne compte que les initiales courtes (pas "REUNION DE GARDE", etc.)
-      if (val && val.length <= 5 && /^[A-Za-zÀ-ÿ]+$/.test(val.replace(/\s/,''))) {
-        counts[val.toUpperCase()] = (counts[val.toUpperCase()] || 0) + 1;
-      }
+  // Pour chaque groupe, compter par médecin
+  const allCounts = {};  // { docteur: { UNV: 3, USI: 1, ... } }
+
+  Object.entries(groups).forEach(([groupName, cols]) => {
+    // Ne compter que les colonnes actuellement visibles
+    const activeCols = cols.filter(c => visibleCols[c]);
+    currentFilteredRows.forEach(row => {
+      activeCols.forEach(col => {
+        const val = (row[col] || '').trim();
+        if (val && val.length <= 5 && /^[A-Za-z]+$/.test(val)) {
+          const key = val.toUpperCase();
+          if (!allCounts[key]) allCounts[key] = {};
+          allCounts[key][groupName] = (allCounts[key][groupName] || 0) + 1;
+        }
+      });
     });
   });
 
-  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  const max    = sorted[0]?.[1] || 1;
-
+  // Affichage : une ligne par médecin, avec les compteurs par groupe
   const list = document.getElementById('stats-list');
   list.innerHTML = '';
 
-  sorted.forEach(([doc, count]) => {
-    const div = document.createElement('div');
-    div.className = 'stat-row';
-    if (doctorFilter === doc) div.classList.add('active-filter');
+  Object.entries(allCounts)
+    .sort((a, b) => {
+      const totalA = Object.values(a[1]).reduce((s, v) => s + v, 0);
+      const totalB = Object.values(b[1]).reduce((s, v) => s + v, 0);
+      return totalB - totalA;
+    })
+    .forEach(([doc, groupCounts]) => {
+      const div = document.createElement('div');
+      div.className = 'stat-row';
+      const total = Object.values(groupCounts).reduce((s, v) => s + v, 0);
 
-    div.innerHTML = `
-      <span class="stat-name">${doc}</span>
-      <div class="stat-bar-wrap">
-        <div class="stat-bar" style="width:${Math.round(count/max*100)}%"></div>
-      </div>
-      <span class="stat-count">${count}</span>
-    `;
+      // Mini badges colorés par groupe
+      const badges = Object.entries(groupCounts).map(([g, n]) =>
+        `<span style="font-size:9px;background:var(--navy-light);border-radius:3px;padding:1px 4px">${g}:${n}</span>`
+      ).join(' ');
 
-    // Clic → filtre sur ce médecin
-    div.addEventListener('click', () => {
-      if (doctorFilter === doc) {
-        doctorFilter = null;
-        div.classList.remove('active-filter');
-      } else {
-        doctorFilter = doc;
-        document.querySelectorAll('.stat-row').forEach(r => r.classList.remove('active-filter'));
-        div.classList.add('active-filter');
-      }
-      applyFilters();
+      div.innerHTML = `
+        <span class="stat-name">${doc}</span>
+        <div style="flex:1;display:flex;gap:3px;flex-wrap:wrap;padding:0 6px">${badges}</div>
+        <span class="stat-count">${total}</span>
+      `;
+
+      div.addEventListener('click', () => {
+        doctorFilter = doctorFilter === doc ? null : doc;
+        applyFilters();
+      });
+
+      list.appendChild(div);
     });
-
-    list.appendChild(div);
-  });
 }
 
 
