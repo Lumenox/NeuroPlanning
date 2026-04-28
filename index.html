@@ -10,9 +10,6 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet" />
 
   <style>
-    /* =============================================
-       VARIABLES & RESET
-    ============================================= */
     :root {
       --navy:       #0d1b2a;
       --navy-mid:   #1a2d42;
@@ -41,9 +38,7 @@
       overflow: hidden;
     }
 
-    /* =============================================
-       TOPBAR
-    ============================================= */
+    /* ---- TOPBAR ---- */
     #topbar {
       display: flex;
       align-items: center;
@@ -55,7 +50,6 @@
       flex-shrink: 0;
       gap: 16px;
     }
-
     #topbar .brand {
       font-family: 'DM Mono', monospace;
       font-size: 14px;
@@ -64,459 +58,246 @@
       letter-spacing: 0.08em;
       white-space: nowrap;
     }
-
-    #topbar .controls {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    #status-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--gray);
-      transition: background 0.3s;
-    }
+    #topbar .controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    #status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gray); transition: background .3s; }
     #status-dot.connected { background: var(--teal); box-shadow: 0 0 6px var(--teal); }
     #status-dot.error     { background: var(--red); }
-
     #realtime-badge {
-      font-family: 'DM Mono', monospace;
-      font-size: 10px;
-      color: var(--teal);
-      background: var(--teal-dim);
-      border: 1px solid var(--teal);
-      border-radius: 4px;
-      padding: 2px 6px;
-      display: none;
+      font-family: 'DM Mono', monospace; font-size: 10px;
+      color: var(--teal); background: var(--teal-dim); border: 1px solid var(--teal);
+      border-radius: 4px; padding: 2px 6px; display: none;
     }
     #realtime-badge.active { display: inline; }
+    #admin-badge {
+      font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500;
+      color: var(--amber); background: var(--amber-dim); border: 1px solid var(--amber);
+      border-radius: 4px; padding: 3px 8px; display: none;
+    }
+    .is-admin #admin-badge { display: inline; }
 
-    /* =============================================
-       AUTH OVERLAY
-    ============================================= */
+    /* ---- AUTH ---- */
     #auth-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(13, 27, 42, 0.96);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      position: fixed; inset: 0;
+      background: rgba(13,27,42,.96);
+      display: flex; align-items: center; justify-content: center;
       z-index: 100;
     }
-
     .auth-box {
-      background: var(--navy-mid);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 40px;
-      width: 340px;
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
+      background: var(--navy-mid); border: 1px solid var(--border);
+      border-radius: 12px; padding: 40px; width: 340px;
+      display: flex; flex-direction: column; gap: 18px;
     }
-
-    .auth-box h2 {
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--teal);
-      font-family: 'DM Mono', monospace;
-    }
-
-    .auth-box p { font-size: 12px; color: var(--gray); line-height: 1.6; }
-
+    .auth-box h2 { font-size: 18px; font-weight: 600; color: var(--teal); font-family: 'DM Mono', monospace; }
+    .auth-box p  { font-size: 12px; color: var(--gray); line-height: 1.6; }
     .auth-box .hint {
-      font-family: 'DM Mono', monospace;
-      font-size: 11px;
-      color: var(--amber);
-      background: var(--amber-dim);
-      border-radius: 6px;
-      padding: 8px 12px;
+      font-family: 'DM Mono', monospace; font-size: 11px;
+      color: var(--amber); background: var(--amber-dim); border-radius: 6px; padding: 8px 12px;
     }
 
-    /* =============================================
-       INPUTS & BUTTONS
-    ============================================= */
+    /* ---- INPUTS / BUTTONS ---- */
     input[type="text"], input[type="password"], select {
-      background: var(--navy);
-      border: 1px solid var(--border);
-      color: var(--white);
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-family: 'DM Mono', monospace;
-      font-size: 12px;
-      outline: none;
-      transition: border-color 0.2s;
+      background: var(--navy); border: 1px solid var(--border);
+      color: var(--white); padding: 8px 12px; border-radius: 6px;
+      font-family: 'DM Mono', monospace; font-size: 12px; outline: none;
+      transition: border-color .2s;
     }
     input:focus, select:focus { border-color: var(--teal); }
-
     button {
-      font-family: 'Sora', sans-serif;
-      font-size: 12px;
-      font-weight: 600;
-      padding: 8px 16px;
-      border-radius: 6px;
-      border: none;
-      cursor: pointer;
-      transition: opacity 0.15s, transform 0.1s;
+      font-family: 'Sora', sans-serif; font-size: 12px; font-weight: 600;
+      padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer;
+      transition: opacity .15s, transform .1s;
     }
-    button:hover  { opacity: 0.85; }
-    button:active { transform: scale(0.97); }
-
+    button:hover  { opacity: .85; }
+    button:active { transform: scale(.97); }
     .btn-primary { background: var(--teal);  color: var(--navy); }
     .btn-ghost   { background: transparent; color: var(--gray); border: 1px solid var(--border); }
     .btn-danger  { background: var(--red);   color: var(--navy); }
     .btn-save    { background: var(--amber); color: var(--navy); }
-
-    /* =============================================
-       TOOLBAR
-    ============================================= */
-    #toolbar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 24px;
-      background: var(--navy-mid);
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-      flex-wrap: wrap;
-    }
-
-    #toolbar label {
-      font-size: 11px;
-      color: var(--gray);
-      white-space: nowrap;
-    }
-
-    #toolbar input[type="date"] {
-      background: var(--navy);
-      border: 1px solid var(--border);
-      color: var(--white);
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-family: 'DM Mono', monospace;
-      font-size: 11px;
-    }
-
-    #search-doctor { flex: 1; min-width: 120px; max-width: 200px; }
-
     .sep { width: 1px; height: 24px; background: var(--border); }
 
-    /* Admin badge */
-    #admin-badge {
-      font-family: 'DM Mono', monospace;
-      font-size: 10px;
-      font-weight: 500;
-      color: var(--amber);
-      background: var(--amber-dim);
-      border: 1px solid var(--amber);
-      border-radius: 4px;
-      padding: 3px 8px;
-      display: none;
+    /* ---- TOOLBAR ---- */
+    #toolbar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 24px;
+      background: var(--navy-mid); border-bottom: 1px solid var(--border);
+      flex-shrink: 0; flex-wrap: wrap;
     }
-    .is-admin #admin-badge { display: inline; }
-
-    /* ---- Group toggles ---- */
-    #col-toggles {
-      display: flex;
-      gap: 4px;
-      flex-wrap: wrap;
-      align-items: center;
+    #toolbar label { font-size: 11px; color: var(--gray); white-space: nowrap; }
+    #toolbar input[type="date"] {
+      background: var(--navy); border: 1px solid var(--border); color: var(--white);
+      padding: 6px 10px; border-radius: 6px; font-family: 'DM Mono', monospace; font-size: 11px;
     }
+    #search-doctor { flex: 1; min-width: 120px; max-width: 200px; }
+    #col-toggles   { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
 
-    /*
-      Chaque toggle de groupe est un label stylisé comme un badge.
-      La checkbox native est masquée ; l'apparence change selon :checked.
-    */
+    /* Badges groupe (toggle) */
     .group-toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 4px 10px;
-      border-radius: 20px;
-      border: 1px solid var(--border);
-      font-family: 'DM Mono', monospace;
-      font-size: 10px;
-      cursor: pointer;
-      user-select: none;
-      transition: background 0.15s, border-color 0.15s, opacity 0.15s;
-      opacity: 0.45;           /* grisé par défaut = désactivé visuellement */
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border);
+      font-family: 'DM Mono', monospace; font-size: 10px;
+      cursor: pointer; user-select: none;
+      transition: opacity .15s; opacity: .4;
     }
     .group-toggle input { display: none; }
     .group-toggle.active { opacity: 1; }
+    .group-toggle .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 
-    .group-toggle .dot {
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      background: currentColor;
-      flex-shrink: 0;
-    }
-
-    /* =============================================
-       MAIN LAYOUT
-    ============================================= */
+    /* ---- MAIN ---- */
     #main { display: flex; flex: 1; overflow: hidden; }
 
-    /* =============================================
-       STATS PANEL
-    ============================================= */
+    /* ---- STATS PANEL ---- */
     #stats-panel {
-      width: 230px;
-      background: var(--navy-mid);
-      border-left: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      flex-shrink: 0;
-      overflow: hidden;
-      transition: width 0.25s ease;
+      width: 230px; background: var(--navy-mid); border-left: 1px solid var(--border);
+      display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden;
+      transition: width .25s ease;
     }
-
     #stats-panel.collapsed { width: 38px; }
-
     #stats-panel .panel-title {
-      font-family: 'DM Mono', monospace;
-      font-size: 10px;
-      color: var(--gray);
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      padding: 12px 10px 10px 16px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      white-space: nowrap;
-      overflow: hidden;
+      font-family: 'DM Mono', monospace; font-size: 10px; color: var(--gray);
+      letter-spacing: .1em; text-transform: uppercase;
+      padding: 12px 10px 10px 16px; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+      white-space: nowrap; overflow: hidden;
     }
-
-    /* Cache le texte quand réduit */
     #stats-panel.collapsed .panel-title span { visibility: hidden; }
-
     #stats-toggle-btn {
-      background: none;
-      border: none;
-      color: var(--teal);
-      cursor: pointer;
-      font-size: 18px;
-      padding: 0;
-      line-height: 1;
-      flex-shrink: 0;
+      background: none; border: none; color: var(--teal);
+      cursor: pointer; font-size: 18px; padding: 0; line-height: 1; flex-shrink: 0;
     }
-    #stats-toggle-btn:hover { opacity: 0.7; }
-
-    #stats-content {
-      overflow: hidden;
-      transition: opacity 0.2s ease;
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-      min-height: 0;
-    }
+    #stats-content { overflow: hidden; transition: opacity .2s; display: flex; flex-direction: column; flex: 1; min-height: 0; }
     #stats-panel.collapsed #stats-content { opacity: 0; pointer-events: none; }
-
-    #stats-list {
-      overflow-y: auto;
-      flex: 1;
-      padding: 8px 0;
-    }
-
+    #stats-list { overflow-y: auto; flex: 1; padding: 8px 0; }
     .stat-row {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 5px 12px;
-      transition: background 0.15s;
-      cursor: pointer;
-      min-width: 0;
+      display: flex; align-items: center; gap: 4px; padding: 5px 12px;
+      transition: background .15s; cursor: pointer; min-width: 0;
     }
     .stat-row:hover { background: var(--navy-light); }
     .stat-row.active-filter { background: var(--teal-dim); }
+    .stat-name { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--white); min-width: 30px; }
+    .stat-badges { flex: 1; display: flex; gap: 3px; flex-wrap: wrap; }
+    .stat-badge { font-size: 9px; background: var(--navy-light); border-radius: 3px; padding: 1px 5px; white-space: nowrap; }
+    .stat-total { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--teal); min-width: 20px; text-align: right; }
+    #conflict-summary { padding: 10px 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--gray); flex-shrink: 0; }
+    #conflict-summary .conf-count { color: var(--red); font-weight: 600; font-family: 'DM Mono', monospace; }
 
-    .stat-name {
-      font-family: 'DM Mono', monospace;
-      font-size: 11px;
-      color: var(--white);
-      min-width: 30px;
-    }
-
-    .stat-badges {
-      flex: 1;
-      display: flex;
-      gap: 3px;
-      flex-wrap: wrap;
-    }
-
-    .stat-badge {
-      font-size: 9px;
-      background: var(--navy-light);
-      border-radius: 3px;
-      padding: 1px 5px;
-      white-space: nowrap;
-    }
-
-    .stat-total {
-      font-family: 'DM Mono', monospace;
-      font-size: 11px;
-      color: var(--teal);
-      min-width: 20px;
-      text-align: right;
-    }
-
-    #conflict-summary {
-      padding: 10px 16px;
-      border-top: 1px solid var(--border);
-      font-size: 11px;
-      color: var(--gray);
-      flex-shrink: 0;
-    }
-    #conflict-summary .conf-count {
-      color: var(--red);
-      font-weight: 600;
-      font-family: 'DM Mono', monospace;
-    }
-
-    /* =============================================
-       TABLE
-    ============================================= */
+    /* ---- TABLE ---- */
     #table-wrap { flex: 1; overflow: auto; position: relative; }
-
-    table {
-      border-collapse: collapse;
-      font-family: 'DM Mono', monospace;
-      font-size: 11px;
-      min-width: 100%;
-    }
-
+    table { border-collapse: collapse; font-family: 'DM Mono', monospace; font-size: 11px; min-width: 100%; }
     thead th {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      background: var(--navy-light);
-      padding: 10px 8px;
-      text-align: left;
-      font-size: 10px;
-      font-weight: 500;
-      color: var(--gray);
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      border-bottom: 2px solid var(--border);
-      white-space: nowrap;
-      user-select: none;
+      position: sticky; top: 0; z-index: 10; background: var(--navy-light);
+      padding: 10px 8px; text-align: left; font-size: 10px; font-weight: 500;
+      color: var(--gray); letter-spacing: .06em; text-transform: uppercase;
+      border-bottom: 2px solid var(--border); white-space: nowrap; user-select: none;
     }
-
     .col-group {
-      background: var(--navy) !important;
-      font-size: 9px !important;
-      color: var(--teal) !important;
-      border-bottom: 1px solid var(--border) !important;
+      background: var(--navy) !important; font-size: 9px !important;
+      color: var(--teal) !important; border-bottom: 1px solid var(--border) !important;
       text-align: center !important;
     }
-
-    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
     tbody tr:hover { background: var(--navy-light); }
-    tr.creno-matin { background: rgba(255,255,255,0.01); }
-    tr.creno-aprem { background: rgba(0,0,0,0.15); }
+    tr.creno-matin { background: rgba(255,255,255,.01); }
+    tr.creno-aprem { background: rgba(0,0,0,.15); }
     tr.creno-aprem:hover { background: var(--navy-light); }
-
-    tr.conflict {
-      background: var(--red-dim) !important;
-      border-left: 3px solid var(--red);
-    }
-
+    tr.conflict { background: var(--red-dim) !important; border-left: 3px solid var(--red); }
     td.doctor-highlight { background: var(--teal-dim); color: var(--teal) !important; font-weight: 500; }
-
     td {
-      padding: 6px 8px;
-      height: var(--cell-h);
-      white-space: nowrap;
-      color: var(--white);
-      min-width: 50px;
-      max-width: 90px;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      padding: 6px 8px; height: var(--cell-h); white-space: nowrap;
+      color: var(--white); min-width: 50px; max-width: 90px;
+      overflow: hidden; text-overflow: ellipsis;
     }
-
     td.col-date {
-      color: var(--gray);
-      font-size: 10px;
-      position: sticky;
-      left: 0;
-      background: var(--navy-mid);
-      z-index: 2;
-      min-width: 90px;
-      border-right: 1px solid var(--border);
+      color: var(--gray); font-size: 10px; position: sticky; left: 0;
+      background: var(--navy-mid); z-index: 2; min-width: 90px; border-right: 1px solid var(--border);
     }
     tr:hover td.col-date { background: var(--navy-light); }
-
     td.col-heure { color: var(--teal); font-size: 11px; font-weight: 500; }
 
+    /* Cellules éditables en mode admin */
     .is-admin td.editable {
-      cursor: pointer;
-      border: 1px solid transparent;
-      border-radius: 3px;
-      transition: border-color 0.15s;
+      cursor: pointer; border: 1px solid transparent; border-radius: 3px;
+      transition: border-color .15s;
     }
     .is-admin td.editable:hover { border-color: var(--amber); background: var(--amber-dim); }
-
     td.editing { padding: 2px !important; }
     td.editing input {
       width: 100%; height: 100%;
-      font-family: 'DM Mono', monospace;
-      font-size: 11px;
-      background: var(--navy);
-      color: var(--white);
-      border: 1px solid var(--amber);
-      border-radius: 3px;
-      padding: 0 4px;
-      outline: none;
+      font-family: 'DM Mono', monospace; font-size: 11px;
+      background: var(--navy); color: var(--white);
+      border: 1px solid var(--amber); border-radius: 3px; padding: 0 4px; outline: none;
     }
 
     /* =============================================
-       LOADING & TOASTS
+       DROPDOWN D'ÉDITION
+       Panneau flottant qui apparaît sous la cellule
+       éditée, trié par médecin le moins utilisé.
     ============================================= */
+    #edit-dropdown {
+      position: fixed;
+      z-index: 1000;
+      background: var(--navy-mid);
+      border: 1px solid var(--amber);
+      border-radius: 8px;
+      min-width: 140px;
+      max-height: 220px;
+      overflow-y: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,.7);
+      display: none;  /* affiché via JS */
+    }
+    .dd-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 12px;
+      cursor: pointer;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--white);
+      transition: background .1s;
+      gap: 10px;
+    }
+    .dd-item:first-child { border-radius: 7px 7px 0 0; }
+    .dd-item:last-child  { border-radius: 0 0 7px 7px; }
+    .dd-item:hover, .dd-item.focused { background: var(--navy-light); }
+    .dd-item.hidden { display: none; }
+
+    /* compteur à droite dans chaque item */
+    .dd-count {
+      font-size: 9px;
+      color: var(--gray);
+      background: var(--navy);
+      border-radius: 3px;
+      padding: 1px 5px;
+      min-width: 22px;
+      text-align: center;
+    }
+
+    /* ---- LOADING & TOASTS ---- */
     #loading {
-      position: absolute; inset: 0;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 16px; background: var(--navy); z-index: 5;
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px; background: var(--navy); z-index: 5;
     }
     .spinner {
-      width: 36px; height: 36px;
-      border: 3px solid var(--border);
-      border-top-color: var(--teal);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      width: 36px; height: 36px; border: 3px solid var(--border);
+      border-top-color: var(--teal); border-radius: 50%; animation: spin .8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     #loading p { font-size: 12px; color: var(--gray); }
-
     #empty-state { padding: 60px; text-align: center; color: var(--gray); font-size: 13px; display: none; }
-
-    #toast-container {
-      position: fixed; bottom: 20px; right: 20px;
-      display: flex; flex-direction: column; gap: 8px; z-index: 200;
-    }
+    #toast-container { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 200; }
     .toast {
-      font-family: 'DM Mono', monospace; font-size: 11px;
-      padding: 10px 16px; border-radius: 8px;
-      border-left: 3px solid var(--teal);
-      background: var(--navy-mid); color: var(--white);
-      animation: slideIn 0.3s ease;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      font-family: 'DM Mono', monospace; font-size: 11px; padding: 10px 16px; border-radius: 8px;
+      border-left: 3px solid var(--teal); background: var(--navy-mid); color: var(--white);
+      animation: slideIn .3s ease; box-shadow: 0 4px 20px rgba(0,0,0,.5);
     }
     .toast.error   { border-color: var(--red); }
     .toast.warning { border-color: var(--amber); }
-    @keyframes slideIn {
-      from { transform: translateX(40px); opacity: 0; }
-      to   { transform: translateX(0);    opacity: 1; }
-    }
+    @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
   </style>
 </head>
 <body>
 
-<!-- ======================================================
-     AUTH OVERLAY
-====================================================== -->
+<!-- AUTH -->
 <div id="auth-overlay">
   <div class="auth-box">
     <h2>Neurologie · Planning</h2>
@@ -532,112 +313,95 @@
   </div>
 </div>
 
-
-<!-- ======================================================
-     TOPBAR
-====================================================== -->
+<!-- TOPBAR -->
 <div id="topbar">
   <span class="brand">🧠 Planning Neurologie</span>
   <div class="controls">
-    <div id="status-dot" title="Connexion Supabase"></div>
+    <div id="status-dot"></div>
     <span id="realtime-badge">● LIVE</span>
     <span id="admin-badge">ADMIN</span>
     <div class="sep"></div>
     <button id="btn-toggle-edit" class="btn-ghost" style="display:none" onclick="toggleEditMode()">✏️ Modifier</button>
     <button id="btn-save-all"    class="btn-save"  style="display:none" onclick="saveAllPending()">💾 Sauvegarder</button>
     <div class="sep"></div>
-    <button class="btn-ghost" onclick="loadData()" title="Rafraîchir">↺</button>
+    <button class="btn-ghost" onclick="loadData()">↺</button>
     <button class="btn-ghost" style="font-size:11px" onclick="logout()">Déconnexion</button>
   </div>
 </div>
 
-
-<!-- ======================================================
-     TOOLBAR
-     ⚠️  Ne pas oublier de fermer ce </div> en bas !
-====================================================== -->
+<!-- TOOLBAR -->
 <div id="toolbar">
-
   <label>Du</label>
   <input type="date" id="filter-date-from" onchange="applyFilters()" />
   <label>Au</label>
   <input type="date" id="filter-date-to"   onchange="applyFilters()" />
-
-  <input type="text" id="search-doctor" placeholder="🔍 Chercher un médecin…" oninput="applyFilters()" />
-
+  <input type="text" id="search-doctor" placeholder="🔍 Médecin…" oninput="applyFilters()" />
   <div class="sep"></div>
-
-  <!-- Toggles par GROUPE (généré dynamiquement dans buildColToggles()) -->
-  <label style="font-size:11px; color:var(--teal)">Afficher :</label>
+  <label style="font-size:11px;color:var(--teal)">Afficher :</label>
   <div id="col-toggles"></div>
-
   <div class="sep"></div>
-
   <button class="btn-ghost" onclick="clearFilters()" style="font-size:11px">✕ Réinitialiser</button>
+</div>
 
-</div>  <!-- ← BUG CORRIGÉ : ce </div> fermait #toolbar et manquait dans ta version -->
-
-
-<!-- ======================================================
-     MAIN CONTENT
-====================================================== -->
+<!-- MAIN -->
 <div id="main">
-
-  <!-- TABLE -->
   <div id="table-wrap">
-    <div id="loading">
-      <div class="spinner"></div>
-      <p>Connexion à Supabase…</p>
-    </div>
+    <div id="loading"><div class="spinner"></div><p>Connexion à Supabase…</p></div>
     <div id="empty-state">Aucune ligne ne correspond aux filtres.</div>
     <table id="planning-table">
       <thead id="table-head"></thead>
       <tbody id="table-body"></tbody>
     </table>
   </div>
-
-  <!-- STATS PANEL -->
   <div id="stats-panel">
     <div class="panel-title">
       <span>Compteurs</span>
-      <!-- La flèche › / ‹ bascule le panneau -->
       <button id="stats-toggle-btn" onclick="toggleStatsPanel()">›</button>
     </div>
     <div id="stats-content">
       <div id="stats-list"></div>
-      <div id="conflict-summary">
-        Conflits : <span class="conf-count" id="conflict-count">0</span>
-      </div>
+      <div id="conflict-summary">Conflits : <span class="conf-count" id="conflict-count">0</span></div>
     </div>
   </div>
-
 </div>
+
+<!-- Dropdown flottant pour l'édition — unique, réutilisé à chaque édition -->
+<div id="edit-dropdown"></div>
 
 <div id="toast-container"></div>
 
-
 <script>
 /* ============================================================
-   CONFIGURATION SUPABASE — remplacez par vos vraies clés
+   CONFIGURATION SUPABASE
 ============================================================ */
 const SUPABASE_URL = 'https://yseaujinbdwxpcelsywr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_7uC727-tO92zxGsAwCqBnA_E9oX_Xw8';
 const _supabase    = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+/* ============================================================
+   LISTE DES MÉDECINS
+   ✏️  Modifiez cette liste librement.
+   L'ordre ici n'a pas d'importance : le dropdown les trie
+   dynamiquement par nombre d'apparitions dans la colonne.
+============================================================ */
+const DOCTORS = [
+  'AC', 'VPB', 'KY', 'LCL', 'AG', 'HL', 'AP', 'VP',
+  'MB', 'AnD', 'FF', 'AD', 'NB', 'EE', 'AyW', 'TG',
+  'VT', 'MZ', 'HS', 'SC', 'RN', 'VT/EB', 'AT', 'BL', 'AZ',
+];
 
 /* ============================================================
-   UTILISATEURS (prototype — à remplacer par une table Supabase)
+   UTILISATEURS (prototype)
 ============================================================ */
 const USERS = {
   admin: { pass: 'neuro2026', role: 'admin'  },
   rn:    { pass: '123',       role: 'viewer' },
 };
 
-
 /* ============================================================
-   DÉFINITION DES COLONNES
-   group : regroupe les colonnes pour les toggles et les stats
-   Ajoutez ici toutes les colonnes de votre table Supabase.
+   COLONNES
+   Ajoutez / retirez des colonnes ici selon votre table Supabase.
+   group : regroupe pour les toggles et les stats.
 ============================================================ */
 const COLUMNS = [
   { key: 'date',     label: 'Date',     group: 'meta'  },
@@ -656,96 +420,60 @@ const COLUMNS = [
   { key: 'BOX2',     label: 'BOX 2',   group: 'box'   },
 ];
 
-/* Libellés affichés sur les badges de toggle */
-const GROUP_LABELS = {
-  coord: 'Coord',
-  unv:   'UNV',
-  usi:   'USI',
-  bip:   'BIP',
-  garde: 'Garde',
-  box:   'BOX',
-};
+const GROUP_LABELS = { coord:'Coord', unv:'UNV', usi:'USI', bip:'BIP', garde:'Garde', box:'BOX' };
+const GROUP_COLORS = { coord:'#60a5fa', unv:'#34d399', usi:'#f472b6', bip:'#a78bfa', garde:'#fbbf24', box:'#94a3b8' };
 
-/* Couleurs par groupe (utilisées dans les badges et les en-têtes) */
-const GROUP_COLORS = {
-  coord: '#60a5fa',
-  unv:   '#34d399',
-  usi:   '#f472b6',
-  bip:   '#a78bfa',
-  garde: '#fbbf24',
-  box:   '#94a3b8',
-};
-
-/*
-  groupMap : { groupName: [colKey, colKey, ...] }
-  Construit automatiquement depuis COLUMNS — vous n'avez rien à changer ici
-  quand vous ajoutez des colonnes ci-dessus.
-*/
+/* groupMap construit automatiquement : { 'unv': ['UNV1','UNV2'], ... } */
 const groupMap = {};
 COLUMNS.filter(c => c.group !== 'meta').forEach(col => {
   if (!groupMap[col.group]) groupMap[col.group] = [];
   groupMap[col.group].push(col.key);
 });
 
-/* Colonnes médicales (tout sauf date/heure) */
 const DOCTOR_COLS = COLUMNS.filter(c => c.group !== 'meta').map(c => c.key);
 
-/*
-  visibleCols : { colKey: boolean }
-  État courant de visibilité de chaque colonne.
-  Initialement toutes visibles.
-*/
 const visibleCols = {};
 COLUMNS.forEach(col => { visibleCols[col.key] = true; });
 
-
 /* ============================================================
-   STATE GLOBAL
+   STATE
 ============================================================ */
 let currentUser         = null;
 let allData             = [];
-let currentFilteredRows = [];   // lignes après filtres, utilisées par buildStats()
+let currentFilteredRows = [];
 let pendingEdits        = {};
 let isEditMode          = false;
 let realtimeSub         = null;
 let doctorFilter        = null;
-
+let activeInput         = null;   // input en cours d'édition (pour fermer le dropdown proprement)
 
 /* ============================================================
-   AUTHENTIFICATION
+   AUTH
 ============================================================ */
 function doLogin() {
   const login = document.getElementById('auth-login').value.trim().toLowerCase();
   const pass  = document.getElementById('auth-pass').value;
   const user  = USERS[login];
-
   if (!user || user.pass !== pass) {
     document.getElementById('auth-error').style.display = 'block';
     return;
   }
-
   currentUser = { login, role: user.role };
   document.getElementById('auth-overlay').style.display = 'none';
   document.getElementById('auth-error').style.display   = 'none';
-
   if (user.role === 'admin') {
     document.getElementById('btn-toggle-edit').style.display = 'inline';
     document.body.classList.add('is-admin');
   }
-
   init();
 }
 
-document.getElementById('auth-pass').addEventListener('keydown', e => {
-  if (e.key === 'Enter') doLogin();
-});
+document.getElementById('auth-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
 function logout() {
   if (realtimeSub) _supabase.removeChannel(realtimeSub);
-  currentUser  = null;
-  isEditMode   = false;
-  pendingEdits = {};
-  allData      = [];
+  closeDropdown();
+  currentUser = null; isEditMode = false; pendingEdits = {}; allData = [];
   document.body.classList.remove('is-admin');
   document.getElementById('auth-overlay').style.display = 'flex';
   document.getElementById('auth-login').value = '';
@@ -754,39 +482,32 @@ function logout() {
   document.getElementById('realtime-badge').classList.remove('active');
 }
 
-
 /* ============================================================
-   INITIALISATION
+   INIT
 ============================================================ */
 async function init() {
   buildTableHeader();
-  buildColToggles();   // ← génère les badges de groupe dans la toolbar
+  buildColToggles();
   await loadData();
   subscribeRealtime();
 }
 
-
 /* ============================================================
-   TOGGLES DE GROUPES DE COLONNES
-   Génère un badge-bouton par groupe dans #col-toggles.
-   Cocher/décocher un groupe masque/affiche toutes ses colonnes.
+   TOGGLES PAR GROUPE
 ============================================================ */
 function buildColToggles() {
   const container = document.getElementById('col-toggles');
   container.innerHTML = '';
-
   Object.keys(groupMap).forEach(group => {
     const label = document.createElement('label');
-    label.className = 'group-toggle active';  // actif par défaut
-    label.style.color = GROUP_COLORS[group] || 'var(--white)';
+    label.className = 'group-toggle active';
+    label.style.color       = GROUP_COLORS[group] || 'var(--white)';
     label.style.borderColor = GROUP_COLORS[group] || 'var(--border)';
 
     const cb = document.createElement('input');
     cb.type    = 'checkbox';
     cb.checked = true;
-
     cb.addEventListener('change', () => {
-      // Met à jour visibleCols pour toutes les colonnes du groupe
       groupMap[group].forEach(key => { visibleCols[key] = cb.checked; });
       label.classList.toggle('active', cb.checked);
       applyColVisibility();
@@ -794,7 +515,6 @@ function buildColToggles() {
 
     const dot = document.createElement('span');
     dot.className = 'dot';
-
     label.appendChild(cb);
     label.appendChild(dot);
     label.appendChild(document.createTextNode(GROUP_LABELS[group] || group));
@@ -802,14 +522,9 @@ function buildColToggles() {
   });
 }
 
-/*
-  Masque ou affiche les cellules selon visibleCols.
-  Utilise data-col (mis sur chaque th et td) pour cibler précisément
-  sans se tromper avec nth-child sur des en-têtes fusionnés.
-*/
 function applyColVisibility() {
   COLUMNS.forEach(col => {
-    if (col.group === 'meta') return; // date et heure toujours visibles
+    if (col.group === 'meta') return;
     const show = visibleCols[col.key] ? '' : 'none';
     document.querySelectorAll(`[data-col="${col.key}"]`).forEach(cell => {
       cell.style.display = show;
@@ -818,10 +533,6 @@ function applyColVisibility() {
   buildStats();
 }
 
-
-/* ============================================================
-   PANNEAU STATS — rétractable
-============================================================ */
 function toggleStatsPanel() {
   const panel = document.getElementById('stats-panel');
   const btn   = document.getElementById('stats-toggle-btn');
@@ -829,62 +540,48 @@ function toggleStatsPanel() {
   btn.textContent = isCollapsed ? '‹' : '›';
 }
 
-
 /* ============================================================
-   CHARGEMENT DES DONNÉES
+   CHARGEMENT
 ============================================================ */
 async function loadData() {
   showLoading(true);
-
   const { data, error } = await _supabase
-    .from('planning')
-    .select('*')
-    .order('date',  { ascending: true })
+    .from('planning').select('*')
+    .order('date', { ascending: true })
     .order('heure', { ascending: true });
-
   if (error) {
-    showLoading(false);
-    setStatus('error');
+    showLoading(false); setStatus('error');
     toast('Erreur : ' + error.message, 'error');
     return;
   }
-
   allData = data || [];
   setStatus('connected');
   showLoading(false);
   applyFilters();
-  buildStats();
 }
-
 
 /* ============================================================
-   SUPABASE REALTIME
+   REALTIME
 ============================================================ */
 function subscribeRealtime() {
-  realtimeSub = _supabase
-    .channel('planning-live')
-    .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'planning' },
-        (payload) => {
-          if (payload.eventType === 'UPDATE') {
-            const idx = allData.findIndex(r => r.id === payload.new.id);
-            if (idx >= 0) allData[idx] = payload.new; else allData.push(payload.new);
-          } else if (payload.eventType === 'INSERT') {
-            allData.push(payload.new);
-            allData.sort((a, b) => a.date.localeCompare(b.date) || a.heure.localeCompare(b.heure));
-          } else if (payload.eventType === 'DELETE') {
-            allData = allData.filter(r => r.id !== payload.old.id);
-          }
-          applyFilters();
-          buildStats();
-          toast('Planning mis à jour en temps réel');
-        })
-    .subscribe(status => {
-      if (status === 'SUBSCRIBED')
-        document.getElementById('realtime-badge').classList.add('active');
+  realtimeSub = _supabase.channel('planning-live')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'planning' }, payload => {
+      if (payload.eventType === 'UPDATE') {
+        const idx = allData.findIndex(r => r.id === payload.new.id);
+        if (idx >= 0) allData[idx] = payload.new; else allData.push(payload.new);
+      } else if (payload.eventType === 'INSERT') {
+        allData.push(payload.new);
+        allData.sort((a, b) => a.date.localeCompare(b.date) || a.heure.localeCompare(b.heure));
+      } else if (payload.eventType === 'DELETE') {
+        allData = allData.filter(r => r.id !== payload.old.id);
+      }
+      applyFilters();
+      toast('Planning mis à jour en temps réel');
+    })
+    .subscribe(s => {
+      if (s === 'SUBSCRIBED') document.getElementById('realtime-badge').classList.add('active');
     });
 }
-
 
 /* ============================================================
    FILTRES
@@ -897,30 +594,17 @@ function applyFilters() {
   currentFilteredRows = allData.filter(row => {
     if (dateFrom && row.date < dateFrom) return false;
     if (dateTo   && row.date > dateTo)   return false;
-
-    if (docSearch) {
-      const found = DOCTOR_COLS.some(col => (row[col] || '').toLowerCase().includes(docSearch));
-      if (!found) return false;
-    }
-
-    if (doctorFilter) {
-      const found = DOCTOR_COLS.some(col =>
-        (row[col] || '').trim().toUpperCase() === doctorFilter.toUpperCase()
-      );
-      if (!found) return false;
-    }
-
+    if (docSearch && !DOCTOR_COLS.some(c => (row[c] || '').toLowerCase().includes(docSearch))) return false;
+    if (doctorFilter && !DOCTOR_COLS.some(c => (row[c] || '').trim().toUpperCase() === doctorFilter.toUpperCase())) return false;
     return true;
   });
 
   renderTable(currentFilteredRows, docSearch || doctorFilter);
-  applyColVisibility();  // réappliquer la visibilité après chaque re-rendu
+  applyColVisibility();
   buildStats();
 }
 
-/*
-  BUG CORRIGÉ : clearFilters() ne référence plus filter-heure (supprimé)
-*/
+/* BUG CORRIGÉ : plus de référence à filter-heure */
 function clearFilters() {
   document.getElementById('filter-date-from').value = '';
   document.getElementById('filter-date-to').value   = '';
@@ -930,48 +614,38 @@ function clearFilters() {
   applyFilters();
 }
 
-
 /* ============================================================
-   CONSTRUCTION DU HEADER
-   Ajoute data-col sur chaque th de la ligne des noms de colonnes
-   (pas sur la ligne des groupes qui a des colspans).
+   HEADER
 ============================================================ */
 function buildTableHeader() {
   const thead = document.getElementById('table-head');
   thead.innerHTML = '';
 
-  /* Ligne 1 : groupes fusionnés */
+  // Ligne 1 : groupes fusionnés
   const groupRow = document.createElement('tr');
   let prevGroup = null, span = 0;
-  const thList  = [];
-
+  const thList = [];
   COLUMNS.forEach(col => {
     if (col.group !== prevGroup) {
       if (prevGroup !== null) thList.push({ group: prevGroup, span });
-      prevGroup = col.group;
-      span = 1;
-    } else {
-      span++;
-    }
+      prevGroup = col.group; span = 1;
+    } else { span++; }
   });
   thList.push({ group: prevGroup, span });
 
-  const groupLabelMap = { meta: '', coord: 'Coordination', unv: 'UNV', usi: 'USI', bip: 'BIP', garde: 'Gardes', box: 'BOX' };
+  const gLbl = { meta:'', coord:'Coordination', unv:'UNV', usi:'USI', bip:'BIP', garde:'Gardes', box:'BOX' };
   thList.forEach(({ group, span }) => {
     const th = document.createElement('th');
-    th.colSpan   = span;
-    th.className = 'col-group';
-    th.textContent = groupLabelMap[group] || group;
+    th.colSpan = span; th.className = 'col-group'; th.textContent = gLbl[group] || group;
     if (GROUP_COLORS[group]) th.style.color = GROUP_COLORS[group];
     groupRow.appendChild(th);
   });
 
-  /* Ligne 2 : noms de colonnes — avec data-col pour ciblage CSS */
+  // Ligne 2 : noms de colonnes avec data-col
   const colRow = document.createElement('tr');
   COLUMNS.forEach(col => {
     const th = document.createElement('th');
-    th.textContent    = col.label;
-    th.dataset.col    = col.key;   // ← utilisé par applyColVisibility()
+    th.textContent = col.label; th.dataset.col = col.key;
     if (GROUP_COLORS[col.group]) th.style.color = GROUP_COLORS[col.group];
     colRow.appendChild(th);
   });
@@ -980,9 +654,8 @@ function buildTableHeader() {
   thead.appendChild(colRow);
 }
 
-
 /* ============================================================
-   RENDU DU TABLEAU
+   RENDU
 ============================================================ */
 function renderTable(rows, highlightDoctor) {
   const tbody = document.getElementById('table-body');
@@ -995,30 +668,25 @@ function renderTable(rows, highlightDoctor) {
     return;
   }
   empty.style.display = 'none';
-
   let conflictCount = 0;
 
   rows.forEach(row => {
     const tr = document.createElement('tr');
 
-    /* Détection conflits : même initiales sur 2+ colonnes de la même ligne */
-    const doctorPositions = {};
+    // Détection conflits
+    const doctorPos = {};
     DOCTOR_COLS.forEach(col => {
       const val = (row[col] || '').trim().toUpperCase();
-      if (val && val.length > 0 && val.length <= 6) {
-        if (!doctorPositions[val]) doctorPositions[val] = [];
-        doctorPositions[val].push(col);
+      if (val && val.length <= 6) {
+        if (!doctorPos[val]) doctorPos[val] = [];
+        doctorPos[val].push(col);
       }
     });
-
-    const conflictingDoctors = Object.entries(doctorPositions)
-      .filter(([, cols]) => cols.length > 1)
-      .map(([doc]) => doc);
-
-    if (conflictingDoctors.length > 0) {
-      tr.classList.add('conflict');
-      conflictCount++;
-      tr.title = '⚠️ Conflit : ' + conflictingDoctors.join(', ') + ' présent(s) sur plusieurs postes';
+    const conflicting = Object.entries(doctorPos)
+      .filter(([, cs]) => cs.length > 1).map(([d]) => d);
+    if (conflicting.length) {
+      tr.classList.add('conflict'); conflictCount++;
+      tr.title = '⚠️ Conflit : ' + conflicting.join(', ');
     }
 
     tr.classList.add(row.heure === '9h00' ? 'creno-matin' : 'creno-aprem');
@@ -1026,47 +694,47 @@ function renderTable(rows, highlightDoctor) {
     COLUMNS.forEach(col => {
       const td  = document.createElement('td');
       const val = row[col.key] || '';
-
-      td.dataset.col = col.key;   // ← sur TOUTES les cellules pour applyColVisibility()
+      td.dataset.col = col.key;   // utilisé par applyColVisibility()
 
       if (col.key === 'date') {
-        td.className   = 'col-date';
-        td.textContent = formatDate(val);
-
+        td.className = 'col-date'; td.textContent = formatDate(val);
       } else if (col.key === 'heure') {
-        td.className   = 'col-heure';
-        td.textContent = val;
-
+        td.className = 'col-heure'; td.textContent = val;
       } else {
-        const isConflictCell = conflictingDoctors.includes(val.trim().toUpperCase());
-        const isHighlighted  = highlightDoctor &&
-          val.trim().toLowerCase().includes(highlightDoctor.toLowerCase());
-
         td.className = 'editable';
-        if (isConflictCell) td.style.color = 'var(--red)';
-        if (isHighlighted)  td.classList.add('doctor-highlight');
+        if (conflicting.includes(val.trim().toUpperCase())) td.style.color = 'var(--red)';
+        if (highlightDoctor && val.trim().toLowerCase().includes(highlightDoctor.toLowerCase()))
+          td.classList.add('doctor-highlight');
 
         const pending = pendingEdits[row.id]?.[col.key];
         td.textContent = pending !== undefined ? pending : val;
         if (pending !== undefined) td.style.borderColor = 'var(--amber)';
 
+        /*
+          BUG CORRIGÉ :
+          Les listeners dblclick ne sont attachés que si isEditMode est true
+          au moment du rendu. Donc toggleEditMode() doit appeler applyFilters()
+          pour re-rendre le tableau avec les listeners.
+        */
         if (currentUser?.role === 'admin' && isEditMode) {
           td.addEventListener('dblclick', () => startEdit(td, row, col.key));
         }
       }
-
       tr.appendChild(td);
     });
-
     tbody.appendChild(tr);
   });
 
   document.getElementById('conflict-count').textContent = conflictCount;
 }
 
-
 /* ============================================================
-   ÉDITION ADMIN
+   MODE ÉDITION
+
+   BUG CORRIGÉ : on appelle applyFilters() quand on ACTIVE
+   le mode édition aussi, pas seulement à la désactivation.
+   Sans ça, le tableau n'est pas re-rendu et les listeners
+   dblclick ne sont jamais attachés.
 ============================================================ */
 function toggleEditMode() {
   isEditMode = !isEditMode;
@@ -1074,109 +742,241 @@ function toggleEditMode() {
   const savBtn = document.getElementById('btn-save-all');
 
   if (isEditMode) {
-    btn.textContent    = '🔒 Lecture seule';
-    btn.className      = 'btn-danger';
+    btn.textContent      = '🔒 Lecture seule';
+    btn.className        = 'btn-danger';
     savBtn.style.display = 'inline';
     toast('Mode édition activé — double-cliquez sur une cellule', 'warning');
+    applyFilters();   // ← RE-RENDER avec les listeners dblclick (c'était le bug)
   } else {
-    btn.textContent    = '✏️ Modifier';
-    btn.className      = 'btn-ghost';
+    btn.textContent      = '✏️ Modifier';
+    btn.className        = 'btn-ghost';
     savBtn.style.display = 'none';
-    pendingEdits = {};
+    pendingEdits         = {};
+    closeDropdown();
     applyFilters();
   }
 }
 
+/* ============================================================
+   DROPDOWN D'ÉDITION
+
+   Fonctionnement :
+   1. Double-clic sur une cellule → startEdit()
+   2. On calcule combien de fois chaque médecin apparaît
+      dans CETTE colonne sur les lignes filtrées visibles
+   3. On trie par count croissant (le moins utilisé en premier)
+   4. Le dropdown se positionne sous la cellule via getBoundingClientRect()
+   5. Frappe dans l'input → filtre les items du dropdown en temps réel
+   6. Clic sur un item ou Enter → commit et fermeture
+   7. Escape → annulation
+============================================================ */
+
+/* Retourne la liste des médecins triée par nb d'apparitions dans colKey (croissant) */
+function getDoctorsSortedByColCount(colKey) {
+  // Compter les apparitions dans la colonne sur les lignes filtrées
+  const counts = {};
+  DOCTORS.forEach(d => { counts[d.toUpperCase()] = 0; });
+
+  currentFilteredRows.forEach(row => {
+    const val = (row[colKey] || '').trim().toUpperCase();
+    if (counts[val] !== undefined) counts[val]++;
+  });
+
+  // Tri croissant : le moins utilisé en premier
+  return DOCTORS.slice().sort((a, b) => counts[a.toUpperCase()] - counts[b.toUpperCase()]);
+}
+
+/* Ferme le dropdown et détache les listeners globaux */
+function closeDropdown() {
+  const dd = document.getElementById('edit-dropdown');
+  dd.style.display = 'none';
+  dd.innerHTML     = '';
+  activeInput      = null;
+}
+
 function startEdit(td, row, colKey) {
   if (td.classList.contains('editing')) return;
-  td.classList.add('editing');
 
+  // Fermer un éventuel dropdown précédent
+  closeDropdown();
+
+  td.classList.add('editing');
   const oldVal = td.textContent;
-  const input  = document.createElement('input');
-  input.type   = 'text';
-  input.value  = oldVal;
+
+  // --- Input ---
+  const input = document.createElement('input');
+  input.type  = 'text';
+  input.value = oldVal;
   td.textContent = '';
   td.appendChild(input);
   input.focus();
   input.select();
+  activeInput = input;
 
-  const commit = () => {
-    const newVal = input.value.trim();
-    td.classList.remove('editing');
-    td.textContent = newVal;
+  // --- Construire le dropdown ---
+  const dd      = document.getElementById('edit-dropdown');
+  const sorted  = getDoctorsSortedByColCount(colKey);
 
-    if (newVal !== oldVal) {
-      if (!pendingEdits[row.id]) pendingEdits[row.id] = {};
-      pendingEdits[row.id][colKey] = newVal;
-      td.style.borderColor = 'var(--amber)';
-    }
-    checkConflictsAfterEdit(row, colKey, newVal);
-  };
+  // Compter pour afficher le badge à droite
+  const counts = {};
+  currentFilteredRows.forEach(row => {
+    const v = (row[colKey] || '').trim().toUpperCase();
+    counts[v] = (counts[v] || 0) + 1;
+  });
 
-  input.addEventListener('blur', commit);
+  sorted.forEach((doc, idx) => {
+    const item = document.createElement('div');
+    item.className    = 'dd-item';
+    item.dataset.doc  = doc;
+    item.tabIndex     = -1;
+
+    const name  = document.createElement('span');
+    name.textContent = doc;
+
+    const badge = document.createElement('span');
+    badge.className   = 'dd-count';
+    badge.textContent = (counts[doc.toUpperCase()] || 0) + 'x';
+
+    item.appendChild(name);
+    item.appendChild(badge);
+
+    // Clic sur un item → commit avec cette valeur
+    item.addEventListener('mousedown', e => {
+      e.preventDefault();          // évite le blur de l'input
+      input.value = doc;
+      commitEdit(td, input, row, colKey, oldVal);
+    });
+
+    dd.appendChild(item);
+  });
+
+  // Positionner le dropdown sous la cellule
+  const rect = td.getBoundingClientRect();
+  dd.style.left    = rect.left + 'px';
+  dd.style.top     = rect.bottom + 2 + 'px';
+  dd.style.width   = Math.max(rect.width, 140) + 'px';
+  dd.style.display = 'block';
+
+  // --- Filtrage en temps réel à la frappe ---
+  input.addEventListener('input', () => {
+    const search = input.value.toLowerCase();
+    dd.querySelectorAll('.dd-item').forEach(item => {
+      const match = item.dataset.doc.toLowerCase().includes(search);
+      item.classList.toggle('hidden', !match);
+    });
+    // highlight premier item visible
+    highlightFirst();
+  });
+
+  // --- Navigation clavier ---
   input.addEventListener('keydown', e => {
-    if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
-    if (e.key === 'Escape') { input.value = oldVal; input.blur(); }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      // Prendre l'item focus ou le premier visible
+      const focused = dd.querySelector('.dd-item.focused');
+      const first   = dd.querySelector('.dd-item:not(.hidden)');
+      if (focused)      input.value = focused.dataset.doc;
+      else if (first)   input.value = first.dataset.doc;
+      commitEdit(td, input, row, colKey, oldVal);
+    } else if (e.key === 'Escape') {
+      input.value = oldVal;
+      commitEdit(td, input, row, colKey, oldVal);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      moveFocus(dd, 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      moveFocus(dd, -1);
+    }
+  });
+
+  // Blur de l'input (clic ailleurs) → commit et fermeture
+  input.addEventListener('blur', () => {
+    // Petit délai pour que mousedown sur dd-item soit traité avant
+    setTimeout(() => {
+      if (activeInput === input) {
+        commitEdit(td, input, row, colKey, oldVal);
+      }
+    }, 120);
   });
 }
 
+/* Déplace le focus dans le dropdown */
+function moveFocus(dd, dir) {
+  const items   = Array.from(dd.querySelectorAll('.dd-item:not(.hidden)'));
+  if (!items.length) return;
+  const current = dd.querySelector('.dd-item.focused');
+  const idx     = current ? items.indexOf(current) : -1;
+  const next    = items[Math.max(0, Math.min(items.length - 1, idx + dir))];
+  items.forEach(i => i.classList.remove('focused'));
+  next.classList.add('focused');
+  next.scrollIntoView({ block: 'nearest' });
+}
+
+function highlightFirst() {
+  const dd    = document.getElementById('edit-dropdown');
+  const items = Array.from(dd.querySelectorAll('.dd-item'));
+  items.forEach(i => i.classList.remove('focused'));
+  const first = dd.querySelector('.dd-item:not(.hidden)');
+  if (first) first.classList.add('focused');
+}
+
+/* Valide la modification et ferme le dropdown */
+function commitEdit(td, input, row, colKey, oldVal) {
+  const newVal = input.value.trim();
+  closeDropdown();
+  td.classList.remove('editing');
+  td.textContent = newVal;
+  td.dataset.col = colKey;  // restaurer l'attribut après textContent=
+
+  if (newVal !== oldVal) {
+    if (!pendingEdits[row.id]) pendingEdits[row.id] = {};
+    pendingEdits[row.id][colKey] = newVal;
+    td.style.borderColor = 'var(--amber)';
+  }
+  checkConflictsAfterEdit(row, colKey, newVal);
+}
+
 function checkConflictsAfterEdit(row, editedCol, newVal) {
-  if (!newVal || newVal.length > 6) return;
+  if (!newVal || newVal.length > 8) return;
   const vals  = DOCTOR_COLS.map(col =>
-    (col === editedCol ? newVal : (pendingEdits[row.id]?.[col] ?? row[col] ?? ''))
-      .trim().toUpperCase()
+    (col === editedCol ? newVal : (pendingEdits[row.id]?.[col] ?? row[col] ?? '')).trim().toUpperCase()
   );
   const upper = newVal.trim().toUpperCase();
-  const count = vals.filter(v => v === upper).length;
-  if (count > 1) toast(`⚠️ Conflit : ${newVal} apparaît ${count} fois sur cette ligne !`, 'warning');
+  if (vals.filter(v => v === upper).length > 1)
+    toast(`⚠️ Conflit : ${newVal} apparaît plusieurs fois sur cette ligne !`, 'warning');
 }
 
 async function saveAllPending() {
   const ids = Object.keys(pendingEdits);
-  if (ids.length === 0) { toast('Aucune modification à sauvegarder.'); return; }
-
+  if (!ids.length) { toast('Aucune modification à sauvegarder.'); return; }
   let ok = 0;
   for (const id of ids) {
     const { error } = await _supabase.from('planning').update(pendingEdits[id]).eq('id', id);
-    if (error) {
-      toast(`Erreur ligne ${id} : ` + error.message, 'error');
-    } else {
-      const row = allData.find(r => r.id === parseInt(id));
-      if (row) Object.assign(row, pendingEdits[id]);
-      ok++;
-    }
+    if (error) toast(`Erreur ligne ${id} : ` + error.message, 'error');
+    else { const r = allData.find(r => r.id === parseInt(id)); if (r) Object.assign(r, pendingEdits[id]); ok++; }
   }
-
   pendingEdits = {};
   applyFilters();
-  buildStats();
   if (ok > 0) toast(`✅ ${ok} ligne(s) sauvegardée(s)`);
 }
 
-
 /* ============================================================
-   STATISTIQUES
-   Compte par groupe de colonnes, sur les lignes filtrées et
-   les colonnes actuellement visibles uniquement.
+   STATS — comptage par groupe sur lignes filtrées + cols visibles
 ============================================================ */
 function buildStats() {
-  /*
-    allCounts : { 'BL': { UNV: 2, Garde: 1 }, 'TG': { USI: 3 }, ... }
-    On ne compte que les colonnes dont le groupe est visible.
-  */
   const allCounts = {};
 
-  Object.entries(groupMap).forEach(([groupName, cols]) => {
+  Object.entries(groupMap).forEach(([group, cols]) => {
     const activeCols = cols.filter(c => visibleCols[c]);
     currentFilteredRows.forEach(row => {
       activeCols.forEach(col => {
         const val = (row[col] || '').trim();
-        // On ne compte que les initiales courtes (pas "REUNION DE GARDE" etc.)
-        if (val && val.length <= 5 && /^[A-Za-zÀ-ÿ]+$/.test(val.replace(/\s/, ''))) {
+        if (val && val.length <= 6 && /^[A-Za-zÀ-ÿ/]+$/.test(val)) {
           const key = val.toUpperCase();
+          const lbl = GROUP_LABELS[group] || group;
           if (!allCounts[key]) allCounts[key] = {};
-          allCounts[key][GROUP_LABELS[groupName] || groupName] =
-            (allCounts[key][GROUP_LABELS[groupName] || groupName] || 0) + 1;
+          allCounts[key][lbl] = (allCounts[key][lbl] || 0) + 1;
         }
       });
     });
@@ -1185,11 +985,10 @@ function buildStats() {
   const list = document.getElementById('stats-list');
   list.innerHTML = '';
 
-  /* Tri par total décroissant */
   Object.entries(allCounts)
     .sort((a, b) => {
-      const tA = Object.values(a[1]).reduce((s, v) => s + v, 0);
-      const tB = Object.values(b[1]).reduce((s, v) => s + v, 0);
+      const tA = Object.values(a[1]).reduce((s,v)=>s+v,0);
+      const tB = Object.values(b[1]).reduce((s,v)=>s+v,0);
       return tB - tA;
     })
     .forEach(([doc, groupCounts]) => {
@@ -1197,31 +996,25 @@ function buildStats() {
       div.className = 'stat-row';
       if (doctorFilter === doc) div.classList.add('active-filter');
 
-      const total = Object.values(groupCounts).reduce((s, v) => s + v, 0);
-
-      /* Badges colorés par groupe */
+      const total      = Object.values(groupCounts).reduce((s,v)=>s+v,0);
       const badgesHtml = Object.entries(groupCounts).map(([g, n]) => {
-        // Retrouver la couleur du groupe depuis son label
-        const groupKey = Object.entries(GROUP_LABELS).find(([, lbl]) => lbl === g)?.[0];
-        const color    = GROUP_COLORS[groupKey] || 'var(--gray)';
+        const gKey  = Object.entries(GROUP_LABELS).find(([,lbl])=>lbl===g)?.[0];
+        const color = GROUP_COLORS[gKey] || 'var(--gray)';
         return `<span class="stat-badge" style="color:${color}">${g}:${n}</span>`;
       }).join('');
 
       div.innerHTML = `
         <span class="stat-name">${doc}</span>
         <div class="stat-badges">${badgesHtml}</div>
-        <span class="stat-total">${total}</span>
-      `;
+        <span class="stat-total">${total}</span>`;
 
       div.addEventListener('click', () => {
         doctorFilter = (doctorFilter === doc) ? null : doc;
         applyFilters();
       });
-
       list.appendChild(div);
     });
 }
-
 
 /* ============================================================
    HELPERS
@@ -1229,27 +1022,28 @@ function buildStats() {
 function formatDate(dateStr) {
   if (!dateStr) return '';
   try {
-    const d     = new Date(dateStr + 'T00:00:00');
-    const jours = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
-    return `${jours[d.getDay()]} ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+    const d = new Date(dateStr + 'T00:00:00');
+    const j = ['dim.','lun.','mar.','mer.','jeu.','ven.','sam.'];
+    return `${j[d.getDay()]} ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
   } catch { return dateStr; }
 }
-
-function showLoading(visible) {
-  document.getElementById('loading').style.display = visible ? 'flex' : 'none';
-}
-
-function setStatus(state) {
-  document.getElementById('status-dot').className = state;
-}
-
-function toast(msg, type = 'info') {
+function showLoading(v) { document.getElementById('loading').style.display = v ? 'flex' : 'none'; }
+function setStatus(s)   { document.getElementById('status-dot').className = s; }
+function toast(msg, type='info') {
   const el = document.createElement('div');
-  el.className   = 'toast' + (type !== 'info' ? ` ${type}` : '');
+  el.className   = 'toast' + (type!=='info' ? ` ${type}` : '');
   el.textContent = msg;
   document.getElementById('toast-container').appendChild(el);
   setTimeout(() => el.remove(), 3500);
 }
+
+/* Fermer le dropdown si on clique ailleurs dans la page */
+document.addEventListener('mousedown', e => {
+  const dd = document.getElementById('edit-dropdown');
+  if (dd.style.display === 'block' && !dd.contains(e.target) && e.target !== activeInput) {
+    // Le blur de l'input se chargera du commit
+  }
+});
 </script>
 </body>
 </html>
