@@ -9,4 +9,5 @@ D'autres onglets: filtre date et médecin aussi utilisable
 -onglet vacances/autres activités/enseignement/recherche qui intéragit aussi en terme de conflit
 -onglet "semainier" où pour chaque médecin (à afficher en fonction du filtre choisi), toutes les activités prévues sont résumées en 4 colonnes: bip (NG ou V ou NG,V ), garde, clinique (unv, usinv, box...), vacances/formation/enseignement. 
 
+-gestion des colonnes modifiables en fonction du login: en fait il faudrait un système de gestion des profils, si le login n'existe pas, créer le profil avec le mdp lors de la première connexion. et moi je suis capable de choisir quelles colonnes chaque profil peut avoir l'autorisation de modifier.
 -mode "jour"
