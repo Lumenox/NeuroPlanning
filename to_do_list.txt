@@ -5,9 +5,12 @@ to do list:
 
 -système de gestion du conflit :  l'admin peut assumer le conflit et plutôt qu'un signal "rouge" et affichage du "conflit", la ligne est classée "jaune" et affichage "conflit accepté", on peut faire cela par exemple en cliquant sur la cellule date de la ligne concernée
 
+
+
 D'autres onglets: filtre date et médecin aussi utilisable
--onglet vacances/autres activités/enseignement/recherche qui intéragit aussi en terme de conflit
+-onglet vacances/autres activités/enseignement/recherche qui intéragit aussi en terme de conflit: s'affiche dans cet onglet une colonne par médecin (définit sur la liste du html initial...)
 -onglet "semainier" où pour chaque médecin (à afficher en fonction du filtre choisi), toutes les activités prévues sont résumées en 4 colonnes: bip (NG ou V ou NG,V ), garde, clinique (unv, usinv, box...), vacances/formation/enseignement. 
 
 -gestion des colonnes modifiables en fonction du login: en fait il faudrait un système de gestion des profils, si le login n'existe pas, créer le profil avec le mdp lors de la première connexion. et moi je suis capable de choisir quelles colonnes chaque profil peut avoir l'autorisation de modifier.
+Attention, il y a bien une liste des médecins du service, mais c'est pas encrypté... il faudrait que les mdp soient encryptés d'une façn ou d'une autre... ou alors je dis aux médecin qu'il y a un mdp par défaut pour les non admin
 -mode "jour"
