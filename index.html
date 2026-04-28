@@ -155,14 +155,15 @@
     #stats-panel .panel-title {
       font-family: 'DM Mono', monospace; font-size: 10px; color: var(--gray);
       letter-spacing: .1em; text-transform: uppercase;
-      padding: 12px 10px 10px 16px; border-bottom: 1px solid var(--border);
-      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 10px; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: flex-start; align-items: center;
       white-space: nowrap; overflow: hidden;
     }
     #stats-panel.collapsed .panel-title span { visibility: hidden; }
     #stats-toggle-btn {
       background: none; border: none; color: var(--teal);
       cursor: pointer; font-size: 18px; padding: 0; line-height: 1; flex-shrink: 0;
+      z-index: 10; width: 20px;
     }
     #stats-content { overflow: hidden; transition: opacity .2s; display: flex; flex-direction: column; flex: 1; min-height: 0; }
     #stats-panel.collapsed #stats-content { opacity: 0; pointer-events: none; }
