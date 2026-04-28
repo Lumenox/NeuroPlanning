@@ -791,7 +791,7 @@ function toggleEditMode() {
 function getDoctorsSortedByColCount(colKey) {
   // Compter les apparitions dans la colonne sur les lignes filtrées
   const counts = {};
-  listeMedecins.forEach(d => { counts[d.intiales.toUpperCase()] = 0; });
+  listeMedecins.forEach(d => { counts[d.initiales.toUpperCase()] = 0; });
 
   currentFilteredRows.forEach(row => {
     const val = (row[colKey] || '').trim().toUpperCase();
@@ -843,6 +843,7 @@ function startEdit(td, row, colKey) {
     const key = d.initiales.toUpperCase();
     counts[key] = 0;
   });
+  
 
   // compter les occurrences dans la colonne
   currentFilteredRows.forEach(row => {
