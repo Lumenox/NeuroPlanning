@@ -5,10 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Planning Neurologie</title>
 
-  <!-- Supabase JS SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet" />
 
@@ -127,11 +124,7 @@
       font-family: 'DM Mono', monospace;
     }
 
-    .auth-box p {
-      font-size: 12px;
-      color: var(--gray);
-      line-height: 1.6;
-    }
+    .auth-box p { font-size: 12px; color: var(--gray); line-height: 1.6; }
 
     .auth-box .hint {
       font-family: 'DM Mono', monospace;
@@ -168,16 +161,16 @@
       cursor: pointer;
       transition: opacity 0.15s, transform 0.1s;
     }
-    button:hover { opacity: 0.85; }
+    button:hover  { opacity: 0.85; }
     button:active { transform: scale(0.97); }
 
-    .btn-primary { background: var(--teal); color: var(--navy); }
+    .btn-primary { background: var(--teal);  color: var(--navy); }
     .btn-ghost   { background: transparent; color: var(--gray); border: 1px solid var(--border); }
-    .btn-danger  { background: var(--red); color: var(--navy); }
+    .btn-danger  { background: var(--red);   color: var(--navy); }
     .btn-save    { background: var(--amber); color: var(--navy); }
 
     /* =============================================
-       TOOLBAR (filters + actions)
+       TOOLBAR
     ============================================= */
     #toolbar {
       display: flex;
@@ -206,23 +199,11 @@
       font-size: 11px;
     }
 
-    #search-doctor {
-      flex: 1;
-      min-width: 120px;
-      max-width: 200px;
-    }
+    #search-doctor { flex: 1; min-width: 120px; max-width: 200px; }
 
-    #filter-heure {
-      width: 100px;
-    }
+    .sep { width: 1px; height: 24px; background: var(--border); }
 
-    .sep {
-      width: 1px;
-      height: 24px;
-      background: var(--border);
-    }
-
-    /* Admin mode indicator */
+    /* Admin badge */
     #admin-badge {
       font-family: 'DM Mono', monospace;
       font-size: 10px;
@@ -236,38 +217,62 @@
     }
     .is-admin #admin-badge { display: inline; }
 
-    /* =============================================
-       MAIN LAYOUT
-    ============================================= */
-    #main {
+    /* ---- Group toggles ---- */
+    #col-toggles {
       display: flex;
-      flex: 1;
-      overflow: hidden;
+      gap: 4px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    /*
+      Chaque toggle de groupe est un label stylisé comme un badge.
+      La checkbox native est masquée ; l'apparence change selon :checked.
+    */
+    .group-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+      opacity: 0.45;           /* grisé par défaut = désactivé visuellement */
+    }
+    .group-toggle input { display: none; }
+    .group-toggle.active { opacity: 1; }
+
+    .group-toggle .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
     }
 
     /* =============================================
-       STATS PANEL (right sidebar)
+       MAIN LAYOUT
     ============================================= */
-    #stats-content {
-      overflow: hidden;
-      transition: max-height 0.3s ease;
-      max-height: 2000px;  /* valeur large = "ouvert" */
-    }
-    #stats-content.collapsed {
-      max-height: 0;
-    }
-    #stats-panel.collapsed {
-      width: 40px;  /* panneau réduit à juste la flèche */
-    }
+    #main { display: flex; flex: 1; overflow: hidden; }
+
+    /* =============================================
+       STATS PANEL
+    ============================================= */
     #stats-panel {
-      width: 220px;
+      width: 230px;
       background: var(--navy-mid);
       border-left: 1px solid var(--border);
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
       overflow: hidden;
+      transition: width 0.25s ease;
     }
+
+    #stats-panel.collapsed { width: 38px; }
 
     #stats-panel .panel-title {
       font-family: 'DM Mono', monospace;
@@ -275,9 +280,39 @@
       color: var(--gray);
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      padding: 14px 16px 10px;
+      padding: 12px 10px 10px 16px;
       border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      white-space: nowrap;
+      overflow: hidden;
     }
+
+    /* Cache le texte quand réduit */
+    #stats-panel.collapsed .panel-title span { visibility: hidden; }
+
+    #stats-toggle-btn {
+      background: none;
+      border: none;
+      color: var(--teal);
+      cursor: pointer;
+      font-size: 18px;
+      padding: 0;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    #stats-toggle-btn:hover { opacity: 0.7; }
+
+    #stats-content {
+      overflow: hidden;
+      transition: opacity 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+    #stats-panel.collapsed #stats-content { opacity: 0; pointer-events: none; }
 
     #stats-list {
       overflow-y: auto;
@@ -288,47 +323,51 @@
     .stat-row {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 6px 16px;
+      gap: 4px;
+      padding: 5px 12px;
       transition: background 0.15s;
       cursor: pointer;
+      min-width: 0;
     }
     .stat-row:hover { background: var(--navy-light); }
     .stat-row.active-filter { background: var(--teal-dim); }
 
     .stat-name {
       font-family: 'DM Mono', monospace;
-      font-size: 12px;
+      font-size: 11px;
       color: var(--white);
+      min-width: 30px;
     }
 
-    .stat-bar-wrap {
+    .stat-badges {
       flex: 1;
-      margin: 0 8px;
-      height: 4px;
-      background: var(--border);
-      border-radius: 2px;
-    }
-    .stat-bar {
-      height: 100%;
-      border-radius: 2px;
-      background: var(--teal);
-      transition: width 0.4s ease;
+      display: flex;
+      gap: 3px;
+      flex-wrap: wrap;
     }
 
-    .stat-count {
+    .stat-badge {
+      font-size: 9px;
+      background: var(--navy-light);
+      border-radius: 3px;
+      padding: 1px 5px;
+      white-space: nowrap;
+    }
+
+    .stat-total {
       font-family: 'DM Mono', monospace;
       font-size: 11px;
       color: var(--teal);
-      min-width: 24px;
+      min-width: 20px;
       text-align: right;
     }
 
     #conflict-summary {
-      padding: 12px 16px;
+      padding: 10px 16px;
       border-top: 1px solid var(--border);
       font-size: 11px;
       color: var(--gray);
+      flex-shrink: 0;
     }
     #conflict-summary .conf-count {
       color: var(--red);
@@ -337,13 +376,9 @@
     }
 
     /* =============================================
-       TABLE AREA
+       TABLE
     ============================================= */
-    #table-wrap {
-      flex: 1;
-      overflow: auto;
-      position: relative;
-    }
+    #table-wrap { flex: 1; overflow: auto; position: relative; }
 
     table {
       border-collapse: collapse;
@@ -352,7 +387,6 @@
       min-width: 100%;
     }
 
-    /* Sticky header */
     thead th {
       position: sticky;
       top: 0;
@@ -370,7 +404,6 @@
       user-select: none;
     }
 
-    /* Column group headers */
     .col-group {
       background: var(--navy) !important;
       font-size: 9px !important;
@@ -379,25 +412,17 @@
       text-align: center !important;
     }
 
-    /* Body rows */
-    tbody tr {
-      border-bottom: 1px solid var(--border);
-      transition: background 0.1s;
-    }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
     tbody tr:hover { background: var(--navy-light); }
-
-    /* Alternating groups: morning vs afternoon */
-    tr.creno-matin    { background: rgba(255,255,255,0.01); }
-    tr.creno-aprem    { background: rgba(0,0,0,0.15); }
+    tr.creno-matin { background: rgba(255,255,255,0.01); }
+    tr.creno-aprem { background: rgba(0,0,0,0.15); }
     tr.creno-aprem:hover { background: var(--navy-light); }
 
-    /* Conflict row */
     tr.conflict {
       background: var(--red-dim) !important;
       border-left: 3px solid var(--red);
     }
 
-    /* Highlighted doctor filter */
     td.doctor-highlight { background: var(--teal-dim); color: var(--teal) !important; font-weight: 500; }
 
     td {
@@ -411,7 +436,6 @@
       text-overflow: ellipsis;
     }
 
-    /* Date and time cells */
     td.col-date {
       color: var(--gray);
       font-size: 10px;
@@ -424,13 +448,8 @@
     }
     tr:hover td.col-date { background: var(--navy-light); }
 
-    td.col-heure {
-      color: var(--teal);
-      font-size: 11px;
-      font-weight: 500;
-    }
+    td.col-heure { color: var(--teal); font-size: 11px; font-weight: 500; }
 
-    /* Editable cells in admin mode */
     .is-admin td.editable {
       cursor: pointer;
       border: 1px solid transparent;
@@ -439,11 +458,9 @@
     }
     .is-admin td.editable:hover { border-color: var(--amber); background: var(--amber-dim); }
 
-    /* Inline edit input inside cell */
     td.editing { padding: 2px !important; }
     td.editing input {
-      width: 100%;
-      height: 100%;
+      width: 100%; height: 100%;
       font-family: 'DM Mono', monospace;
       font-size: 11px;
       background: var(--navy);
@@ -454,24 +471,15 @@
       outline: none;
     }
 
-    /* Vacation columns */
-    td.col-vacation { color: var(--amber); }
-
     /* =============================================
-       LOADING / EMPTY STATES
+       LOADING & TOASTS
     ============================================= */
     #loading {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      background: var(--navy);
-      z-index: 5;
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 16px; background: var(--navy); z-index: 5;
     }
-
     .spinner {
       width: 36px; height: 36px;
       border: 3px solid var(--border);
@@ -480,73 +488,46 @@
       animation: spin 0.8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-
     #loading p { font-size: 12px; color: var(--gray); }
 
-    #empty-state {
-      padding: 60px;
-      text-align: center;
-      color: var(--gray);
-      font-size: 13px;
-      display: none;
-    }
+    #empty-state { padding: 60px; text-align: center; color: var(--gray); font-size: 13px; display: none; }
 
-    /* =============================================
-       TOAST NOTIFICATIONS
-    ============================================= */
     #toast-container {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      z-index: 200;
+      position: fixed; bottom: 20px; right: 20px;
+      display: flex; flex-direction: column; gap: 8px; z-index: 200;
     }
-
     .toast {
-      font-family: 'DM Mono', monospace;
-      font-size: 11px;
-      padding: 10px 16px;
-      border-radius: 8px;
+      font-family: 'DM Mono', monospace; font-size: 11px;
+      padding: 10px 16px; border-radius: 8px;
       border-left: 3px solid var(--teal);
-      background: var(--navy-mid);
-      color: var(--white);
+      background: var(--navy-mid); color: var(--white);
       animation: slideIn 0.3s ease;
       box-shadow: 0 4px 20px rgba(0,0,0,0.5);
     }
-    .toast.error { border-color: var(--red); }
+    .toast.error   { border-color: var(--red); }
     .toast.warning { border-color: var(--amber); }
     @keyframes slideIn {
       from { transform: translateX(40px); opacity: 0; }
-      to   { transform: translateX(0);   opacity: 1; }
+      to   { transform: translateX(0);    opacity: 1; }
     }
   </style>
 </head>
-
 <body>
 
 <!-- ======================================================
      AUTH OVERLAY
-     Visible au démarrage. Disparaît après connexion.
 ====================================================== -->
 <div id="auth-overlay">
   <div class="auth-box">
     <h2>Neurologie · Planning</h2>
     <p>Entrez vos identifiants pour accéder au planning.</p>
-
     <div class="hint">
       👨‍⚕️ Admin → login: <strong>admin</strong> / mdp: <strong>neuro2026</strong><br>
       👁️ Viewer → login: <strong>rn</strong> / mdp: <strong>123</strong>
     </div>
-
     <input type="text"     id="auth-login" placeholder="Login" autocomplete="off" />
     <input type="password" id="auth-pass"  placeholder="Mot de passe" />
-
-    <div id="auth-error" style="color:var(--red);font-size:11px;display:none;">
-      Identifiants incorrects.
-    </div>
-
+    <div id="auth-error" style="color:var(--red);font-size:11px;display:none;">Identifiants incorrects.</div>
     <button class="btn-primary" onclick="doLogin()">Connexion</button>
   </div>
 </div>
@@ -557,20 +538,14 @@
 ====================================================== -->
 <div id="topbar">
   <span class="brand">🧠 Planning Neurologie</span>
-
   <div class="controls">
     <div id="status-dot" title="Connexion Supabase"></div>
     <span id="realtime-badge">● LIVE</span>
     <span id="admin-badge">ADMIN</span>
-
     <div class="sep"></div>
-
-    <!-- Bouton toggle admin mode (visible seulement pour les admins) -->
     <button id="btn-toggle-edit" class="btn-ghost" style="display:none" onclick="toggleEditMode()">✏️ Modifier</button>
     <button id="btn-save-all"    class="btn-save"  style="display:none" onclick="saveAllPending()">💾 Sauvegarder</button>
-
     <div class="sep"></div>
-
     <button class="btn-ghost" onclick="loadData()" title="Rafraîchir">↺</button>
     <button class="btn-ghost" style="font-size:11px" onclick="logout()">Déconnexion</button>
   </div>
@@ -578,33 +553,29 @@
 
 
 <!-- ======================================================
-     TOOLBAR (filtres)
+     TOOLBAR
+     ⚠️  Ne pas oublier de fermer ce </div> en bas !
 ====================================================== -->
 <div id="toolbar">
+
   <label>Du</label>
   <input type="date" id="filter-date-from" onchange="applyFilters()" />
-
   <label>Au</label>
   <input type="date" id="filter-date-to"   onchange="applyFilters()" />
 
-  <!-- <label>Créneau</label>
-  <select id="filter-heure" onchange="applyFilters()">
-    <option value="">Tous</option>
-    <option value="9h00">9h00 (matin)</option>
-    <option value="13h30">13h30 (après-midi)</option>
-  </select> -->
-
-  <input type="text" id="search-doctor" placeholder="🔍 Chercher un médecin…"
-         oninput="applyFilters()" />
+  <input type="text" id="search-doctor" placeholder="🔍 Chercher un médecin…" oninput="applyFilters()" />
 
   <div class="sep"></div>
 
-  <label style="font-size:11px; color:var(--teal)">Colonnes :</label>
-  <div id="col-toggles" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-  <!-- Généré dynamiquement par JS -->
-  </div>
+  <!-- Toggles par GROUPE (généré dynamiquement dans buildColToggles()) -->
+  <label style="font-size:11px; color:var(--teal)">Afficher :</label>
+  <div id="col-toggles"></div>
+
+  <div class="sep"></div>
+
   <button class="btn-ghost" onclick="clearFilters()" style="font-size:11px">✕ Réinitialiser</button>
 
+</div>  <!-- ← BUG CORRIGÉ : ce </div> fermait #toolbar et manquait dans ta version -->
 
 
 <!-- ======================================================
@@ -612,31 +583,27 @@
 ====================================================== -->
 <div id="main">
 
-  <!-- ---- TABLE ---- -->
+  <!-- TABLE -->
   <div id="table-wrap">
     <div id="loading">
       <div class="spinner"></div>
       <p>Connexion à Supabase…</p>
     </div>
-
     <div id="empty-state">Aucune ligne ne correspond aux filtres.</div>
-
     <table id="planning-table">
       <thead id="table-head"></thead>
       <tbody id="table-body"></tbody>
     </table>
   </div>
 
-  <!-- ---- STATS PANEL ---- -->
+  <!-- STATS PANEL -->
   <div id="stats-panel">
-    <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;">
-      <span>Compteur gardes</span>
-      <button onclick="toggleStatsPanel()" id="stats-toggle-btn"
-        style="background:none;border:none;color:var(--teal);cursor:pointer;font-size:16px;padding:0">
-        ›
-      </button>
+    <div class="panel-title">
+      <span>Compteurs</span>
+      <!-- La flèche › / ‹ bascule le panneau -->
+      <button id="stats-toggle-btn" onclick="toggleStatsPanel()">›</button>
     </div>
-    <div id="stats-content">  <!-- ← enveloppe le contenu -->
+    <div id="stats-content">
       <div id="stats-list"></div>
       <div id="conflict-summary">
         Conflits : <span class="conf-count" id="conflict-count">0</span>
@@ -646,138 +613,102 @@
 
 </div>
 
-<!-- ======================================================
-     TOASTS
-====================================================== -->
 <div id="toast-container"></div>
 
 
 <script>
 /* ============================================================
-   CONFIGURATION SUPABASE
-   ⚠️  Remplacez par vos vraies clés
+   CONFIGURATION SUPABASE — remplacez par vos vraies clés
 ============================================================ */
-const SUPABASE_URL  = 'https://yseaujinbdwxpcelsywr.supabase.co';
-const SUPABASE_KEY  = 'sb_publishable_7uC727-tO92zxGsAwCqBnA_E9oX_Xw8';
-
-const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const SUPABASE_URL = 'https://yseaujinbdwxpcelsywr.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_7uC727-tO92zxGsAwCqBnA_E9oX_Xw8';
+const _supabase    = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 
 /* ============================================================
-   UTILISATEURS (en dur pour ce prototype)
-   À remplacer par une vraie table Supabase "users" plus tard
+   UTILISATEURS (prototype — à remplacer par une table Supabase)
 ============================================================ */
 const USERS = {
-  admin: { pass: 'neuro2026', role: 'admin' },
+  admin: { pass: 'neuro2026', role: 'admin'  },
   rn:    { pass: '123',       role: 'viewer' },
 };
 
 
 /* ============================================================
    DÉFINITION DES COLONNES
-   Adapter si la table Supabase évolue (plus de BOX, etc.)
+   group : regroupe les colonnes pour les toggles et les stats
+   Ajoutez ici toutes les colonnes de votre table Supabase.
 ============================================================ */
 const COLUMNS = [
-  // { key: clé Supabase, label: affiché, group: groupe couleur, vacation: si colonne vacances }
-  { key: 'date',     label: 'Date',    group: 'meta',    sticky: true  },
-  { key: 'heure',    label: 'Heure',   group: 'meta'                   },
-  { key: 'C_Periph', label: 'C.Périph', group: 'coord'                 },
-  { key: 'C_Cogn',   label: 'C.Cogn',  group: 'coord'                 },
-  { key: 'C_sup',    label: 'C.Sup',   group: 'coord'                 },
-  { key: 'UNV1',     label: 'UNV 1',   group: 'unv'                   },
-  { key: 'UNV2',     label: 'UNV 2',   group: 'unv'                   },
-  { key: 'USI1',     label: 'USI 1',   group: 'usi'                   },
-  { key: 'USI2',     label: 'USI 2',   group: 'usi'                   },
-  { key: 'BIPv',     label: 'BIP v',   group: 'bip'                   },
-  { key: 'BIPng',    label: 'BIP ng',  group: 'bip'                   },
-  { key: 'Garde',    label: 'Garde',   group: 'garde'                  },
-  { key: 'BOX1',     label: 'BOX 1',   group: 'box'                   },
-  { key: 'BOX2',     label: 'BOX 2',   group: 'box'                   },
-  { key: 'BOX3',     label: 'BOX 3',   group: 'box'                   },
-  { key: 'BOX4',     label: 'BOX 4',   group: 'box'                   },
-  { key: 'BOX5',     label: 'BOX 5',   group: 'box'                   },
-  { key: 'BOX6',     label: 'BOX 6',   group: 'box'                   },
-  { key: 'BOX7',     label: 'BOX 7',   group: 'box'                   },
-  { key: 'BOX8',     label: 'BOX 8',   group: 'box'                   },
-  { key: 'BOX9',     label: 'BOX 9',   group: 'box'                   },
+  { key: 'date',     label: 'Date',     group: 'meta'  },
+  { key: 'heure',    label: 'Heure',    group: 'meta'  },
+  { key: 'C_Periph', label: 'C.Périph', group: 'coord' },
+  { key: 'C_Cogn',   label: 'C.Cogn',  group: 'coord' },
+  { key: 'C_sup',    label: 'C.Sup',   group: 'coord' },
+  { key: 'UNV1',     label: 'UNV 1',   group: 'unv'   },
+  { key: 'UNV2',     label: 'UNV 2',   group: 'unv'   },
+  { key: 'USI1',     label: 'USI 1',   group: 'usi'   },
+  { key: 'USI2',     label: 'USI 2',   group: 'usi'   },
+  { key: 'BIPv',     label: 'BIP v',   group: 'bip'   },
+  { key: 'BIPng',    label: 'BIP ng',  group: 'bip'   },
+  { key: 'Garde',    label: 'Garde',   group: 'garde' },
+  { key: 'BOX1',     label: 'BOX 1',   group: 'box'   },
+  { key: 'BOX2',     label: 'BOX 2',   group: 'box'   },
 ];
-// État des colonnes visibles — par défaut toutes actives
-const visibleCols = {};
-COLUMNS.forEach(col => { visibleCols[col.key] = true; });
-  
-function applyColVisibility() {
-  // Chaque colonne a un index dans COLUMNS
-  COLUMNS.forEach((col, index) => {
-    if (col.group === 'meta') return; // date/heure toujours visibles
 
-    const isVisible = visibleCols[col.key];
-    // On cible toutes les cellules de cette colonne (index + 1 car CSS est 1-based)
-    document.querySelectorAll(
-      `#planning-table th:nth-child(${index + 1}),
-       #planning-table td:nth-child(${index + 1})`
-    ).forEach(cell => {
-      cell.style.display = isVisible ? '' : 'none';
-    });
-  });
+/* Libellés affichés sur les badges de toggle */
+const GROUP_LABELS = {
+  coord: 'Coord',
+  unv:   'UNV',
+  usi:   'USI',
+  bip:   'BIP',
+  garde: 'Garde',
+  box:   'BOX',
+};
 
-  // Recalculer les stats sur ce qui est affiché
-  buildStats();
-}
-  
-function buildColToggles() {
-  const container = document.getElementById('col-toggles');
-  // On ne propose pas de toggle pour date/heure (colonnes fixes)
-  COLUMNS.filter(c => c.group !== 'meta').forEach(col => {
-    const label = document.createElement('label');
-    label.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;';
+/* Couleurs par groupe (utilisées dans les badges et les en-têtes) */
+const GROUP_COLORS = {
+  coord: '#60a5fa',
+  unv:   '#34d399',
+  usi:   '#f472b6',
+  bip:   '#a78bfa',
+  garde: '#fbbf24',
+  box:   '#94a3b8',
+};
 
-    const cb = document.createElement('input');
-    cb.type    = 'checkbox';
-    cb.checked = true;
-    cb.dataset.col = col.key;
-    cb.addEventListener('change', () => {
-      visibleCols[col.key] = cb.checked;
-      applyColVisibility();  // <-- nouvelle fonction ci-dessous
-    });
+/*
+  groupMap : { groupName: [colKey, colKey, ...] }
+  Construit automatiquement depuis COLUMNS — vous n'avez rien à changer ici
+  quand vous ajoutez des colonnes ci-dessus.
+*/
+const groupMap = {};
+COLUMNS.filter(c => c.group !== 'meta').forEach(col => {
+  if (!groupMap[col.group]) groupMap[col.group] = [];
+  groupMap[col.group].push(col.key);
+});
 
-    label.appendChild(cb);
-    label.appendChild(document.createTextNode(col.label));
-    container.appendChild(label);
-  });
-}
-function toggleStatsPanel() {
-  const panel   = document.getElementById('stats-panel');
-  const content = document.getElementById('stats-content');
-  const btn     = document.getElementById('stats-toggle-btn');
-
-  const isCollapsed = content.classList.toggle('collapsed');
-  panel.classList.toggle('collapsed', isCollapsed);
-  btn.textContent = isCollapsed ? '‹' : '›';  // flèche change de sens
-}
-// Colonnes qui sont des postes médicaux (pour la détection de conflits et les stats)
-// = tout sauf date, heure
+/* Colonnes médicales (tout sauf date/heure) */
 const DOCTOR_COLS = COLUMNS.filter(c => c.group !== 'meta').map(c => c.key);
 
-// Couleurs par groupe
-const GROUP_COLORS = {
-  coord: '#60a5fa',   // bleu
-  unv:   '#34d399',   // vert
-  usi:   '#f472b6',   // rose
-  bip:   '#a78bfa',   // violet
-  garde: '#fbbf24',   // amber
-  box:   '#94a3b8',   // gris
-};
+/*
+  visibleCols : { colKey: boolean }
+  État courant de visibilité de chaque colonne.
+  Initialement toutes visibles.
+*/
+const visibleCols = {};
+COLUMNS.forEach(col => { visibleCols[col.key] = true; });
 
 
 /* ============================================================
    STATE GLOBAL
 ============================================================ */
-let currentUser  = null;   // { login, role }
-let allData      = [];     // toutes les lignes chargées
-let pendingEdits = {};     // { rowId: { col: value } }
-let isEditMode   = false;
-let realtimeSub  = null;   // abonnement Supabase Realtime
-let doctorFilter = null;   // filtre actif depuis le panneau stats
+let currentUser         = null;
+let allData             = [];
+let currentFilteredRows = [];   // lignes après filtres, utilisées par buildStats()
+let pendingEdits        = {};
+let isEditMode          = false;
+let realtimeSub         = null;
+let doctorFilter        = null;
 
 
 /* ============================================================
@@ -795,9 +726,8 @@ function doLogin() {
 
   currentUser = { login, role: user.role };
   document.getElementById('auth-overlay').style.display = 'none';
-  document.getElementById('auth-error').style.display = 'none';
+  document.getElementById('auth-error').style.display   = 'none';
 
-  // Afficher le bouton admin si nécessaire
   if (user.role === 'admin') {
     document.getElementById('btn-toggle-edit').style.display = 'inline';
     document.body.classList.add('is-admin');
@@ -806,17 +736,16 @@ function doLogin() {
   init();
 }
 
-// Appuyer "Entrée" sur le champ mdp → connexion
 document.getElementById('auth-pass').addEventListener('keydown', e => {
   if (e.key === 'Enter') doLogin();
 });
 
 function logout() {
   if (realtimeSub) _supabase.removeChannel(realtimeSub);
-  currentUser = null;
-  isEditMode  = false;
+  currentUser  = null;
+  isEditMode   = false;
   pendingEdits = {};
-  allData = [];
+  allData      = [];
   document.body.classList.remove('is-admin');
   document.getElementById('auth-overlay').style.display = 'flex';
   document.getElementById('auth-login').value = '';
@@ -831,9 +760,73 @@ function logout() {
 ============================================================ */
 async function init() {
   buildTableHeader();
-  buildColToggles();
+  buildColToggles();   // ← génère les badges de groupe dans la toolbar
   await loadData();
   subscribeRealtime();
+}
+
+
+/* ============================================================
+   TOGGLES DE GROUPES DE COLONNES
+   Génère un badge-bouton par groupe dans #col-toggles.
+   Cocher/décocher un groupe masque/affiche toutes ses colonnes.
+============================================================ */
+function buildColToggles() {
+  const container = document.getElementById('col-toggles');
+  container.innerHTML = '';
+
+  Object.keys(groupMap).forEach(group => {
+    const label = document.createElement('label');
+    label.className = 'group-toggle active';  // actif par défaut
+    label.style.color = GROUP_COLORS[group] || 'var(--white)';
+    label.style.borderColor = GROUP_COLORS[group] || 'var(--border)';
+
+    const cb = document.createElement('input');
+    cb.type    = 'checkbox';
+    cb.checked = true;
+
+    cb.addEventListener('change', () => {
+      // Met à jour visibleCols pour toutes les colonnes du groupe
+      groupMap[group].forEach(key => { visibleCols[key] = cb.checked; });
+      label.classList.toggle('active', cb.checked);
+      applyColVisibility();
+    });
+
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+
+    label.appendChild(cb);
+    label.appendChild(dot);
+    label.appendChild(document.createTextNode(GROUP_LABELS[group] || group));
+    container.appendChild(label);
+  });
+}
+
+/*
+  Masque ou affiche les cellules selon visibleCols.
+  Utilise data-col (mis sur chaque th et td) pour cibler précisément
+  sans se tromper avec nth-child sur des en-têtes fusionnés.
+*/
+function applyColVisibility() {
+  COLUMNS.forEach(col => {
+    if (col.group === 'meta') return; // date et heure toujours visibles
+    const show = visibleCols[col.key] ? '' : 'none';
+    document.querySelectorAll(`[data-col="${col.key}"]`).forEach(cell => {
+      cell.style.display = show;
+    });
+  });
+  buildStats();
+}
+
+
+/* ============================================================
+   PANNEAU STATS — rétractable
+============================================================ */
+function toggleStatsPanel() {
+  const panel = document.getElementById('stats-panel');
+  const btn   = document.getElementById('stats-toggle-btn');
+  const isCollapsed = panel.classList.toggle('collapsed');
+  btn.textContent = isCollapsed ? '‹' : '›';
 }
 
 
@@ -843,11 +836,10 @@ async function init() {
 async function loadData() {
   showLoading(true);
 
-  // Récupère toutes les lignes, triées par date puis heure
   const { data, error } = await _supabase
     .from('planning')
     .select('*')
-    .order('date', { ascending: true })
+    .order('date',  { ascending: true })
     .order('heure', { ascending: true });
 
   if (error) {
@@ -867,35 +859,29 @@ async function loadData() {
 
 /* ============================================================
    SUPABASE REALTIME
-   Toute modification dans la table → rechargement auto
 ============================================================ */
 function subscribeRealtime() {
   realtimeSub = _supabase
     .channel('planning-live')
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'planning' },
-      (payload) => {
-        // Mise à jour locale selon le type d'événement
-        if (payload.eventType === 'UPDATE') {
-          const idx = allData.findIndex(r => r.id === payload.new.id);
-          if (idx >= 0) allData[idx] = payload.new;
-          else allData.push(payload.new);
-        } else if (payload.eventType === 'INSERT') {
-          allData.push(payload.new);
-          allData.sort((a, b) => a.date.localeCompare(b.date) || a.heure.localeCompare(b.heure));
-        } else if (payload.eventType === 'DELETE') {
-          allData = allData.filter(r => r.id !== payload.old.id);
-        }
-        applyFilters();
-        buildStats();
-        toast('Planning mis à jour en temps réel', 'info');
-      }
-    )
-    .subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
+    .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'planning' },
+        (payload) => {
+          if (payload.eventType === 'UPDATE') {
+            const idx = allData.findIndex(r => r.id === payload.new.id);
+            if (idx >= 0) allData[idx] = payload.new; else allData.push(payload.new);
+          } else if (payload.eventType === 'INSERT') {
+            allData.push(payload.new);
+            allData.sort((a, b) => a.date.localeCompare(b.date) || a.heure.localeCompare(b.heure));
+          } else if (payload.eventType === 'DELETE') {
+            allData = allData.filter(r => r.id !== payload.old.id);
+          }
+          applyFilters();
+          buildStats();
+          toast('Planning mis à jour en temps réel');
+        })
+    .subscribe(status => {
+      if (status === 'SUBSCRIBED')
         document.getElementById('realtime-badge').classList.add('active');
-      }
     });
 }
 
@@ -903,30 +889,20 @@ function subscribeRealtime() {
 /* ============================================================
    FILTRES
 ============================================================ */
-let currentFilteredRows = [];  // variable globale en haut du script
 function applyFilters() {
   const dateFrom  = document.getElementById('filter-date-from').value;
   const dateTo    = document.getElementById('filter-date-to').value;
-  /* const heure     = document.getElementById('filter-heure').value; */
   const docSearch = document.getElementById('search-doctor').value.trim().toLowerCase();
 
-  let rows = allData.filter(row => {
-    // Filtre date
+  currentFilteredRows = allData.filter(row => {
     if (dateFrom && row.date < dateFrom) return false;
     if (dateTo   && row.date > dateTo)   return false;
 
-    // Filtre créneau
-    // if (heure && row.heure !== heure) return false;
-
-    // Filtre médecin (cherche dans toutes les colonnes de postes)
     if (docSearch) {
-      const found = DOCTOR_COLS.some(col =>
-        (row[col] || '').toLowerCase().includes(docSearch)
-      );
+      const found = DOCTOR_COLS.some(col => (row[col] || '').toLowerCase().includes(docSearch));
       if (!found) return false;
     }
 
-    // Filtre depuis le panneau stats (clic sur un médecin)
     if (doctorFilter) {
       const found = DOCTOR_COLS.some(col =>
         (row[col] || '').trim().toUpperCase() === doctorFilter.toUpperCase()
@@ -936,44 +912,40 @@ function applyFilters() {
 
     return true;
   });
-  currentFilteredRows = rows;  // sauvegarde avant renderTable
-  renderTable(rows, docSearch || doctorFilter);
-  applyColVisibility()
-  buildStats();  // appelle buildStats sans argument
+
+  renderTable(currentFilteredRows, docSearch || doctorFilter);
+  applyColVisibility();  // réappliquer la visibilité après chaque re-rendu
+  buildStats();
 }
 
+/*
+  BUG CORRIGÉ : clearFilters() ne référence plus filter-heure (supprimé)
+*/
 function clearFilters() {
   document.getElementById('filter-date-from').value = '';
   document.getElementById('filter-date-to').value   = '';
-  document.getElementById('filter-heure').value     = '';
   document.getElementById('search-doctor').value    = '';
   doctorFilter = null;
-  // Retirer le highlight dans le panneau stats
   document.querySelectorAll('.stat-row').forEach(r => r.classList.remove('active-filter'));
   applyFilters();
 }
 
 
 /* ============================================================
-   RENDU DU TABLEAU
+   CONSTRUCTION DU HEADER
+   Ajoute data-col sur chaque th de la ligne des noms de colonnes
+   (pas sur la ligne des groupes qui a des colspans).
 ============================================================ */
 function buildTableHeader() {
   const thead = document.getElementById('table-head');
   thead.innerHTML = '';
 
-  // Ligne 1 : groupes de colonnes
+  /* Ligne 1 : groupes fusionnés */
   const groupRow = document.createElement('tr');
-  const groups = {};
+  let prevGroup = null, span = 0;
+  const thList  = [];
+
   COLUMNS.forEach(col => {
-    if (!groups[col.group]) groups[col.group] = 0;
-    groups[col.group]++;
-  });
-
-  let prevGroup = null;
-  let span = 0;
-  const thList = [];
-
-  COLUMNS.forEach((col, i) => {
     if (col.group !== prevGroup) {
       if (prevGroup !== null) thList.push({ group: prevGroup, span });
       prevGroup = col.group;
@@ -984,21 +956,22 @@ function buildTableHeader() {
   });
   thList.push({ group: prevGroup, span });
 
-  const groupLabels = { meta: '', coord: 'Coordination', unv: 'UNV', usi: 'USI', bip: 'BIP', garde: 'Gardes', box: 'BOX' };
+  const groupLabelMap = { meta: '', coord: 'Coordination', unv: 'UNV', usi: 'USI', bip: 'BIP', garde: 'Gardes', box: 'BOX' };
   thList.forEach(({ group, span }) => {
     const th = document.createElement('th');
-    th.colSpan = span;
+    th.colSpan   = span;
     th.className = 'col-group';
-    th.textContent = groupLabels[group] || group;
+    th.textContent = groupLabelMap[group] || group;
     if (GROUP_COLORS[group]) th.style.color = GROUP_COLORS[group];
     groupRow.appendChild(th);
   });
 
-  // Ligne 2 : noms de colonnes
+  /* Ligne 2 : noms de colonnes — avec data-col pour ciblage CSS */
   const colRow = document.createElement('tr');
   COLUMNS.forEach(col => {
     const th = document.createElement('th');
-    th.textContent = col.label;
+    th.textContent    = col.label;
+    th.dataset.col    = col.key;   // ← utilisé par applyColVisibility()
     if (GROUP_COLORS[col.group]) th.style.color = GROUP_COLORS[col.group];
     colRow.appendChild(th);
   });
@@ -1007,9 +980,13 @@ function buildTableHeader() {
   thead.appendChild(colRow);
 }
 
+
+/* ============================================================
+   RENDU DU TABLEAU
+============================================================ */
 function renderTable(rows, highlightDoctor) {
-  const tbody   = document.getElementById('table-body');
-  const empty   = document.getElementById('empty-state');
+  const tbody = document.getElementById('table-body');
+  const empty = document.getElementById('empty-state');
   tbody.innerHTML = '';
 
   if (rows.length === 0) {
@@ -1024,11 +1001,11 @@ function renderTable(rows, highlightDoctor) {
   rows.forEach(row => {
     const tr = document.createElement('tr');
 
-    // Détecter les conflits : un même médecin dans 2+ colonnes sur la même ligne
+    /* Détection conflits : même initiales sur 2+ colonnes de la même ligne */
     const doctorPositions = {};
     DOCTOR_COLS.forEach(col => {
       const val = (row[col] || '').trim().toUpperCase();
-      if (val && val.length > 0 && val.length <= 6) { // initiales courtes seulement
+      if (val && val.length > 0 && val.length <= 6) {
         if (!doctorPositions[val]) doctorPositions[val] = [];
         doctorPositions[val].push(col);
       }
@@ -1038,29 +1015,29 @@ function renderTable(rows, highlightDoctor) {
       .filter(([, cols]) => cols.length > 1)
       .map(([doc]) => doc);
 
-    const hasConflict = conflictingDoctors.length > 0;
-    if (hasConflict) {
+    if (conflictingDoctors.length > 0) {
       tr.classList.add('conflict');
       conflictCount++;
       tr.title = '⚠️ Conflit : ' + conflictingDoctors.join(', ') + ' présent(s) sur plusieurs postes';
     }
 
-    // Créneau matin / après-midi
     tr.classList.add(row.heure === '9h00' ? 'creno-matin' : 'creno-aprem');
 
-    // Générer les cellules
     COLUMNS.forEach(col => {
-      const td = document.createElement('td');
+      const td  = document.createElement('td');
       const val = row[col.key] || '';
 
+      td.dataset.col = col.key;   // ← sur TOUTES les cellules pour applyColVisibility()
+
       if (col.key === 'date') {
-        td.className = 'col-date';
+        td.className   = 'col-date';
         td.textContent = formatDate(val);
+
       } else if (col.key === 'heure') {
-        td.className = 'col-heure';
+        td.className   = 'col-heure';
         td.textContent = val;
+
       } else {
-        // Colonne médecin
         const isConflictCell = conflictingDoctors.includes(val.trim().toUpperCase());
         const isHighlighted  = highlightDoctor &&
           val.trim().toLowerCase().includes(highlightDoctor.toLowerCase());
@@ -1069,18 +1046,13 @@ function renderTable(rows, highlightDoctor) {
         if (isConflictCell) td.style.color = 'var(--red)';
         if (isHighlighted)  td.classList.add('doctor-highlight');
 
-        // Gestion des modifications en attente (non encore sauvegardées)
         const pending = pendingEdits[row.id]?.[col.key];
         td.textContent = pending !== undefined ? pending : val;
         if (pending !== undefined) td.style.borderColor = 'var(--amber)';
 
-        // Mode admin : double-clic pour éditer
         if (currentUser?.role === 'admin' && isEditMode) {
           td.addEventListener('dblclick', () => startEdit(td, row, col.key));
         }
-
-        td.dataset.rowId = row.id;
-        td.dataset.col   = col.key;
       }
 
       tr.appendChild(td);
@@ -1094,33 +1066,27 @@ function renderTable(rows, highlightDoctor) {
 
 
 /* ============================================================
-   ÉDITION EN MODE ADMIN
+   ÉDITION ADMIN
 ============================================================ */
 function toggleEditMode() {
   isEditMode = !isEditMode;
-  const btn = document.getElementById('btn-toggle-edit');
+  const btn    = document.getElementById('btn-toggle-edit');
   const savBtn = document.getElementById('btn-save-all');
 
   if (isEditMode) {
-    btn.textContent = '🔒 Lecture seule';
-    btn.className = 'btn-danger';
+    btn.textContent    = '🔒 Lecture seule';
+    btn.className      = 'btn-danger';
     savBtn.style.display = 'inline';
     toast('Mode édition activé — double-cliquez sur une cellule', 'warning');
   } else {
-    btn.textContent = '✏️ Modifier';
-    btn.className = 'btn-ghost';
+    btn.textContent    = '✏️ Modifier';
+    btn.className      = 'btn-ghost';
     savBtn.style.display = 'none';
     pendingEdits = {};
-    applyFilters(); // re-render sans les éditions locales
+    applyFilters();
   }
 }
 
-/**
- * Démarre l'édition inline d'une cellule.
- * @param {HTMLElement} td - la cellule cliquée
- * @param {object} row     - la ligne Supabase
- * @param {string} colKey  - nom de la colonne
- */
 function startEdit(td, row, colKey) {
   if (td.classList.contains('editing')) return;
   td.classList.add('editing');
@@ -1134,72 +1100,47 @@ function startEdit(td, row, colKey) {
   input.focus();
   input.select();
 
-  // Sauvegarder en local quand on quitte la cellule
   const commit = () => {
     const newVal = input.value.trim();
     td.classList.remove('editing');
     td.textContent = newVal;
 
     if (newVal !== oldVal) {
-      // Stocker la modification en attente
       if (!pendingEdits[row.id]) pendingEdits[row.id] = {};
       pendingEdits[row.id][colKey] = newVal;
       td.style.borderColor = 'var(--amber)';
     }
-
-    // Vérifier si cette modif crée un conflit
     checkConflictsAfterEdit(row, colKey, newVal);
   };
 
-  input.addEventListener('blur',   commit);
+  input.addEventListener('blur', commit);
   input.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
-    if (e.key === 'Escape') {
-      input.value = oldVal; // annuler
-      input.blur();
-    }
+    if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = oldVal; input.blur(); }
   });
 }
 
-/**
- * Vérifie si la nouvelle valeur crée un doublon sur la ligne.
- */
 function checkConflictsAfterEdit(row, editedCol, newVal) {
-  if (!newVal || newVal.length > 6) return; // pas des initiales
-
-  // Regrouper les valeurs actuelles + les modifications en attente
-  const vals = DOCTOR_COLS.map(col => {
-    if (col === editedCol) return newVal;
-    return (pendingEdits[row.id]?.[col] ?? row[col] ?? '').trim().toUpperCase();
-  });
-
+  if (!newVal || newVal.length > 6) return;
+  const vals  = DOCTOR_COLS.map(col =>
+    (col === editedCol ? newVal : (pendingEdits[row.id]?.[col] ?? row[col] ?? ''))
+      .trim().toUpperCase()
+  );
   const upper = newVal.trim().toUpperCase();
   const count = vals.filter(v => v === upper).length;
-  if (count > 1) {
-    toast(`⚠️ Conflit : ${newVal} apparaît ${count} fois sur cette ligne !`, 'warning');
-  }
+  if (count > 1) toast(`⚠️ Conflit : ${newVal} apparaît ${count} fois sur cette ligne !`, 'warning');
 }
 
-/**
- * Envoie toutes les modifications en attente vers Supabase.
- */
 async function saveAllPending() {
   const ids = Object.keys(pendingEdits);
   if (ids.length === 0) { toast('Aucune modification à sauvegarder.'); return; }
 
-  let ok = 0, err = 0;
-
+  let ok = 0;
   for (const id of ids) {
-    const { error } = await _supabase
-      .from('planning')
-      .update(pendingEdits[id])
-      .eq('id', id);
-
+    const { error } = await _supabase.from('planning').update(pendingEdits[id]).eq('id', id);
     if (error) {
-      err++;
-      toast(`Erreur sauvegarde ligne ${id} : ` + error.message, 'error');
+      toast(`Erreur ligne ${id} : ` + error.message, 'error');
     } else {
-      // Mettre à jour allData localement
       const row = allData.find(r => r.id === parseInt(id));
       if (row) Object.assign(row, pendingEdits[id]);
       ok++;
@@ -1214,65 +1155,66 @@ async function saveAllPending() {
 
 
 /* ============================================================
-   STATISTIQUES (compteur par médecin)
+   STATISTIQUES
+   Compte par groupe de colonnes, sur les lignes filtrées et
+   les colonnes actuellement visibles uniquement.
 ============================================================ */
 function buildStats() {
-  // Groupes à compter séparément
-  const groups = {
-    'UNV':   ['UNV1', 'UNV2'],
-    'USI':   ['USI1', 'USI2'],
-    'BIP':   ['BIPv', 'BIPng'],
-    'Garde': ['Garde'],
-    'BOX':   ['BOX1', 'BOX2'],
-    'Coord': ['C_Periph', 'C_Cogn', 'C_sup'],
-  };
+  /*
+    allCounts : { 'BL': { UNV: 2, Garde: 1 }, 'TG': { USI: 3 }, ... }
+    On ne compte que les colonnes dont le groupe est visible.
+  */
+  const allCounts = {};
 
-  // Pour chaque groupe, compter par médecin
-  const allCounts = {};  // { docteur: { UNV: 3, USI: 1, ... } }
-
-  Object.entries(groups).forEach(([groupName, cols]) => {
-    // Ne compter que les colonnes actuellement visibles
+  Object.entries(groupMap).forEach(([groupName, cols]) => {
     const activeCols = cols.filter(c => visibleCols[c]);
     currentFilteredRows.forEach(row => {
       activeCols.forEach(col => {
         const val = (row[col] || '').trim();
-        if (val && val.length <= 5 && /^[A-Za-z]+$/.test(val)) {
+        // On ne compte que les initiales courtes (pas "REUNION DE GARDE" etc.)
+        if (val && val.length <= 5 && /^[A-Za-zÀ-ÿ]+$/.test(val.replace(/\s/, ''))) {
           const key = val.toUpperCase();
           if (!allCounts[key]) allCounts[key] = {};
-          allCounts[key][groupName] = (allCounts[key][groupName] || 0) + 1;
+          allCounts[key][GROUP_LABELS[groupName] || groupName] =
+            (allCounts[key][GROUP_LABELS[groupName] || groupName] || 0) + 1;
         }
       });
     });
   });
 
-  // Affichage : une ligne par médecin, avec les compteurs par groupe
   const list = document.getElementById('stats-list');
   list.innerHTML = '';
 
+  /* Tri par total décroissant */
   Object.entries(allCounts)
     .sort((a, b) => {
-      const totalA = Object.values(a[1]).reduce((s, v) => s + v, 0);
-      const totalB = Object.values(b[1]).reduce((s, v) => s + v, 0);
-      return totalB - totalA;
+      const tA = Object.values(a[1]).reduce((s, v) => s + v, 0);
+      const tB = Object.values(b[1]).reduce((s, v) => s + v, 0);
+      return tB - tA;
     })
     .forEach(([doc, groupCounts]) => {
-      const div = document.createElement('div');
+      const div   = document.createElement('div');
       div.className = 'stat-row';
+      if (doctorFilter === doc) div.classList.add('active-filter');
+
       const total = Object.values(groupCounts).reduce((s, v) => s + v, 0);
 
-      // Mini badges colorés par groupe
-      const badges = Object.entries(groupCounts).map(([g, n]) =>
-        `<span style="font-size:9px;background:var(--navy-light);border-radius:3px;padding:1px 4px">${g}:${n}</span>`
-      ).join(' ');
+      /* Badges colorés par groupe */
+      const badgesHtml = Object.entries(groupCounts).map(([g, n]) => {
+        // Retrouver la couleur du groupe depuis son label
+        const groupKey = Object.entries(GROUP_LABELS).find(([, lbl]) => lbl === g)?.[0];
+        const color    = GROUP_COLORS[groupKey] || 'var(--gray)';
+        return `<span class="stat-badge" style="color:${color}">${g}:${n}</span>`;
+      }).join('');
 
       div.innerHTML = `
         <span class="stat-name">${doc}</span>
-        <div style="flex:1;display:flex;gap:3px;flex-wrap:wrap;padding:0 6px">${badges}</div>
-        <span class="stat-count">${total}</span>
+        <div class="stat-badges">${badgesHtml}</div>
+        <span class="stat-total">${total}</span>
       `;
 
       div.addEventListener('click', () => {
-        doctorFilter = doctorFilter === doc ? null : doc;
+        doctorFilter = (doctorFilter === doc) ? null : doc;
         applyFilters();
       });
 
@@ -1284,14 +1226,10 @@ function buildStats() {
 /* ============================================================
    HELPERS
 ============================================================ */
-
-/**
- * Formate une date ISO YYYY-MM-DD → "lun. 04/02"
- */
 function formatDate(dateStr) {
   if (!dateStr) return '';
   try {
-    const d = new Date(dateStr + 'T00:00:00');
+    const d     = new Date(dateStr + 'T00:00:00');
     const jours = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
     return `${jours[d.getDay()]} ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
   } catch { return dateStr; }
@@ -1302,24 +1240,16 @@ function showLoading(visible) {
 }
 
 function setStatus(state) {
-  const dot = document.getElementById('status-dot');
-  dot.className = state; // 'connected' | 'error' | ''
+  document.getElementById('status-dot').className = state;
 }
 
-/**
- * Affiche un toast pendant 3 secondes.
- * @param {string} msg  - message
- * @param {string} type - 'info' | 'error' | 'warning'
- */
 function toast(msg, type = 'info') {
-  const container = document.getElementById('toast-container');
   const el = document.createElement('div');
-  el.className = 'toast' + (type !== 'info' ? ` ${type}` : '');
+  el.className   = 'toast' + (type !== 'info' ? ` ${type}` : '');
   el.textContent = msg;
-  container.appendChild(el);
+  document.getElementById('toast-container').appendChild(el);
   setTimeout(() => el.remove(), 3500);
 }
 </script>
-
 </body>
 </html>
