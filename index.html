@@ -534,6 +534,15 @@ function applyColVisibility() {
       cell.style.display = show;
     });
   });
+  Object.keys(groupMap).forEach(group => {
+    // On vérifie si au moins une colonne du groupe est encore visible
+    const isGroupVisible = groupMap[group].some(key => visibleCols[key]);
+    const groupHeader = document.querySelector(`.col-group[data-group="${group}"]`);
+    
+    if (groupHeader) {
+      groupHeader.style.display = isGroupVisible ? '' : 'none';
+    }
+  });
   buildStats();
 }
 
@@ -650,13 +659,23 @@ function buildTableHeader() {
   thList.push({ group: prevGroup, span });
 
   const gLbl = { meta:'', coord:'Coordination', unv:'UNV', usi:'USI', bip:'BIP', garde:'Gardes', box:'BOX' };
+
   thList.forEach(({ group, span }) => {
     const th = document.createElement('th');
-    th.colSpan = span; th.className = 'col-group'; th.textContent = gLbl[group] || group;
-    if (GROUP_COLORS[group]) th.style.color = GROUP_COLORS[group];
+    th.colSpan = span;
+    th.className = 'col-group';
+    th.dataset.group = group; // Ajout important pour le masquage dynamique
+    th.textContent = gLbl[group] || group;
+    
+    if (GROUP_COLORS[group]) {
+      // Applique la couleur en fond et met le texte en noir ou blanc pour la lisibilité
+      th.style.background = GROUP_COLORS[group];
+      th.style.color = '#0d1b2a'; // Couleur navy pour trancher sur le pastel
+      th.style.borderBottom = '1px solid var(--border)';
+    }
     groupRow.appendChild(th);
   });
-
+  
   // Ligne 2 : noms de colonnes avec data-col
   const colRow = document.createElement('tr');
   COLUMNS.forEach(col => {
