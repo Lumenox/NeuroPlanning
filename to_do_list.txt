@@ -1,0 +1,12 @@
+to do list:
+-create "repos de garde" qui doit être dépendant de "garde" = le médecin noté en garde à une date et créneau donné apparait automatiquement en repos de garde le lendemain au même créneau. cette colonne n'est pas modifiable et peut etre affichée de façon plus terne (seule la colonne garde l'est)
+-un conflit doit apparaitre si un médecin est positionné sur une des colonnes en même temps que le repos de garde (pas sur la colonne garde)
+-affichage du groupe: même couleur du groupe et de ses colonnes, enlever le "groupe de colonne" avec les colonnes (pour que l'alignement reste identique)
+
+-système de gestion du conflit :  l'admin peut assumer le conflit et plutôt qu'un signal "rouge" et affichage du "conflit", la ligne est classée "jaune" et affichage "conflit accepté"
+
+D'autres onglets: filtre date et médecin aussi utilisable
+-onglet vacances/autres activités/enseignement/recherche qui intéragit aussi en terme de conflit
+-onglet "semainier" où pour chaque médecin (à afficher en fonction du filtre choisi), toutes les activités prévues sont résumées en 4 colonnes: bip (NG ou V ou NG,V ), garde, clinique (unv, usinv, box...), vacances/formation/enseignement. 
+
+-mode "jour"
