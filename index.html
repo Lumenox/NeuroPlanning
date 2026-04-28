@@ -386,11 +386,11 @@ const _supabase    = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
    L'ordre ici n'a pas d'importance : le dropdown les trie
    dynamiquement par nombre d'apparitions dans la colonne.
 ============================================================ */
-const DOCTORS = [
+/*const DOCTORS = [
   'AC', 'VPB', 'KY', 'LCL', 'AG', 'HL', 'AP', 'VP',
   'MB', 'AnD', 'FF', 'AD', 'NB', 'EE', 'AyW', 'TG',
   'VT', 'MZ', 'HS', 'SC', 'RN', 'VT/EB', 'AT', 'BL', 'AZ',
-];
+];*/
 
 /* ============================================================
    UTILISATEURS (prototype)
@@ -448,7 +448,7 @@ let isEditMode          = false;
 let realtimeSub         = null;
 let doctorFilter        = null;
 let activeInput         = null;   // input en cours d'édition (pour fermer le dropdown proprement)
-
+let listeMedecins       = [];
 /* ============================================================
    AUTH
 ============================================================ */
@@ -488,11 +488,13 @@ function logout() {
    INIT
 ============================================================ */
 async function init() {
+  await loadEquipe();
   buildTableHeader();
   buildColToggles();
   await loadData();
   subscribeRealtime();
 }
+
 
 /* ============================================================
    TOGGLES PAR GROUPE
@@ -545,6 +547,18 @@ function toggleStatsPanel() {
 /* ============================================================
    CHARGEMENT
 ============================================================ */
+async function loadEquipe() {
+  const { data, error } = await _supabase
+    .from('neurologues')
+    .select('*')
+    .order('initiales', { ascending: true });
+  
+  if (!error) {
+    listeMedecins = data;
+  }
+}
+  
+  
 async function loadData() {
   showLoading(true);
   const { data, error } = await _supabase
@@ -777,7 +791,7 @@ function toggleEditMode() {
 function getDoctorsSortedByColCount(colKey) {
   // Compter les apparitions dans la colonne sur les lignes filtrées
   const counts = {};
-  DOCTORS.forEach(d => { counts[d.toUpperCase()] = 0; });
+  listeMedecins.forEach(d => { counts[d.toUpperCase()] = 0; });
 
   currentFilteredRows.forEach(row => {
     const val = (row[colKey] || '').trim().toUpperCase();
@@ -785,7 +799,7 @@ function getDoctorsSortedByColCount(colKey) {
   });
 
   // Tri croissant : le moins utilisé en premier
-  return DOCTORS.slice().sort((a, b) => counts[a.toUpperCase()] - counts[b.toUpperCase()]);
+  return listeMedecins.slice().sort((a, b) => counts[a.toUpperCase()] - counts[b.toUpperCase()]);
 }
 
 /* Ferme le dropdown et détache les listeners globaux */
