@@ -800,7 +800,7 @@ function getDoctorsSortedByColCount(colKey) {
 
   // trier par fréquence croissante
   return listeMedecins
-    .map(d => d.initiales) // 👈 important !
+    .map(d => d.initiales)
     .sort((a, b) => counts[a.toUpperCase()] - counts[b.toUpperCase()]);
 }
 
@@ -837,37 +837,49 @@ function startEdit(td, row, colKey) {
 
   // Compter pour afficher le badge à droite
   const counts = {};
-  currentFilteredRows.forEach(row => {
-    const v = (row[colKey] || '').trim().toUpperCase();
-    counts[v] = (counts[v] || 0) + 1;
+
+  // initialiser tous les médecins à 0
+  listeMedecins.forEach(d => {
+    const key = d.initiales.toUpperCase();
+    counts[key] = 0;
   });
 
-  sorted.forEach((doc, idx) => {
+  // compter les occurrences dans la colonne
+  currentFilteredRows.forEach(row => {
+    const v = (row[colKey] || '').trim().toUpperCase();
+    if (counts[v] !== undefined) {
+      counts[v]++;
+    }
+  });
+  
+  // construire le dropdown
+  sorted.forEach(doc => {
     const item = document.createElement('div');
-    item.className    = 'dd-item';
-    item.dataset.doc  = doc;
-    item.tabIndex     = -1;
-
-    const name  = document.createElement('span');
+    item.className   = 'dd-item';
+    item.dataset.doc = doc;
+    item.tabIndex    = -1;
+  
+    const name = document.createElement('span');
     name.textContent = doc;
-
+  
     const badge = document.createElement('span');
-    badge.className   = 'dd-count';
-    badge.textContent = (counts[doc.toUpperCase()] || 0) + 'x';
-
+    badge.className = 'dd-count';
+  
+    const key = doc.toUpperCase();
+    badge.textContent = (counts[key] || 0) + 'x';
+  
     item.appendChild(name);
     item.appendChild(badge);
-
-    // Clic sur un item → commit avec cette valeur
+  
+    // clic → sélection
     item.addEventListener('mousedown', e => {
-      e.preventDefault();          // évite le blur de l'input
+      e.preventDefault();
       input.value = doc;
       commitEdit(td, input, row, colKey, oldVal);
     });
-
+  
     dd.appendChild(item);
   });
-
   // Positionner le dropdown sous la cellule
   const rect = td.getBoundingClientRect();
   dd.style.left    = rect.left + 'px';
