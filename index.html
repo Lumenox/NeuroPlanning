@@ -791,15 +791,17 @@ function toggleEditMode() {
 function getDoctorsSortedByColCount(colKey) {
   // Compter les apparitions dans la colonne sur les lignes filtrées
   const counts = {};
-  listeMedecins.forEach(d => { counts[d.toUpperCase()] = 0; });
+  listeMedecins.forEach(d => { counts[d.intiales.toUpperCase()] = 0; });
 
   currentFilteredRows.forEach(row => {
     const val = (row[colKey] || '').trim().toUpperCase();
     if (counts[val] !== undefined) counts[val]++;
   });
 
-  // Tri croissant : le moins utilisé en premier
-  return listeMedecins.slice().sort((a, b) => counts[a.toUpperCase()] - counts[b.toUpperCase()]);
+  // trier par fréquence croissante
+  return listeMedecins
+    .map(d => d.initiales) // 👈 important !
+    .sort((a, b) => counts[a.toUpperCase()] - counts[b.toUpperCase()]);
 }
 
 /* Ferme le dropdown et détache les listeners globaux */
