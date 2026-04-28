@@ -147,6 +147,7 @@
 
     /* ---- STATS PANEL ---- */
     #stats-panel {
+      position: relative;
       width: 230px; background: var(--navy-mid); border-left: 1px solid var(--border);
       display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden;
       transition: width .25s ease;
@@ -161,7 +162,7 @@
     }
     #stats-panel.collapsed .panel-title span { visibility: hidden; }
     #stats-toggle-btn {
-      background: none; border: none; color: var(--teal);
+      position: absolute;  left: -10px;  top: 10px; background: none; border: none; color: var(--teal);
       cursor: pointer; font-size: 18px; padding: 0; line-height: 1; flex-shrink: 0;
       z-index: 10; width: 20px;
     }
