@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Planning Neurologie</title>
+
+  <!-- Supabase JS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* =============================================
+       VARIABLES & RESET
+    ============================================= */
+    :root {
+      --navy:       #0d1b2a;
+      --navy-mid:   #1a2d42;
+      --navy-light: #243d55;
+      --teal:       #2dd4bf;
+      --teal-dim:   #14b8a620;
+      --red:        #f87171;
+      --red-dim:    #f8717120;
+      --amber:      #fbbf24;
+      --amber-dim:  #fbbf2420;
+      --white:      #f0f4f8;
+      --gray:       #8fa3b5;
+      --border:     #1e3148;
+      --cell-h:     36px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Sora', sans-serif;
+      background: var(--navy);
+      color: var(--white);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* =============================================
+       TOPBAR
+    ============================================= */
+    #topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      height: 56px;
+      background: var(--navy-mid);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      gap: 16px;
+    }
+
+    #topbar .brand {
+      font-family: 'DM Mono', monospace;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--teal);
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+    }
+
+    #topbar .controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    #status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--gray);
+      transition: background 0.3s;
+    }
+    #status-dot.connected { background: var(--teal); box-shadow: 0 0 6px var(--teal); }
+    #status-dot.error     { background: var(--red); }
+
+    #realtime-badge {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      color: var(--teal);
+      background: var(--teal-dim);
+      border: 1px solid var(--teal);
+      border-radius: 4px;
+      padding: 2px 6px;
+      display: none;
+    }
+    #realtime-badge.active { display: inline; }
+
+    /* =============================================
+       AUTH OVERLAY
+    ============================================= */
+    #auth-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(13, 27, 42, 0.96);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .auth-box {
+      background: var(--navy-mid);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 40px;
+      width: 340px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .auth-box h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--teal);
+      font-family: 'DM Mono', monospace;
+    }
+
+    .auth-box p {
+      font-size: 12px;
+      color: var(--gray);
+      line-height: 1.6;
+    }
+
+    .auth-box .hint {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--amber);
+      background: var(--amber-dim);
+      border-radius: 6px;
+      padding: 8px 12px;
+    }
+
+    /* =============================================
+       INPUTS & BUTTONS
+    ============================================= */
+    input[type="text"], input[type="password"], select {
+      background: var(--navy);
+      border: 1px solid var(--border);
+      color: var(--white);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus { border-color: var(--teal); }
+
+    button {
+      font-family: 'Sora', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    button:hover { opacity: 0.85; }
+    button:active { transform: scale(0.97); }
+
+    .btn-primary { background: var(--teal); color: var(--navy); }
+    .btn-ghost   { background: transparent; color: var(--gray); border: 1px solid var(--border); }
+    .btn-danger  { background: var(--red); color: var(--navy); }
+    .btn-save    { background: var(--amber); color: var(--navy); }
+
+    /* =============================================
+       TOOLBAR (filters + actions)
+    ============================================= */
+    #toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 24px;
+      background: var(--navy-mid);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    #toolbar label {
+      font-size: 11px;
+      color: var(--gray);
+      white-space: nowrap;
+    }
+
+    #toolbar input[type="date"] {
+      background: var(--navy);
+      border: 1px solid var(--border);
+      color: var(--white);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+    }
+
+    #search-doctor {
+      flex: 1;
+      min-width: 120px;
+      max-width: 200px;
+    }
+
+    #filter-heure {
+      width: 100px;
+    }
+
+    .sep {
+      width: 1px;
+      height: 24px;
+      background: var(--border);
+    }
+
+    /* Admin mode indicator */
+    #admin-badge {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--amber);
+      background: var(--amber-dim);
+      border: 1px solid var(--amber);
+      border-radius: 4px;
+      padding: 3px 8px;
+      display: none;
+    }
+    .is-admin #admin-badge { display: inline; }
+
+    /* =============================================
+       MAIN LAYOUT
+    ============================================= */
+    #main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* =============================================
+       STATS PANEL (right sidebar)
+    ============================================= */
+    #stats-panel {
+      width: 220px;
+      background: var(--navy-mid);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    #stats-panel .panel-title {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      color: var(--gray);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #stats-list {
+      overflow-y: auto;
+      flex: 1;
+      padding: 8px 0;
+    }
+
+    .stat-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 16px;
+      transition: background 0.15s;
+      cursor: pointer;
+    }
+    .stat-row:hover { background: var(--navy-light); }
+    .stat-row.active-filter { background: var(--teal-dim); }
+
+    .stat-name {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--white);
+    }
+
+    .stat-bar-wrap {
+      flex: 1;
+      margin: 0 8px;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+    }
+    .stat-bar {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--teal);
+      transition: width 0.4s ease;
+    }
+
+    .stat-count {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--teal);
+      min-width: 24px;
+      text-align: right;
+    }
+
+    #conflict-summary {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--gray);
+    }
+    #conflict-summary .conf-count {
+      color: var(--red);
+      font-weight: 600;
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* =============================================
+       TABLE AREA
+    ============================================= */
+    #table-wrap {
+      flex: 1;
+      overflow: auto;
+      position: relative;
+    }
+
+    table {
+      border-collapse: collapse;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      min-width: 100%;
+    }
+
+    /* Sticky header */
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--navy-light);
+      padding: 10px 8px;
+      text-align: left;
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--gray);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    /* Column group headers */
+    .col-group {
+      background: var(--navy) !important;
+      font-size: 9px !important;
+      color: var(--teal) !important;
+      border-bottom: 1px solid var(--border) !important;
+      text-align: center !important;
+    }
+
+    /* Body rows */
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+    tbody tr:hover { background: var(--navy-light); }
+
+    /* Alternating groups: morning vs afternoon */
+    tr.creno-matin    { background: rgba(255,255,255,0.01); }
+    tr.creno-aprem    { background: rgba(0,0,0,0.15); }
+    tr.creno-aprem:hover { background: var(--navy-light); }
+
+    /* Conflict row */
+    tr.conflict {
+      background: var(--red-dim) !important;
+      border-left: 3px solid var(--red);
+    }
+
+    /* Highlighted doctor filter */
+    td.doctor-highlight { background: var(--teal-dim); color: var(--teal) !important; font-weight: 500; }
+
+    td {
+      padding: 6px 8px;
+      height: var(--cell-h);
+      white-space: nowrap;
+      color: var(--white);
+      min-width: 50px;
+      max-width: 90px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Date and time cells */
+    td.col-date {
+      color: var(--gray);
+      font-size: 10px;
+      position: sticky;
+      left: 0;
+      background: var(--navy-mid);
+      z-index: 2;
+      min-width: 90px;
+      border-right: 1px solid var(--border);
+    }
+    tr:hover td.col-date { background: var(--navy-light); }
+
+    td.col-heure {
+      color: var(--teal);
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    /* Editable cells in admin mode */
+    .is-admin td.editable {
+      cursor: pointer;
+      border: 1px solid transparent;
+      border-radius: 3px;
+      transition: border-color 0.15s;
+    }
+    .is-admin td.editable:hover { border-color: var(--amber); background: var(--amber-dim); }
+
+    /* Inline edit input inside cell */
+    td.editing { padding: 2px !important; }
+    td.editing input {
+      width: 100%;
+      height: 100%;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      background: var(--navy);
+      color: var(--white);
+      border: 1px solid var(--amber);
+      border-radius: 3px;
+      padding: 0 4px;
+      outline: none;
+    }
+
+    /* Vacation columns */
+    td.col-vacation { color: var(--amber); }
+
+    /* =============================================
+       LOADING / EMPTY STATES
+    ============================================= */
+    #loading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      background: var(--navy);
+      z-index: 5;
+    }
+
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--teal);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #loading p { font-size: 12px; color: var(--gray); }
+
+    #empty-state {
+      padding: 60px;
+      text-align: center;
+      color: var(--gray);
+      font-size: 13px;
+      display: none;
+    }
+
+    /* =============================================
+       TOAST NOTIFICATIONS
+    ============================================= */
+    #toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 200;
+    }
+
+    .toast {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      border-left: 3px solid var(--teal);
+      background: var(--navy-mid);
+      color: var(--white);
+      animation: slideIn 0.3s ease;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    .toast.error { border-color: var(--red); }
+    .toast.warning { border-color: var(--amber); }
+    @keyframes slideIn {
+      from { transform: translateX(40px); opacity: 0; }
+      to   { transform: translateX(0);   opacity: 1; }
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- ======================================================
+     AUTH OVERLAY
+     Visible au démarrage. Disparaît après connexion.
+====================================================== -->
+<div id="auth-overlay">
+  <div class="auth-box">
+    <h2>Neurologie · Planning</h2>
+    <p>Entrez vos identifiants pour accéder au planning.</p>
+
+    <div class="hint">
+      👨‍⚕️ Admin → login: <strong>admin</strong> / mdp: <strong>neuro2026</strong><br>
+      👁️ Viewer → login: <strong>rn</strong> / mdp: <strong>123</strong>
+    </div>
+
+    <input type="text"     id="auth-login" placeholder="Login" autocomplete="off" />
+    <input type="password" id="auth-pass"  placeholder="Mot de passe" />
+
+    <div id="auth-error" style="color:var(--red);font-size:11px;display:none;">
+      Identifiants incorrects.
+    </div>
+
+    <button class="btn-primary" onclick="doLogin()">Connexion</button>
+  </div>
+</div>
+
+
+<!-- ======================================================
+     TOPBAR
+====================================================== -->
+<div id="topbar">
+  <span class="brand">🧠 Planning Neurologie</span>
+
+  <div class="controls">
+    <div id="status-dot" title="Connexion Supabase"></div>
+    <span id="realtime-badge">● LIVE</span>
+    <span id="admin-badge">ADMIN</span>
+
+    <div class="sep"></div>
+
+    <!-- Bouton toggle admin mode (visible seulement pour les admins) -->
+    <button id="btn-toggle-edit" class="btn-ghost" style="display:none" onclick="toggleEditMode()">✏️ Modifier</button>
+    <button id="btn-save-all"    class="btn-save"  style="display:none" onclick="saveAllPending()">💾 Sauvegarder</button>
+
+    <div class="sep"></div>
+
+    <button class="btn-ghost" onclick="loadData()" title="Rafraîchir">↺</button>
+    <button class="btn-ghost" style="font-size:11px" onclick="logout()">Déconnexion</button>
+  </div>
+</div>
+
+
+<!-- ======================================================
+     TOOLBAR (filtres)
+====================================================== -->
+<div id="toolbar">
+  <label>Du</label>
+  <input type="date" id="filter-date-from" onchange="applyFilters()" />
+
+  <label>Au</label>
+  <input type="date" id="filter-date-to"   onchange="applyFilters()" />
+
+  <label>Créneau</label>
+  <select id="filter-heure" onchange="applyFilters()">
+    <option value="">Tous</option>
+    <option value="9h00">9h00 (matin)</option>
+    <option value="13h30">13h30 (après-midi)</option>
+  </select>
+
+  <input type="text" id="search-doctor" placeholder="🔍 Chercher un médecin…"
+         oninput="applyFilters()" />
+
+  <div class="sep"></div>
+
+  <button class="btn-ghost" onclick="clearFilters()" style="font-size:11px">✕ Réinitialiser</button>
+</div>
+
+
+<!-- ======================================================
+     MAIN CONTENT
+====================================================== -->
+<div id="main">
+
+  <!-- ---- TABLE ---- -->
+  <div id="table-wrap">
+    <div id="loading">
+      <div class="spinner"></div>
+      <p>Connexion à Supabase…</p>
+    </div>
+
+    <div id="empty-state">Aucune ligne ne correspond aux filtres.</div>
+
+    <table id="planning-table">
+      <thead id="table-head"></thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+
+  <!-- ---- STATS PANEL ---- -->
+  <div id="stats-panel">
+    <div class="panel-title">Compteur gardes</div>
+    <div id="stats-list"></div>
+
+    <div id="conflict-summary">
+      Conflits détectés : <span class="conf-count" id="conflict-count">0</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- ======================================================
+     TOASTS
+====================================================== -->
+<div id="toast-container"></div>
+
+
+<script>
+/* ============================================================
+   CONFIGURATION SUPABASE
+   ⚠️  Remplacez par vos vraies clés
+============================================================ */
+const SUPABASE_URL  = 'https://yseaujinbdwxpcelsywr.supabase.co';
+const SUPABASE_KEY  = 'sb_publishable_7uC727-tO92zxGsAwCqBnA_E9oX_Xw8';
+
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+
+/* ============================================================
+   UTILISATEURS (en dur pour ce prototype)
+   À remplacer par une vraie table Supabase "users" plus tard
+============================================================ */
+const USERS = {
+  admin: { pass: 'neuro2026', role: 'admin' },
+  rn:    { pass: '123',       role: 'viewer' },
+};
+
+
+/* ============================================================
+   DÉFINITION DES COLONNES
+   Adapter si la table Supabase évolue (plus de BOX, etc.)
+============================================================ */
+const COLUMNS = [
+  // { key: clé Supabase, label: affiché, group: groupe couleur, vacation: si colonne vacances }
+  { key: 'date',     label: 'Date',    group: 'meta',    sticky: true  },
+  { key: 'heure',    label: 'Heure',   group: 'meta'                   },
+  { key: 'C_Periph', label: 'C.Périph', group: 'coord'                 },
+  { key: 'C_Cogn',   label: 'C.Cogn',  group: 'coord'                 },
+  { key: 'C_sup',    label: 'C.Sup',   group: 'coord'                 },
+  { key: 'UNV1',     label: 'UNV 1',   group: 'unv'                   },
+  { key: 'UNV2',     label: 'UNV 2',   group: 'unv'                   },
+  { key: 'USI1',     label: 'USI 1',   group: 'usi'                   },
+  { key: 'USI2',     label: 'USI 2',   group: 'usi'                   },
+  { key: 'BIPv',     label: 'BIP v',   group: 'bip'                   },
+  { key: 'BIPng',    label: 'BIP ng',  group: 'bip'                   },
+  { key: 'Garde',    label: 'Garde',   group: 'garde'                  },
+  { key: 'BOX1',     label: 'BOX 1',   group: 'box'                   },
+  { key: 'BOX2',     label: 'BOX 2',   group: 'box'                   },
+];
+
+// Colonnes qui sont des postes médicaux (pour la détection de conflits et les stats)
+// = tout sauf date, heure
+const DOCTOR_COLS = COLUMNS.filter(c => c.group !== 'meta').map(c => c.key);
+
+// Couleurs par groupe
+const GROUP_COLORS = {
+  coord: '#60a5fa',   // bleu
+  unv:   '#34d399',   // vert
+  usi:   '#f472b6',   // rose
+  bip:   '#a78bfa',   // violet
+  garde: '#fbbf24',   // amber
+  box:   '#94a3b8',   // gris
+};
+
+
+/* ============================================================
+   STATE GLOBAL
+============================================================ */
+let currentUser  = null;   // { login, role }
+let allData      = [];     // toutes les lignes chargées
+let pendingEdits = {};     // { rowId: { col: value } }
+let isEditMode   = false;
+let realtimeSub  = null;   // abonnement Supabase Realtime
+let doctorFilter = null;   // filtre actif depuis le panneau stats
+
+
+/* ============================================================
+   AUTHENTIFICATION
+============================================================ */
+function doLogin() {
+  const login = document.getElementById('auth-login').value.trim().toLowerCase();
+  const pass  = document.getElementById('auth-pass').value;
+  const user  = USERS[login];
+
+  if (!user || user.pass !== pass) {
+    document.getElementById('auth-error').style.display = 'block';
+    return;
+  }
+
+  currentUser = { login, role: user.role };
+  document.getElementById('auth-overlay').style.display = 'none';
+  document.getElementById('auth-error').style.display = 'none';
+
+  // Afficher le bouton admin si nécessaire
+  if (user.role === 'admin') {
+    document.getElementById('btn-toggle-edit').style.display = 'inline';
+    document.body.classList.add('is-admin');
+  }
+
+  init();
+}
+
+// Appuyer "Entrée" sur le champ mdp → connexion
+document.getElementById('auth-pass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+function logout() {
+  if (realtimeSub) _supabase.removeChannel(realtimeSub);
+  currentUser = null;
+  isEditMode  = false;
+  pendingEdits = {};
+  allData = [];
+  document.body.classList.remove('is-admin');
+  document.getElementById('auth-overlay').style.display = 'flex';
+  document.getElementById('auth-login').value = '';
+  document.getElementById('auth-pass').value  = '';
+  document.getElementById('status-dot').className = '';
+  document.getElementById('realtime-badge').classList.remove('active');
+}
+
+
+/* ============================================================
+   INITIALISATION
+============================================================ */
+async function init() {
+  buildTableHeader();
+  await loadData();
+  subscribeRealtime();
+}
+
+
+/* ============================================================
+   CHARGEMENT DES DONNÉES
+============================================================ */
+async function loadData() {
+  showLoading(true);
+
+  // Récupère toutes les lignes, triées par date puis heure
+  const { data, error } = await _supabase
+    .from('planning')
+    .select('*')
+    .order('date', { ascending: true })
+    .order('heure', { ascending: true });
+
+  if (error) {
+    showLoading(false);
+    setStatus('error');
+    toast('Erreur : ' + error.message, 'error');
+    return;
+  }
+
+  allData = data || [];
+  setStatus('connected');
+  showLoading(false);
+  applyFilters();
+  buildStats();
+}
+
+
+/* ============================================================
+   SUPABASE REALTIME
+   Toute modification dans la table → rechargement auto
+============================================================ */
+function subscribeRealtime() {
+  realtimeSub = _supabase
+    .channel('planning-live')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'planning' },
+      (payload) => {
+        // Mise à jour locale selon le type d'événement
+        if (payload.eventType === 'UPDATE') {
+          const idx = allData.findIndex(r => r.id === payload.new.id);
+          if (idx >= 0) allData[idx] = payload.new;
+          else allData.push(payload.new);
+        } else if (payload.eventType === 'INSERT') {
+          allData.push(payload.new);
+          allData.sort((a, b) => a.date.localeCompare(b.date) || a.heure.localeCompare(b.heure));
+        } else if (payload.eventType === 'DELETE') {
+          allData = allData.filter(r => r.id !== payload.old.id);
+        }
+        applyFilters();
+        buildStats();
+        toast('Planning mis à jour en temps réel', 'info');
+      }
+    )
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        document.getElementById('realtime-badge').classList.add('active');
+      }
+    });
+}
+
+
+/* ============================================================
+   FILTRES
+============================================================ */
+function applyFilters() {
+  const dateFrom  = document.getElementById('filter-date-from').value;
+  const dateTo    = document.getElementById('filter-date-to').value;
+  const heure     = document.getElementById('filter-heure').value;
+  const docSearch = document.getElementById('search-doctor').value.trim().toLowerCase();
+
+  let rows = allData.filter(row => {
+    // Filtre date
+    if (dateFrom && row.date < dateFrom) return false;
+    if (dateTo   && row.date > dateTo)   return false;
+
+    // Filtre créneau
+    if (heure && row.heure !== heure) return false;
+
+    // Filtre médecin (cherche dans toutes les colonnes de postes)
+    if (docSearch) {
+      const found = DOCTOR_COLS.some(col =>
+        (row[col] || '').toLowerCase().includes(docSearch)
+      );
+      if (!found) return false;
+    }
+
+    // Filtre depuis le panneau stats (clic sur un médecin)
+    if (doctorFilter) {
+      const found = DOCTOR_COLS.some(col =>
+        (row[col] || '').trim().toUpperCase() === doctorFilter.toUpperCase()
+      );
+      if (!found) return false;
+    }
+
+    return true;
+  });
+
+  renderTable(rows, docSearch || doctorFilter);
+}
+
+function clearFilters() {
+  document.getElementById('filter-date-from').value = '';
+  document.getElementById('filter-date-to').value   = '';
+  document.getElementById('filter-heure').value     = '';
+  document.getElementById('search-doctor').value    = '';
+  doctorFilter = null;
+  // Retirer le highlight dans le panneau stats
+  document.querySelectorAll('.stat-row').forEach(r => r.classList.remove('active-filter'));
+  applyFilters();
+}
+
+
+/* ============================================================
+   RENDU DU TABLEAU
+============================================================ */
+function buildTableHeader() {
+  const thead = document.getElementById('table-head');
+  thead.innerHTML = '';
+
+  // Ligne 1 : groupes de colonnes
+  const groupRow = document.createElement('tr');
+  const groups = {};
+  COLUMNS.forEach(col => {
+    if (!groups[col.group]) groups[col.group] = 0;
+    groups[col.group]++;
+  });
+
+  let prevGroup = null;
+  let span = 0;
+  const thList = [];
+
+  COLUMNS.forEach((col, i) => {
+    if (col.group !== prevGroup) {
+      if (prevGroup !== null) thList.push({ group: prevGroup, span });
+      prevGroup = col.group;
+      span = 1;
+    } else {
+      span++;
+    }
+  });
+  thList.push({ group: prevGroup, span });
+
+  const groupLabels = { meta: '', coord: 'Coordination', unv: 'UNV', usi: 'USI', bip: 'BIP', garde: 'Gardes', box: 'BOX' };
+  thList.forEach(({ group, span }) => {
+    const th = document.createElement('th');
+    th.colSpan = span;
+    th.className = 'col-group';
+    th.textContent = groupLabels[group] || group;
+    if (GROUP_COLORS[group]) th.style.color = GROUP_COLORS[group];
+    groupRow.appendChild(th);
+  });
+
+  // Ligne 2 : noms de colonnes
+  const colRow = document.createElement('tr');
+  COLUMNS.forEach(col => {
+    const th = document.createElement('th');
+    th.textContent = col.label;
+    if (GROUP_COLORS[col.group]) th.style.color = GROUP_COLORS[col.group];
+    colRow.appendChild(th);
+  });
+
+  thead.appendChild(groupRow);
+  thead.appendChild(colRow);
+}
+
+function renderTable(rows, highlightDoctor) {
+  const tbody   = document.getElementById('table-body');
+  const empty   = document.getElementById('empty-state');
+  tbody.innerHTML = '';
+
+  if (rows.length === 0) {
+    empty.style.display = 'block';
+    document.getElementById('conflict-count').textContent = '0';
+    return;
+  }
+  empty.style.display = 'none';
+
+  let conflictCount = 0;
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+
+    // Détecter les conflits : un même médecin dans 2+ colonnes sur la même ligne
+    const doctorPositions = {};
+    DOCTOR_COLS.forEach(col => {
+      const val = (row[col] || '').trim().toUpperCase();
+      if (val && val.length > 0 && val.length <= 6) { // initiales courtes seulement
+        if (!doctorPositions[val]) doctorPositions[val] = [];
+        doctorPositions[val].push(col);
+      }
+    });
+
+    const conflictingDoctors = Object.entries(doctorPositions)
+      .filter(([, cols]) => cols.length > 1)
+      .map(([doc]) => doc);
+
+    const hasConflict = conflictingDoctors.length > 0;
+    if (hasConflict) {
+      tr.classList.add('conflict');
+      conflictCount++;
+      tr.title = '⚠️ Conflit : ' + conflictingDoctors.join(', ') + ' présent(s) sur plusieurs postes';
+    }
+
+    // Créneau matin / après-midi
+    tr.classList.add(row.heure === '9h00' ? 'creno-matin' : 'creno-aprem');
+
+    // Générer les cellules
+    COLUMNS.forEach(col => {
+      const td = document.createElement('td');
+      const val = row[col.key] || '';
+
+      if (col.key === 'date') {
+        td.className = 'col-date';
+        td.textContent = formatDate(val);
+      } else if (col.key === 'heure') {
+        td.className = 'col-heure';
+        td.textContent = val;
+      } else {
+        // Colonne médecin
+        const isConflictCell = conflictingDoctors.includes(val.trim().toUpperCase());
+        const isHighlighted  = highlightDoctor &&
+          val.trim().toLowerCase().includes(highlightDoctor.toLowerCase());
+
+        td.className = 'editable';
+        if (isConflictCell) td.style.color = 'var(--red)';
+        if (isHighlighted)  td.classList.add('doctor-highlight');
+
+        // Gestion des modifications en attente (non encore sauvegardées)
+        const pending = pendingEdits[row.id]?.[col.key];
+        td.textContent = pending !== undefined ? pending : val;
+        if (pending !== undefined) td.style.borderColor = 'var(--amber)';
+
+        // Mode admin : double-clic pour éditer
+        if (currentUser?.role === 'admin' && isEditMode) {
+          td.addEventListener('dblclick', () => startEdit(td, row, col.key));
+        }
+
+        td.dataset.rowId = row.id;
+        td.dataset.col   = col.key;
+      }
+
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('conflict-count').textContent = conflictCount;
+}
+
+
+/* ============================================================
+   ÉDITION EN MODE ADMIN
+============================================================ */
+function toggleEditMode() {
+  isEditMode = !isEditMode;
+  const btn = document.getElementById('btn-toggle-edit');
+  const savBtn = document.getElementById('btn-save-all');
+
+  if (isEditMode) {
+    btn.textContent = '🔒 Lecture seule';
+    btn.className = 'btn-danger';
+    savBtn.style.display = 'inline';
+    toast('Mode édition activé — double-cliquez sur une cellule', 'warning');
+  } else {
+    btn.textContent = '✏️ Modifier';
+    btn.className = 'btn-ghost';
+    savBtn.style.display = 'none';
+    pendingEdits = {};
+    applyFilters(); // re-render sans les éditions locales
+  }
+}
+
+/**
+ * Démarre l'édition inline d'une cellule.
+ * @param {HTMLElement} td - la cellule cliquée
+ * @param {object} row     - la ligne Supabase
+ * @param {string} colKey  - nom de la colonne
+ */
+function startEdit(td, row, colKey) {
+  if (td.classList.contains('editing')) return;
+  td.classList.add('editing');
+
+  const oldVal = td.textContent;
+  const input  = document.createElement('input');
+  input.type   = 'text';
+  input.value  = oldVal;
+  td.textContent = '';
+  td.appendChild(input);
+  input.focus();
+  input.select();
+
+  // Sauvegarder en local quand on quitte la cellule
+  const commit = () => {
+    const newVal = input.value.trim();
+    td.classList.remove('editing');
+    td.textContent = newVal;
+
+    if (newVal !== oldVal) {
+      // Stocker la modification en attente
+      if (!pendingEdits[row.id]) pendingEdits[row.id] = {};
+      pendingEdits[row.id][colKey] = newVal;
+      td.style.borderColor = 'var(--amber)';
+    }
+
+    // Vérifier si cette modif crée un conflit
+    checkConflictsAfterEdit(row, colKey, newVal);
+  };
+
+  input.addEventListener('blur',   commit);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') {
+      input.value = oldVal; // annuler
+      input.blur();
+    }
+  });
+}
+
+/**
+ * Vérifie si la nouvelle valeur crée un doublon sur la ligne.
+ */
+function checkConflictsAfterEdit(row, editedCol, newVal) {
+  if (!newVal || newVal.length > 6) return; // pas des initiales
+
+  // Regrouper les valeurs actuelles + les modifications en attente
+  const vals = DOCTOR_COLS.map(col => {
+    if (col === editedCol) return newVal;
+    return (pendingEdits[row.id]?.[col] ?? row[col] ?? '').trim().toUpperCase();
+  });
+
+  const upper = newVal.trim().toUpperCase();
+  const count = vals.filter(v => v === upper).length;
+  if (count > 1) {
+    toast(`⚠️ Conflit : ${newVal} apparaît ${count} fois sur cette ligne !`, 'warning');
+  }
+}
+
+/**
+ * Envoie toutes les modifications en attente vers Supabase.
+ */
+async function saveAllPending() {
+  const ids = Object.keys(pendingEdits);
+  if (ids.length === 0) { toast('Aucune modification à sauvegarder.'); return; }
+
+  let ok = 0, err = 0;
+
+  for (const id of ids) {
+    const { error } = await _supabase
+      .from('planning')
+      .update(pendingEdits[id])
+      .eq('id', id);
+
+    if (error) {
+      err++;
+      toast(`Erreur sauvegarde ligne ${id} : ` + error.message, 'error');
+    } else {
+      // Mettre à jour allData localement
+      const row = allData.find(r => r.id === parseInt(id));
+      if (row) Object.assign(row, pendingEdits[id]);
+      ok++;
+    }
+  }
+
+  pendingEdits = {};
+  applyFilters();
+  buildStats();
+  if (ok > 0) toast(`✅ ${ok} ligne(s) sauvegardée(s)`);
+}
+
+
+/* ============================================================
+   STATISTIQUES (compteur par médecin)
+============================================================ */
+function buildStats() {
+  const counts = {};
+
+  allData.forEach(row => {
+    DOCTOR_COLS.forEach(col => {
+      const val = (row[col] || '').trim();
+      // On ne compte que les initiales courtes (pas "REUNION DE GARDE", etc.)
+      if (val && val.length <= 5 && /^[A-Za-zÀ-ÿ]+$/.test(val.replace(/\s/,''))) {
+        counts[val.toUpperCase()] = (counts[val.toUpperCase()] || 0) + 1;
+      }
+    });
+  });
+
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const max    = sorted[0]?.[1] || 1;
+
+  const list = document.getElementById('stats-list');
+  list.innerHTML = '';
+
+  sorted.forEach(([doc, count]) => {
+    const div = document.createElement('div');
+    div.className = 'stat-row';
+    if (doctorFilter === doc) div.classList.add('active-filter');
+
+    div.innerHTML = `
+      <span class="stat-name">${doc}</span>
+      <div class="stat-bar-wrap">
+        <div class="stat-bar" style="width:${Math.round(count/max*100)}%"></div>
+      </div>
+      <span class="stat-count">${count}</span>
+    `;
+
+    // Clic → filtre sur ce médecin
+    div.addEventListener('click', () => {
+      if (doctorFilter === doc) {
+        doctorFilter = null;
+        div.classList.remove('active-filter');
+      } else {
+        doctorFilter = doc;
+        document.querySelectorAll('.stat-row').forEach(r => r.classList.remove('active-filter'));
+        div.classList.add('active-filter');
+      }
+      applyFilters();
+    });
+
+    list.appendChild(div);
+  });
+}
+
+
+/* ============================================================
+   HELPERS
+============================================================ */
+
+/**
+ * Formate une date ISO YYYY-MM-DD → "lun. 04/02"
+ */
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr + 'T00:00:00');
+    const jours = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
+    return `${jours[d.getDay()]} ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+  } catch { return dateStr; }
+}
+
+function showLoading(visible) {
+  document.getElementById('loading').style.display = visible ? 'flex' : 'none';
+}
+
+function setStatus(state) {
+  const dot = document.getElementById('status-dot');
+  dot.className = state; // 'connected' | 'error' | ''
+}
+
+/**
+ * Affiche un toast pendant 3 secondes.
+ * @param {string} msg  - message
+ * @param {string} type - 'info' | 'error' | 'warning'
+ */
+function toast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = 'toast' + (type !== 'info' ? ` ${type}` : '');
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+</script>
+
+</body>
+</html>
