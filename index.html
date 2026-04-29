@@ -203,6 +203,7 @@
     tr.creno-aprem { background: rgba(0,0,0,.15); }
     tr.creno-aprem:hover { background: var(--navy-light); }
     tr.conflict { background: var(--red-dim) !important; border-left: 3px solid var(--red); }
+    tr.conflict-accepted {   background: var(--amber-dim) !important;   border-left: 3px solid var(--amber); }
     td.doctor-highlight { background: var(--teal-dim); color: var(--teal) !important; font-weight: 500; }
     td {
       padding: 6px 8px; height: var(--cell-h); white-space: nowrap;
@@ -455,6 +456,7 @@ let realtimeSub         = null;
 let doctorFilter        = null;
 let activeInput         = null;   // input en cours d'édition (pour fermer le dropdown proprement)
 let listeMedecins       = [];
+let acceptedConflicts   = {}; // gestion des conflits { rowId: true }
 /* ============================================================
    AUTH
 ============================================================ */
@@ -615,6 +617,11 @@ async function loadData() {
       }
     }
   }); 
+  // conflits déjà acceptés 
+  acceptedConflicts = {};
+  rows.forEach(row => {
+    acceptedConflicts[row.id] = row.conflict_accepted === true;
+  });
 
   allData = rows;
   setStatus('connected');
@@ -725,7 +732,30 @@ function buildTableHeader() {
   thead.appendChild(groupRow);
   thead.appendChild(colRow);
 }
+/* ============================================================
+   toggle de conflit
+============================================================ */
+async function toggleConflict(rowId, hasConflict) {
+  if (!hasConflict) return;
 
+  const newValue = !acceptedConflicts[rowId];
+
+  const { error } = await _supabase
+    .from('planning')
+    .update({ conflict_accepted: newValue })
+    .eq('id', rowId);
+
+  if (error) {
+    toast("Erreur sauvegarde conflit", "error");
+    return;
+  }
+
+  acceptedConflicts[rowId] = newValue;
+
+  toast(newValue ? "Conflit accepté" : "Conflit à résoudre", "warning");
+
+  applyFilters();
+}
 /* ============================================================
    RENDU
 ============================================================ */
@@ -757,45 +787,72 @@ function renderTable(rows, highlightDoctor) {
     });
     const conflicting = Object.entries(doctorPos)
       .filter(([, cs]) => cs.length > 1).map(([d]) => d);
+    const isAccepted = acceptedConflicts[row.id] === true;
+    
+
     if (conflicting.length) {
-      tr.classList.add('conflict'); conflictCount++;
-      tr.title = '⚠️ Conflit : ' + conflicting.join(', ');
+      if (isAccepted) {
+        tr.classList.add('conflict-accepted');
+        tr.title = '⚠️ Conflit accepté : ' + conflicting.join(', ');
+      } else {
+        tr.classList.add('conflict');
+        conflictCount++;
+        tr.title = '⚠️ Conflit à traiter : ' + conflicting.join(', ');
+      }
     }
 
     tr.classList.add(row.heure === '9h00' ? 'creno-matin' : 'creno-aprem');
 
-    COLUMNS.forEach(col => {
-      const td  = document.createElement('td');
-      const val = row[col.key] || '';
-      td.dataset.col = col.key;   // utilisé par applyColVisibility()
-
-      if (col.key === 'date') {
-        td.className = 'col-date'; td.textContent = formatDate(val);
-      } else if (col.key === 'heure') {
-        td.className = 'col-heure'; td.textContent = val;
-      } else {
-        td.className = 'editable';
-        if (conflicting.includes(val.trim().toUpperCase())) td.style.color = 'var(--red)';
-        if (highlightDoctor && val.trim().toLowerCase().includes(highlightDoctor.toLowerCase()))
-          td.classList.add('doctor-highlight');
-
-        const pending = pendingEdits[row.id]?.[col.key];
-        td.textContent = pending !== undefined ? pending : val;
-        if (pending !== undefined) td.style.borderColor = 'var(--amber)';
-
-        /*
-          BUG CORRIGÉ :
-          Les listeners dblclick ne sont attachés que si isEditMode est true
-          au moment du rendu. Donc toggleEditMode() doit appeler applyFilters()
-          pour re-rendre le tableau avec les listeners.
-        */
-        if (currentUser?.role === 'admin' && isEditMode) {
-          td.addEventListener('dblclick', () => startEdit(td, row, col.key));
-        }
+  COLUMNS.forEach(col => {
+    const td  = document.createElement('td');
+    const val = row[col.key] || '';
+    td.dataset.col = col.key;
+  
+    const pending = pendingEdits[row.id]?.[col.key];
+  
+    if (col.key === 'date') {
+      td.className = 'col-date';
+      td.textContent = formatDate(val);
+  
+      if (currentUser?.role === 'admin' && isEditMode && conflicting.length > 0) {
+        td.style.cursor = 'pointer';
+  
+        td.addEventListener('click', () => {
+          toggleConflict(row.id, true);
+        });
+  
+        td.title = isAccepted
+          ? "Conflit accepté (cliquer pour réactiver)"
+          : "Conflit à traiter (cliquer pour accepter)";
       }
-      tr.appendChild(td);
-    });
-    tbody.appendChild(tr);
+  
+    } else if (col.key === 'heure') {
+      td.className = 'col-heure';
+      td.textContent = val;
+  
+    } else {
+      td.className = 'editable';
+  
+      if (!acceptedConflicts[row.id] && conflicting.includes(val.trim().toUpperCase())) {
+        td.style.color = 'var(--red)';
+      }
+  
+      if (highlightDoctor && val.trim().toLowerCase().includes(highlightDoctor.toLowerCase())) {
+        td.classList.add('doctor-highlight');
+      }
+  
+      td.textContent = pending !== undefined ? pending : val;
+  
+      if (pending !== undefined) {
+        td.style.borderColor = 'var(--amber)';
+      }
+  
+      if (currentUser?.role === 'admin' && isEditMode) {
+        td.addEventListener('dblclick', () => startEdit(td, row, col.key));
+      }
+    }
+  
+    tr.appendChild(td);
   });
 
   document.getElementById('conflict-count').textContent = conflictCount;
