@@ -748,6 +748,7 @@ function renderTable(rows, highlightDoctor) {
     // Détection conflits
     const doctorPos = {};
     DOCTOR_COLS.forEach(col => {
+      if (col === 'Garde') return; // on ignore garde 
       const val = (row[col] || '').trim().toUpperCase();
       if (val && val.length <= 6) {
         if (!doctorPos[val]) doctorPos[val] = [];
@@ -1030,9 +1031,12 @@ function commitEdit(td, input, row, colKey, oldVal) {
 
 function checkConflictsAfterEdit(row, editedCol, newVal) {
   if (!newVal || newVal.length > 8) return;
-  const vals  = DOCTOR_COLS.map(col =>
-    (col === editedCol ? newVal : (pendingEdits[row.id]?.[col] ?? row[col] ?? '')).trim().toUpperCase()
-  );
+  const vals  = DOCTOR_COLS
+    .filter(col => col !== 'Garde')
+    .map(col =>
+    (col === editedCol ? newVal : (pendingEdits[row.id]?.[col] ?? row[col] ?? ''))
+      .trim().toUpperCase()
+         );
   const upper = newVal.trim().toUpperCase();
   if (vals.filter(v => v === upper).length > 1)
     toast(`⚠️ Conflit : ${newVal} apparaît plusieurs fois sur cette ligne !`, 'warning');
