@@ -799,7 +799,7 @@ function renderTable(rows, highlightDoctor) {
         conflictCount++;
         tr.title = '⚠️ Conflit à traiter : ' + conflicting.join(', ');
       }
-    }
+    );
 
     tr.classList.add(row.heure === '9h00' ? 'creno-matin' : 'creno-aprem');
 
