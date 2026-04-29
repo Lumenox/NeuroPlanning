@@ -422,7 +422,7 @@ const USERS = {
    TYPES D'ABSENCE
    ✏️  Modifiez cette liste librement
 ══════════════════════════════════════════════════════════ */
-const ABS_TYPES = ['Vacances', 'Congrès', 'Formation', 'Cours', 'Autre'];
+const ABS_TYPES = ['CA', 'CF', 'Ens', 'Rech', 'Autre'];
 
 /* ══════════════════════════════════════════════════════════
    COLONNES PLANNING
@@ -452,7 +452,7 @@ const COLUMNS = [
 
 const GROUP_LABELS = { neurog:'NeuroG', hdj:'HDJ', unv:'UNV', usi:'USI', bip:'BIP', garde:'Garde', repos:'R.Garde', box:'BOX' };
 const GROUP_COLORS = { neurog:'#FFF396', hdj:'#C9F07A', unv:'#F0D37A', usi:'#F07AB5', bip:'#FFA89C', garde:'#E08924', repos:'#F0FBFF', box:'#94a3b8' };
-const CONFLICT_IGNORE_COLS = ['Garde', 'ReposGarde'];
+const CONFLICT_IGNORE_COLS = ['Garde'];
 
 const groupMap   = {};
 COLUMNS.filter(c => c.group !== 'meta').forEach(col => {
@@ -478,6 +478,7 @@ let realtimeAbsSub      = null;
 let doctorFilter        = null;
 let activeInput         = null;
 let listeMedecins       = [];
+let absenceColNames     = [];
 let acceptedConflicts   = {};
 let currentTab          = 'planning';  // 'planning' | 'absences'
 let absVisibleTypes     = new Set(ABS_TYPES);   // types d'absence affichés
@@ -680,6 +681,7 @@ async function loadAbsences() {
   const { data, error } = await _supabase.from('absences').select('*').order('date');
   if (error) { toast('Erreur absences : ' + error.message, 'error'); return; }
   absencesData = data || [];
+  absenceColNames = listeMedecins.map(m => m.initiales).filter(init => init && init.trim());
   applyAbsFilters();
 }
 
@@ -689,9 +691,17 @@ async function loadAbsences() {
 */
 function buildAbsenceIndex() {
   const idx = new Map();
-  absencesData.forEach(abs => {
-    if (!idx.has(abs.date)) idx.set(abs.date, new Map());
-    idx.get(abs.date).set(abs.medecin.toUpperCase(), abs);
+  absencesData.forEach(absRow => {
+    if (!absRow.date) return;
+    if (!idx.has(absRow.date)) idx.set(absRow.date, new Map());
+    
+    // Utiliser les colonnes extraites depuis listeMedecins
+    absenceColNames.forEach(docCol => {
+      const absType = absRow[docCol];
+      if (absType && absType.trim()) {
+        idx.get(absRow.date).set(docCol.toUpperCase(), { type: absType });
+      }
+    });
   });
   return idx;
 }
@@ -950,9 +960,9 @@ function renderAbsences(absRows) {
   empty.style.display = 'none';
 
   /* Médecins présents dans les absences filtrées (dans l'ordre de listeMedecins) */
-  const presentDoctors = listeMedecins
-    .map(m => m.initiales)
-    .filter(init => absRows.some(a => a.medecin.toUpperCase() === init.toUpperCase()));
+  const presentDoctors = absenceColNames.filter(init => 
+    absRows.some(a => absenceColNames.some(col => col === init && a[col]))
+  );
 
   if (presentDoctors.length === 0) { empty.style.display = 'block'; return; }
 
