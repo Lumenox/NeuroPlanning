@@ -580,31 +580,43 @@ async function loadData() {
     .from('planning').select('*')
     .order('date', { ascending: true })
     .order('heure', { ascending: true });
+
   if (error) {
-    showLoading(false); setStatus('error');
+    showLoading(false); 
+    setStatus('error');
     toast('Erreur : ' + error.message, 'error');
     return;
-  };
+  }
+
   const planMap = {};
-  data.forEach(row => {
+  // On s'assure que data n'est pas null
+  const rows = data || [];
+
+  rows.forEach(row => {
     planMap[`${row.date}_${row.heure}`] = row;
-    row.ReposGarde = ""; // Initialisation de la nouvelle colonne
+    row.ReposGarde = ""; // Initialisation
   });
 
   // Calcul du repos de garde (J+1)
-  data.forEach(row => {
+  rows.forEach(row => {
     if (row.Garde && row.Garde.trim() !== "") {
-      const currentDate = new Date(row.date);
-      currentDate.setDate(currentDate.getDate() + 1); // Passer au lendemain
-      const tomorrowStr = currentDate.toISOString().split('T')[0];
+      const parts = row.date.split('-');
+      const dt = new Date(parts[0], parts[1] - 1, parts[2]);
+      dt.setDate(dt.getDate() + 1);
+      
+      const tomorrowStr = dt.getFullYear() + '-' + 
+                          String(dt.getMonth() + 1).padStart(2, '0') + '-' + 
+                          String(dt.getDate()).padStart(2, '0');
+      
       const keyTomorrow = `${tomorrowStr}_${row.heure}`;
 
       if (planMap[keyTomorrow]) {
-        planMap[keyTomorrow].ReposGarde = row.Garde; // Copie le nom du médecin
+        planMap[keyTomorrow].ReposGarde = row.Garde;
       }
     }
-  });
-  allData = data || [];
+  }); // <-- Cette fermeture manquait dans votre fichier
+
+  allData = rows;
   setStatus('connected');
   showLoading(false);
   applyFilters();
