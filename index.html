@@ -614,7 +614,7 @@ async function loadData() {
         planMap[keyTomorrow].ReposGarde = row.Garde;
       }
     }
-  }); // <-- Cette fermeture manquait dans votre fichier
+  }); 
 
   allData = rows;
   setStatus('connected');
@@ -695,7 +695,7 @@ function buildTableHeader() {
   });
   thList.push({ group: prevGroup, span });
 
-  const gLbl = { meta:'', neurog:'NeuroG', hdj:'HDJ', unv:'UNV', usi:'USI', bip:'BIP', garde:'Gardes', repos: 'R.Garde'box:'BOX' };
+  const gLbl = { meta:'', neurog:'NeuroG', hdj:'HDJ', unv:'UNV', usi:'USI', bip:'BIP', garde:'Gardes', repos: 'R.Garde', box:'BOX' };
 
   thList.forEach(({ group, span }) => {
     const th = document.createElement('th');
