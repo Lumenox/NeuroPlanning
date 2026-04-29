@@ -409,9 +409,12 @@ const USERS = {
 const COLUMNS = [
   { key: 'date',     label: 'Date',     group: 'meta'  },
   { key: 'heure',    label: 'Heure',    group: 'meta'  },
-  { key: 'C_Periph', label: 'C.Périph', group: 'coord' },
-  { key: 'C_Cogn',   label: 'C.Cogn',  group: 'coord' },
-  { key: 'C_sup',    label: 'C.Sup',   group: 'coord' },
+  { key: 'C_Periph', label: 'C.Périph', group: 'neurog' },
+  { key: 'C_Cogn',   label: 'C.Cogn',  group: 'neurog' },
+  { key: 'C_sup',    label: 'C.Sup',   group: 'neurog' },
+  { key: 'HDJ1',     label: 'HDJ 1',   group: 'hdj' },
+  { key: 'HDJ2',     label: 'HDJ 2',   group: 'hdj' },
+  { key: 'HDJ3',     label: 'HDJ 3',   group: 'hdj' },
   { key: 'UNV1',     label: 'UNV 1',   group: 'unv'   },
   { key: 'UNV2',     label: 'UNV 2',   group: 'unv'   },
   { key: 'USI1',     label: 'USI 1',   group: 'usi'   },
@@ -419,12 +422,14 @@ const COLUMNS = [
   { key: 'BIPv',     label: 'BIP v',   group: 'bip'   },
   { key: 'BIPng',    label: 'BIP ng',  group: 'bip'   },
   { key: 'Garde',    label: 'Garde',   group: 'garde' },
+  { key: 'Astr',     label: 'Astr',   group: 'garde' },
+  { key: 'ReposGarde', label: 'R.Garde', group: 'repos' },
   { key: 'BOX1',     label: 'BOX 1',   group: 'box'   },
   { key: 'BOX2',     label: 'BOX 2',   group: 'box'   },
 ];
 
-const GROUP_LABELS = { coord:'Coord', unv:'UNV', usi:'USI', bip:'BIP', garde:'Garde', box:'BOX' };
-const GROUP_COLORS = { coord:'#60a5fa', unv:'#34d399', usi:'#f472b6', bip:'#a78bfa', garde:'#fbbf24', box:'#94a3b8' };
+const GROUP_LABELS = { neurog:'neuroG', hdj:'HDJ', unv:'UNV', usi:'USI', bip:'BIP', garde:'Garde', repos:'ReposGarde', box:'BOX' };
+const GROUP_COLORS = { neurog:'#FFF396', hdj:'#C9F07A',unv:'#F0D37A', usi:'#F07AB5', bip:'#FFA89C', garde:'#E08924', repos:'#F0FBFF', box:'#94a3b8' };
 
 /* groupMap construit automatiquement : { 'unv': ['UNV1','UNV2'], ... } */
 const groupMap = {};
@@ -579,7 +584,26 @@ async function loadData() {
     showLoading(false); setStatus('error');
     toast('Erreur : ' + error.message, 'error');
     return;
-  }
+  };
+  const planMap = {};
+  data.forEach(row => {
+    planMap[`${row.date}_${row.heure}`] = row;
+    row.ReposGarde = ""; // Initialisation de la nouvelle colonne
+  });
+
+  // Calcul du repos de garde (J+1)
+  data.forEach(row => {
+    if (row.Garde && row.Garde.trim() !== "") {
+      const currentDate = new Date(row.date);
+      currentDate.setDate(currentDate.getDate() + 1); // Passer au lendemain
+      const tomorrowStr = currentDate.toISOString().split('T')[0];
+      const keyTomorrow = `${tomorrowStr}_${row.heure}`;
+
+      if (planMap[keyTomorrow]) {
+        planMap[keyTomorrow].ReposGarde = row.Garde; // Copie le nom du médecin
+      }
+    }
+  });
   allData = data || [];
   setStatus('connected');
   showLoading(false);
@@ -659,7 +683,7 @@ function buildTableHeader() {
   });
   thList.push({ group: prevGroup, span });
 
-  const gLbl = { meta:'', coord:'Coordination', unv:'UNV', usi:'USI', bip:'BIP', garde:'Gardes', box:'BOX' };
+  const gLbl = { meta:'', neurog:'NeuroG', hdj:'HDJ', unv:'UNV', usi:'USI', bip:'BIP', garde:'Gardes', repos: 'R.Garde'box:'BOX' };
 
   thList.forEach(({ group, span }) => {
     const th = document.createElement('th');
@@ -837,7 +861,11 @@ function startEdit(td, row, colKey) {
 
   // Fermer un éventuel dropdown précédent
   closeDropdown();
-
+  // Empêcher l'édition de la colonne Repos de Garde
+  if (colKey === 'ReposGarde') {
+    toast("Le repos de garde est calculé automatiquement.", "info");
+    return;
+  }
   td.classList.add('editing');
   const oldVal = td.textContent;
 
