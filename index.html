@@ -272,7 +272,7 @@ const GROUP_COLORS = {
 };
 
 /* Colonnes où on ignore les doublons pour la détection de conflits */
-const CONFLICT_IGNORE_COLS = ['Garde', 'ReposGarde'];
+const CONFLICT_IGNORE_COLS = ['Garde'];
 
 /* groupMap construit automatiquement depuis COLUMNS */
 const groupMap = {};
@@ -648,7 +648,7 @@ function renderTable(rows, highlightDoctor) {
       } else if (col.key === 'ReposGarde') {
         /* Colonne calculée automatiquement, non éditable */
         td.className   = 'editable';
-        td.style.color = 'var(--amber)';
+        td.style.color = 'var(--grey)';
         td.textContent = val;
 
       } else {
