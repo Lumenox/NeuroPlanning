@@ -131,8 +131,8 @@
     td.abs-Ens    { background: #1a3a2a; color: #6ee7b7; }
     td.abs-Rech   { background: #3a2a10; color: var(--amber); }
     td.abs-Autre  { background: #2a1a1a; color: var(--red); }
-    td.abs-conflict { outline: 2px solid var(--red) !important; outline-offset: -2px; }
-
+    td.abs-conflict {box-shadow: inset 0 0 0 2px var(--red); outline: 2px solid var(--red) !important; outline-offset: -2px; position: relative;}
+    td.abs-conflict::after { content: '⚠️'; position: absolute; top: 2px; right: 2px; font-size: 8px; }
     #abs-legend { display: none; flex-wrap: wrap; gap: 8px; padding: 8px 24px; background: var(--navy-mid); border-bottom: 1px solid var(--border); flex-shrink: 0; }
     .legend-item { display: flex; align-items: center; gap: 6px; font-family: 'DM Mono', monospace; font-size: 10px; }
     .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
@@ -160,7 +160,8 @@
 
     #edit-dropdown { position: fixed; z-index: 1000; background: var(--navy-mid); border: 1px solid var(--amber); border-radius: 8px; min-width: 140px; max-height: 220px; overflow-y: auto; box-shadow: 0 4px 16px rgba(0,0,0,.3); display: none; }
     .dd-item { display: flex; justify-content: space-between; align-items: center; padding: 7px 12px; cursor: pointer; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--white); transition: background .1s; }
-    .dd-item:first-child { border-radius: 7px 7px 0 0; }
+    .dd-item:first-child { border-radius: 7px 7px 0 0; border-bottom: 1px solid var(--border);  margin-bottom: 4px;  
+background: rgba(248, 113, 113, 0.05); }
     .dd-item:last-child  { border-radius: 0 0 7px 7px; }
     .dd-item:hover, .dd-item.focused { background: var(--navy-light); }
     .dd-item.hidden { display: none; }
@@ -378,6 +379,7 @@ let absencesData        = [];
 let currentFilteredRows = [];
 let currentFilteredAbs  = [];
 let pendingEdits        = {};
+let   pendingEditsAbs             =  {};
 let isEditMode          = false;
 let realtimeSub         = null;
 let realtimeAbsSub      = null;
@@ -389,6 +391,8 @@ let acceptedConflicts   = {};
 let currentTab          = 'planning';
 let absVisibleTypes     = new Set(ABS_TYPES);
 let editingAbsenceId    = null;
+
+
 
 function doLogin() {
   const login = document.getElementById('auth-login').value.trim().toLowerCase();
@@ -417,6 +421,10 @@ function logout() {
   document.getElementById('auth-pass').value  = '';
   document.getElementById('status-dot').className = '';
   document.getElementById('realtime-badge').classList.remove('active');
+  const btn = document.getElementById('btn-toggle-edit');
+     btn.textContent = "✏️ Modifier";
+     btn.classList.replace('btn-danger', 'btn-ghost');
+     btn.style.display = 'none';
 }
 
 function switchTab(tab) {
@@ -445,13 +453,19 @@ async function init() {
 }
 
 async function refreshAll() {
-  await loadData();
-  await loadAbsences();
+  showLoading(true);
+  await loadData();      // Recharge le planning
+  await loadAbsences();  // Recharge les absences
+  toast('Données actualisées', 'info');
+  showLoading(false);
 }
 
 async function loadEquipe() {
   const { data, error } = await _supabase.from('neurologues').select('*').order('initiales');
-  if (!error && data) listeMedecins = data;
+  if (!error && data) {
+    listeMedecins = data;
+    absenceColNames = listeMedecins.map(m => m.initiales).filter(init => init && init.trim());
+  }
 }
 
 function buildColToggles() {
@@ -459,7 +473,6 @@ function buildColToggles() {
   container.innerHTML = '';
   Object.keys(groupMap).forEach(group => {
     const label = document.createElement('label');
-    // On garde la classe 'active' par défaut au démarrage
     label.className = 'group-toggle active';
     label.style.color       = GROUP_COLORS[group] || 'var(--white)';
     label.style.borderColor = GROUP_COLORS[group] || 'var(--border)';
@@ -469,13 +482,8 @@ function buildColToggles() {
     cb.checked = true;
     
     cb.addEventListener('change', () => {
-      // 1. Mise à jour de la visibilité des colonnes
       groupMap[group].forEach(key => { visibleCols[key] = cb.checked; });
-      
-      // 2. Correction du bug visuel : on bascule la classe 'active'
-      // Si décoché, la classe 'active' est retirée, le bouton devient gris via le CSS
       label.classList.toggle('active', cb.checked);
-      
       applyColVisibility();
     });
     
@@ -563,7 +571,6 @@ async function loadAbsences() {
   const { data, error } = await _supabase.from('absences').select('*').order('date');
   if (error) { toast('Erreur absences : ' + error.message, 'error'); return; }
   absencesData = data || [];
-  absenceColNames = listeMedecins.map(m => m.initiales).filter(init => init && init.trim());
   applyAbsFilters();
 }
 
@@ -658,12 +665,7 @@ function applyAbsFilters() {
   currentFilteredAbs = absencesData.filter(abs => {
     if (dateFrom && abs.date < dateFrom) return false;
     if (dateTo   && abs.date > dateTo)   return false;
-
-    // On vérifie si une colonne de médecin contient un type d'absence actif SUR CETTE HEURE PRÉCISE
-    return absenceColNames.some(doc => {
-      const type = abs[doc];
-      return type && absVisibleTypes.has(type);
-    });
+    return true; // On affiche tout sur la période pour voir tous les médecins
   });
 
   renderAbsences(currentFilteredAbs);
@@ -803,53 +805,68 @@ function renderAbsences(absRows) {
   const tbody = document.getElementById('abs-body');
   thead.innerHTML = ''; tbody.innerHTML = '';
 
-  if (absRows.length === 0) return;
+  if (absRows.length === 0) {
+    document.getElementById('empty-state-abs').style.display = 'block';
+    return;
+  }
+  document.getElementById('empty-state-abs').style.display = 'none';
 
-  // Déterminer les colonnes de médecins actives
-  const activeDocs = absenceColNames.filter(doc => absRows.some(row => row[doc]));
+  // Préparer un index rapide du planning clinique pour la détection de conflit [Nouveau]
+  const clinicalIndex = new Map();
+  allData.forEach(row => {
+    const key = `${row.date}_${row.heure}`;
+    if (!clinicalIndex.has(key)) clinicalIndex.set(key, new Set());
+    DOCTOR_COLS.forEach(col => {
+      const doc = (row[col] || '').trim().toUpperCase();
+      if (doc) clinicalIndex.get(key).add(doc);
+    });
+  });
 
-  // Entête : Date | Heure | Médecins...
   const headerRow = document.createElement('tr');
   headerRow.innerHTML = `<th class="col-date">Date</th><th style="color:var(--teal)">Heure</th>`;
-  activeDocs.forEach(doc => {
-    headerRow.innerHTML += `<th style="color:var(--purple)">${doc}</th>`;
+  absenceColNames.forEach(doc => {
+    headerRow.innerHTML += `<th style="color:var(--purple); text-align:center;">${doc}</th>`;
   });
   thead.appendChild(headerRow);
 
-  // Tri par date PUIS par heure pour l'affichage
-  const sortedRows = [...absRows].sort((a, b) => a.date.localeCompare(b.date) || a.heure.localeCompare(b.heure));
-
-  sortedRows.forEach(row => {
+  absRows.forEach(row => {
     const tr = document.createElement('tr');
-    // On ajoute la classe creno selon l'heure pour garder le style visuel
-    tr.classList.add(row.heure === '09:00' || row.heure === '9h00' ? 'creno-matin' : 'creno-aprem');
+    tr.classList.add(row.heure === '9h00' ? 'creno-matin' : 'creno-aprem');
     
     tr.innerHTML = `
       <td class="col-date">${formatDate(row.date)}</td>
       <td class="col-heure">${row.heure || ''}</td>
     `;
     
-    activeDocs.forEach(doc => {
+    const key = `${row.date}_${row.heure}`;
+    const clinicalStaff = clinicalIndex.get(key) || new Set();
+
+    absenceColNames.forEach(doc => {
       const type = row[doc] || '';
+      const docUpper = doc.toUpperCase();
       const td = document.createElement('td');
-      if (type) {
+      td.style.textAlign = 'center';
+
+      if (currentUser?.role === 'admin' && isEditMode) {
+        td.style.cursor = 'pointer';
+        td.addEventListener('dblclick', () => startEdit(td, row, doc));
+      }
+
+      if (type && absVisibleTypes.has(type)) {
         td.textContent = type;
         td.className = `abs-${type}`;
         
-        // Optionnel : détection des conflits précis (même date ET même heure)
-        const hasConflict = allData.some(p => 
-          p.date === row.date && 
-          p.heure === row.heure && 
-          (p[doc] || '').trim().length > 0
-        );
-        if (hasConflict) td.classList.add('abs-conflict');
+        // DETECTION DE CONFLIT : si le médecin a une absence ET est présent dans le planning [Nouveau]
+        if (clinicalStaff.has(docUpper)) {
+          td.classList.add('abs-conflict');
+          td.title = `Conflit : ${docUpper} est aussi affecté au planning clinique sur ce créneau.`;
+        }
       }
       tr.appendChild(td);
     });
     tbody.appendChild(tr);
   });
 }
-
 
 function formatDate(dateStr) {
   if (!dateStr) return '';
@@ -920,14 +937,15 @@ async function saveAbsence() {
   }
 
   for (const d of dates) {
-    const obj = { date: d, medecin, type, [medecin]: type };
-    const existing = absencesData.find(a => a.date === d && a.medecin === medecin);
-    if (existing) {
-      const { error } = await _supabase.from('absences').update(obj).eq('id', existing.id);
-      if (error) { toast('Erreur sauvegarde', 'error'); return; }
-    } else {
-      const { error } = await _supabase.from('absences').insert([obj]);
-      if (error) { toast('Erreur création', 'error'); return; }
+    // On met à jour ou insère par heure (matin et après-midi par défaut si non spécifié)
+    const heures = ['9h00', '14h00'];
+    for(const h of heures) {
+        const { data: existing } = await _supabase.from('absences').select('*').eq('date', d).eq('heure', h).single();
+        if (existing) {
+            await _supabase.from('absences').update({ [medecin]: type }).eq('id', existing.id);
+        } else {
+            await _supabase.from('absences').insert([{ date: d, heure: h, [medecin]: type }]);
+        }
     }
   }
 
@@ -949,41 +967,218 @@ function toggleEditMode() {
   isEditMode = !isEditMode;
   const btn = document.getElementById('btn-toggle-edit');
   const save = document.getElementById('btn-save-all');
-  btn.style.opacity = isEditMode ? '1' : '0.6';
-  save.style.display = isEditMode ? 'inline' : 'none';
-  applyFilters();
+
+  if (isEditMode) {
+    // Passage en mode édition
+    btn.textContent = "✕ Annuler";
+    btn.classList.replace('btn-ghost', 'btn-danger');
+    save.style.display = 'inline';
+  } else {
+    // Sortie du mode édition (Annulation)
+    btn.textContent = "✏️ Modifier";
+    btn.classList.replace('btn-danger', 'btn-ghost');
+    save.style.display = 'none';
+    
+    // Annulation des changements
+    pendingEdits = {}; 
+    pendingEditsAbs = {};
+    toast('Modifications annulées', 'info');
+    refreshAll(); // On recharge les données proprement depuis Supabase
+  }
+  onFilterChange();
 }
 
+/**
+ * REIMPLÉMENTATION DU MODE MODIFICATION ADMIN
+ * Double-clic -> Dropdown trié par compteurs (excluant les doublons de ligne)
+ */
+
 function startEdit(td, row, colKey) {
-  if (activeInput) activeInput.blur();
-  td.classList.add('editing');
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.value = td.textContent;
-  input.onblur = () => {
-    td.classList.remove('editing');
-    if (!pendingEdits[row.id]) pendingEdits[row.id] = {};
-    pendingEdits[row.id][colKey] = input.value;
-    td.textContent = input.value;
+  if (currentTab === 'planning') {
+    openPlanningDropdown(td, row, colKey);
+  } else {
+    openAbsenceDropdown(td, row, colKey);
+  }
+}
+
+// --- DROPDOWN POUR LE PLANNING CLINIQUE ---
+function openPlanningDropdown(td, row, colKey) {
+  const dropdown = document.getElementById('edit-dropdown');
+  const rect = td.getBoundingClientRect();
+
+  // 1. Calcul des compteurs pour le tri
+  const compteurs = {};
+  listeMedecins.forEach(m => compteurs[m.initiales.toUpperCase()] = 0);
+  currentFilteredRows.forEach(r => {
+    DOCTOR_COLS.forEach(c => {
+      const val = (r[c] || '').trim().toUpperCase();
+      if (compteurs.hasOwnProperty(val)) compteurs[val]++;
+    });
+  });
+
+     // 2. Récupération des absences pour cette date et cette heure précise 
+  const absIdx = buildAbsenceIndex();
+     const dateAbsences = absIdx.get(row.date) || new Map();
+
+  // 3. Identification des médecins déjà sur la ligne (pour exclusion)
+  const medecinsSurLigne = new Set();
+  DOCTOR_COLS.forEach(c => {
+    const val = (row[c] || '').trim().toUpperCase();
+    if (val) medecinsSurLigne.add(val);
+  });
+
+  dropdown.innerHTML = '';
+
+     // Option "Effacer"
+  addDropdownItem(dropdown, '<span style="color:var(--red)">[ Effacer ]</span>', '', () => {
+    confirmPlanningSelection(row, colKey, '', td);
+  });
+
+  // 4. Tri et Filtrage des médecins
+  const sortedMedecins = [...listeMedecins].sort((a, b) => 
+    (compteurs[a.initiales.toUpperCase()] || 0) - (compteurs[b.initiales.toUpperCase()] || 0)
+  );
+
+  sortedMedecins.forEach(med => {
+    const init = med.initiales.toUpperCase();
+          // EXCLUSION : 
+          // - Si déjà sur la ligne (sauf si c'est la case actuelle qu'on ré-édite)
+           // - Si présent dans l'index des absences (Congés, Formation, etc.)
+    if (medecinsSurLigne.has(init) && init !== (row[colKey] || '').trim().toUpperCase()) return;
+    if (dateAbsences.has(init)) return;
+
+    const item = addDropdownItem(dropdown, `<span>${init}</span><span class="dd-count">${compteurs[init]}</span>`, init, () => {
+      confirmPlanningSelection(row, colKey, init, td);
+    });
+  });
+
+  showDropdown(dropdown, rect);
+}
+
+// --- DROPDOWN POUR LES ABSENCES (CONGÉS) ---
+function openAbsenceDropdown(td, row, colKey) {
+  const dropdown = document.getElementById('edit-dropdown');
+  const rect = td.getBoundingClientRect();
+  dropdown.innerHTML = '';
+
+  // Option pour effacer l'absence
+  addDropdownItem(dropdown, '<span style="color:var(--gray)">[ Aucun ]</span>', '', () => {
+    confirmAbsenceSelection(row, colKey, '', td);
+  });
+
+  // Liste des types définis dans ABS_TYPES : ['CA', 'CF', 'Ens', 'Rech', 'Autre']
+  const labels = { CA: '🏖️ Vacances', CF: '📚 Formation', Ens: '🎓 Cours', Rech: '🔬 Recherche', Autre: '📌 Autre' };
+  
+  ABS_TYPES.forEach(type => {
+    const label = labels[type] || type;
+    addDropdownItem(dropdown, `<span>${label}</span>`, type, () => {
+      confirmAbsenceSelection(row, colKey, type, td);
+    });
+  });
+
+  showDropdown(dropdown, rect);
+}
+
+// --- FONCTIONS UTILITAIRES ---
+
+function addDropdownItem(container, html, value, onClick) {
+  const item = document.createElement('div');
+  item.className = 'dd-item';
+  item.innerHTML = html;
+  item.onclick = (e) => { e.stopPropagation(); onClick(); };
+  container.appendChild(item);
+  return item;
+}
+
+function showDropdown(dropdown, rect) {
+  dropdown.style.top = (rect.bottom + window.scrollY) + 'px';
+  dropdown.style.left = (rect.left + window.scrollX) + 'px';
+  dropdown.style.display = 'block';
+
+  const closeHandler = (e) => {
+    if (!dropdown.contains(e.target)) {
+      closeDropdown();
+      document.removeEventListener('mousedown', closeHandler);
+    }
   };
-  input.onkeydown = (e) => {
-    if (e.key === 'Enter') input.blur();
-  };
-  td.innerHTML = '';
-  td.appendChild(input);
-  activeInput = input;
-  input.focus();
+  setTimeout(() => document.addEventListener('mousedown', closeHandler), 10);
+}
+
+function confirmPlanningSelection(row, colKey, value, td) {
+  if (!pendingEdits[row.id]) pendingEdits[row.id] = {};
+  pendingEdits[row.id][colKey] = value;
+  td.textContent = value;
+  td.style.borderColor = 'var(--amber)';
+  const idx = allData.findIndex(r => r.id === row.id);
+  if(idx !== -1) allData[idx][colKey] = value;
+  closeDropdown();
+  buildStats();
+}
+
+async function confirmAbsenceSelection(row, colKey, value, td) {
+  if (!row || !row.id) {
+        console.error("Erreur : ID de ligne manquant", row);
+        return;
+       }
+
+  if (!pendingEditsAbs[row.id]) pendingEditsAbs[row.id] = {};
+  const finalValue = value === "" ? null : value;
+  pendingEditsAbs[row.id][colKey] = finalValue;
+  
+  // Mise à jour visuelle immédiate
+  td.textContent = value;
+  td.className = value ? `abs-${value}` : '';
+  if (value) td.style.outline = "2px solid var(--amber)"; // Indicateur de modif en cours
+  
+  // Mise à jour de la donnée locale pour les compteurs
+  const idx = absencesData.findIndex(a => a.id === row.id);
+  if (idx !== -1) absencesData[idx][colKey] = value;
+  
+  closeDropdown();
+  buildStats();
+}
+
+function closeDropdown() {
+  document.getElementById('edit-dropdown').style.display = 'none';
 }
 
 async function saveAllPending() {
-  for (const rowId in pendingEdits) {
-    const updates = pendingEdits[rowId];
-    const { error } = await _supabase.from('planning').update(updates).eq('id', rowId);
-    if (error) { toast('Erreur sauvegarde', 'error'); return; }
+  // Désactiver le bouton pendant l'envoi
+  const saveBtn = document.getElementById('btn-save-all');
+  saveBtn.disabled = true;
+  saveBtn.textContent = "⏳ Sauvegarde...";
+
+  try {
+    // 1. Sauvegarde Planning Clinique
+    for (const rowId in pendingEdits) {
+      const updates = pendingEdits[rowId];
+      const { error } = await _supabase.from('planning').update(updates).eq('id', rowId);
+      if (error) throw error;
+    }
+    // 2. Sauvegarde Absences
+    for (const rowId in pendingEditsAbs) {
+                 const updatesAbs = pendingEditsAbs[rowId];
+                 const { error } = await _supabase.from('absences').update(updatesAbs).eq('id', rowId);
+                 if (error) throw error;
+           }
+
+    pendingEdits = {};
+    pendingEditsAbs = {};
+    toast('Modifications sauvegardées ✓');
+    
+    // On quitte le mode édition proprement
+    isEditMode = false;
+    document.getElementById('btn-toggle-edit').textContent = "✏️ Modifier";
+    document.getElementById('btn-toggle-edit').classList.replace('btn-danger', 'btn-ghost');
+    saveBtn.style.display = 'none';
+    
+    await loadData();
+  } catch (err) {
+    toast('Erreur sauvegarde : ' + err.message, 'error');
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = "💾 Sauvegarder";
   }
-  pendingEdits = {};
-  toast('Modifications sauvegardées ✓');
-  await loadData();
 }
 
 function buildStats() {
@@ -993,7 +1188,6 @@ function buildStats() {
 
   const stats = {};
 
-  // 1. Logique de calcul
   if (currentTab === 'planning') {
     currentFilteredRows.forEach(row => {
       DOCTOR_COLS.forEach(col => {
@@ -1008,17 +1202,20 @@ function buildStats() {
     });
   } else {
     currentFilteredAbs.forEach(abs => {
-      const doc = abs.medecin.toUpperCase();
-      if (!stats[doc]) stats[doc] = { total: 0, types: {} };
-      stats[doc].total++;
-      stats[doc].types[abs.type] = (stats[doc].types[abs.type] || 0) + 1;
+      absenceColNames.forEach(docCol => {
+        const type = abs[docCol];
+        if (type && absVisibleTypes.has(type)) {
+          const name = docCol.toUpperCase();
+          if (!stats[name]) stats[name] = { total: 0, types: {} };
+          stats[name].total++;
+          stats[name].types[type] = (stats[name].types[type] || 0) + 1;
+        }
+      });
     });
   }
 
-  // 2. Tri par nom
   const sorted = Object.entries(stats).sort((a, b) => a[0].localeCompare(b[0]));
 
-  // 3. Génération du HTML
   sorted.forEach(([name, data]) => {
     const row = document.createElement('div');
     row.className = 'stat-row';
