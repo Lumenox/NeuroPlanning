@@ -105,6 +105,9 @@
     table { border-collapse: collapse; font-family: 'DM Mono', monospace; font-size: 11px; min-width: 100%; }
     thead th { position: sticky; top: 0; z-index: 10; background: var(--navy-light); padding: 10px 8px; text-align: left; font-size: 10px; font-weight: 500; color: var(--gray); letter-spacing: .06em; }
     .col-group { font-size: 9px !important; border-bottom: 1px solid var(--border) !important; text-align: center !important; }
+    thead th[data-col="date"] {  position: sticky;  left: 0 ; z-index: 11;   background: var(--navy-light);}
+    thead th[data-col="heure"] {  position: sticky;  left: 90px;  z-index: 11;   background: var(--navy-light);}
+    thead th.col-group[data-group="meta"] {  position: sticky;  left: 0;  z-index: 12;  background: var(--navy-light); border-right: 1px solid var(--border);}
     tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
     tbody tr:hover { background: var(--navy-light); }
     tr.creno-matin { background: rgba(255,255,255,.01); }
@@ -114,10 +117,10 @@
     tr.conflict-accepted { background: var(--amber-dim)  !important; border-left: 3px solid var(--amber); }
     tr.conflict-noncli   { background: var(--purple-dim) !important; border-left: 3px solid var(--purple); }
     td.doctor-highlight  { background: var(--teal-dim); color: var(--teal) !important; font-weight: 500; }
-    td { padding: 6px 8px; height: var(--cell-h); white-space: nowrap; color: var(--white); min-width: 50px; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
+    td { padding: 6px 8px; height: var(--cell-h); white-space: nowrap; color: var(--white); min-width: 50px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
     td.col-date { color: var(--gray); font-size: 10px; position: sticky; left: 0; background: var(--navy-mid); z-index: 2; min-width: 90px; border-right: 1px solid var(--border); }
     tr:hover td.col-date { background: var(--navy-light); }
-    td.col-heure { color: var(--teal); font-size: 11px; font-weight: 500; }
+    td.col-heure { color: var(--teal); position: sticky; left: 90px; font-size: 11px; background: var(--navy-mid); font-weight: 500; }
     .is-admin td.editable { cursor: pointer; border: 1px solid transparent; border-radius: 3px; transition: border-color .15s; }
     .is-admin td.editable:hover { border-color: var(--amber); background: var(--amber-dim); }
     td.editing { padding: 2px !important; }
@@ -230,6 +233,11 @@ background: rgba(248, 113, 113, 0.05); }
 
   <div id="toolbar-planning-extras">
     <div class="sep"></div>
+           <label class="group-toggle" id="toggle-internes-wrap" >
+                 <input type="checkbox" id="chk-show-internes" onchange="toggleInternesVisibility()">
+                 <span class="dot"></span> Internes
+           </label>
+           <div class="sep"></div>
     <label style="font-size:11px;color:var(--teal)">Afficher :</label>
     <div id="col-toggles"></div>
   </div>
@@ -378,23 +386,40 @@ const COLUMNS = [
   { key: 'C_Periph',   label: 'C.Périph', group: 'neurog' },
   { key: 'C_Cogn',     label: 'C.Cogn',  group: 'neurog' },
   { key: 'C_sup',      label: 'C.Sup',   group: 'neurog' },
+  { key: 'C_int1',     label: 'C.int1',   group: 'neurog' },
+  { key: 'C_int2',     label: 'C.int2',   group: 'neurog' },
   { key: 'HDJ1',       label: 'HDJ 1',   group: 'hdj'    },
   { key: 'HDJ2',       label: 'HDJ 2',   group: 'hdj'    },
   { key: 'HDJ3',       label: 'HDJ 3',   group: 'hdj'    },
+  { key: 'HDJ_int1',   label: 'HDJint1',   group: 'hdj'    },
+  { key: 'HDJ_int2',   label: 'HDJint2',   group: 'hdj'    },
   { key: 'UNV1',       label: 'UNV 1',   group: 'unv'    },
   { key: 'UNV2',       label: 'UNV 2',   group: 'unv'    },
+  { key: 'UNV_int1',    label: 'UNVint1',   group: 'unv'    },
+  { key: 'UNV_int2',    label: 'UNVint2',   group: 'unv'    },
   { key: 'USI1',       label: 'USI 1',   group: 'usi'    },
   { key: 'USI2',       label: 'USI 2',   group: 'usi'    },
+  { key: 'USI_int1',       label: 'USIint1',   group: 'usi'    },
+  { key: 'USI_int2',       label: 'USIint2',   group: 'usi'    },
   { key: 'BIPv',       label: 'BIP v',   group: 'bip'    },
   { key: 'BIPng',      label: 'BIP ng',  group: 'bip'    },
   { key: 'Garde',      label: 'Garde',   group: 'garde'  },
-  { key: 'Astr',       label: 'Astr',    group: 'garde'  },
+  { key: 'Garde_int',      label: 'GardeInt',   group: 'garde'  },
+  { key: 'Astr',       label: 'AstrInt',    group: 'garde'  },
+  { key: 'Astr_int',       label: 'Astr',    group: 'garde'  },
   { key: 'ReposGarde', label: 'R.Garde', group: 'repos'  },
   { key: 'BOX1',       label: 'BOX 1',   group: 'box'    },
   { key: 'BOX2',       label: 'BOX 2',   group: 'box'    },
+  { key: 'BOX3',       label: 'BOX 3',   group: 'box'    },
+  { key: 'BOX4',       label: 'BOX 4',   group: 'box'    },
+  { key: 'BOX5',       label: 'BOX 5',   group: 'box'    },
+  { key: 'BOX6',       label: 'BOX 6',   group: 'box'    },
+  { key: 'BOX7',       label: 'BOX 7',   group: 'box'    },
+  { key: 'BOX8',       label: 'BOX 8',   group: 'box'    },
+  { key: 'BOX9',       label: 'BOX 9',   group: 'box'    },
 ];
 
-const GROUP_LABELS = { neurog:'NeuroG', hdj:'HDJ', unv:'UNV', usi:'USI', bip:'BIP', garde:'Garde', repos:'R.Garde', box:'BOX' };
+const GROUP_LABELS = { neurog:'NeuroG', hdj:'HDJ', unv:'UNV', usi:'USI', bip:'BIP', garde:'Garde', repos:'R.Garde', box:'Consult' };
 const GROUP_COLORS = { neurog:'#FFF396', hdj:'#C9F07A', unv:'#F0D37A', usi:'#F07AB5', bip:'#FFA89C', garde:'#E08924', repos:'#F0FBFF', box:'#94a3b8' };
 const CONFLICT_IGNORE_COLS = ['Garde'];
 
@@ -425,7 +450,7 @@ let acceptedConflicts   = {};
 let currentTab          = 'planning';
 let absVisibleTypes     = new Set(ABS_TYPES);
 let editingAbsenceId    = null;
-
+let showInternes = false;
 
 
 function doLogin() {
@@ -475,7 +500,23 @@ function switchTab(tab) {
 }
 
 async function init() {
+  const today = new Date();
+     const future = new Date();
+     future.setDate(today.getDate() + 100);
+     const formatDateISO = (d) => d.toISOString().split('T')[0];  
+  document.getElementById('filter-date-from').value = formatDateISO(today);
+     document.getElementById('filter-date-to').value = formatDateISO(future);
+
   await loadEquipe();
+    // Remplissage dynamique des colonnes à ignorer pour les conflits
+  COLUMNS.forEach(col => {
+          if (col.key.endsWith('_int') || col.key.endsWith('_int1') || col.key.endsWith('_int2')) {
+              if (!CONFLICT_IGNORE_COLS.includes(col.key)) {
+                  CONFLICT_IGNORE_COLS.push(col.key);
+               }
+           }
+       });
+  document.getElementById('chk-show-internes').checked = showInternes;
   populateSemainierDocs();
   buildTableHeader();
   buildColToggles();
@@ -485,6 +526,7 @@ async function init() {
   await loadAbsences();
   subscribeRealtime();
   subscribeRealtimeAbsences();
+  toggleInternesVisibility();
 }
 
 async function refreshAll() {
@@ -535,16 +577,38 @@ function buildColToggles() {
 function applyColVisibility() {
   COLUMNS.forEach(col => {
     if (col.group === 'meta') return;
-    const show = visibleCols[col.key] ? '' : 'none';
-    document.querySelectorAll(`[data-col="${col.key}"]`).forEach(cell => { cell.style.display = show; });
+    
+    const isInterneCol = col.key.endsWith('_int') || col.key.endsWith('_int1') || col.key.endsWith('_int2');
+    const shouldShow = visibleCols[col.key] && (!isInterneCol || showInternes);
+    
+    const displayStyle = shouldShow ? '' : 'none';
+    document.querySelectorAll(`[data-col="${col.key}"]`).forEach(cell => { 
+      cell.style.display = displayStyle; 
+    });
   });
+
+  // Mise à jour des en-têtes de groupe ET de leur largeur (colspan)
   Object.keys(groupMap).forEach(group => {
-    const visible = groupMap[group].some(key => visibleCols[key]);
+    // On compte combien de colonnes de ce groupe sont actuellement visibles
+    const visibleCount = groupMap[group].filter(key => {
+      const isInterneCol = key.endsWith('_int') || key.endsWith('_int1') || key.endsWith('_int2');
+      return visibleCols[key] && (!isInterneCol || showInternes);
+    }).length;
+
     const th = document.querySelector(`.col-group[data-group="${group}"]`);
-    if (th) th.style.display = visible ? '' : 'none';
+    if (th) {
+      if (visibleCount > 0) {
+        th.style.display = '';
+        th.colSpan = visibleCount; // On ajuste le colspan au nombre réel de colonnes affichées
+      } else {
+        th.style.display = 'none';
+      }
+    }
   });
+  
   buildStats();
 }
+
 
 const ABS_TYPE_COLORS = { CA:'#93c5fd', CF:'#c084fc', Ens:'#6ee7b7', Rech:'#fbbf24', Autre:'#f87171' };
 
@@ -718,6 +782,22 @@ function applyAbsFilters() {
   buildStats();
 }
 
+//  NOUVELLE FONCTION POUR GERER LA VISIBILITE DES INTERNES
+function toggleInternesVisibility() {
+  showInternes = document.getElementById('chk-show-internes').checked;
+  const wrap = document.getElementById('toggle-internes-wrap');
+  
+  if (showInternes) {
+    wrap.style.background = "var(--purple-dim)";
+    wrap.classList.add('active');
+  } else {
+    wrap.style.background = "transparent";
+    wrap.classList.remove('active');
+  }
+
+  // On met à jour l'affichage des colonnes
+  applyColVisibility();
+}
 function buildTableHeader() {
   const thead = document.getElementById('table-head');
   thead.innerHTML = '';
@@ -1087,28 +1167,48 @@ function openPlanningDropdown(td, row, colKey) {
   });
 
   // 4. LISTE DES SUGGESTIONS (Filtrée dynamiquement)
-  const renderSuggestions = (filterText = "") => {
-    // On nettoie les anciens items (mais on garde l'input et le bouton effacer)
+const renderSuggestions = (filterText = "") => {
+    // On nettoie les anciens items
     Array.from(dropdown.querySelectorAll('.dd-item:not(:first-of-type)')).forEach(el => el.remove());
 
-    const sortedMedecins = [...listeMedecins].sort((a, b) => 
+    // Déterminer si on édite une colonne d'interne
+    const isEditingInterneCol = colKey.endsWith('_int') || colKey.endsWith('_int1') || colKey.endsWith('_int2');
+
+    // Filtrer les médecins selon la colonne
+    const filteredMedecins = listeMedecins.filter(med => {
+      const medIsInterne = (med.fonction === 'interne');
+      
+      // Si colonne interne -> n'afficher que les internes
+      // Si colonne titulaire -> n'afficher que les médecins qui ne sont pas internes
+      if (isEditingInterneCol) {
+        return medIsInterne;
+      } else {
+        return !medIsInterne;
+      }
+    });
+
+    // Tri par compteur pour les médecins filtrés
+    const sortedMedecins = filteredMedecins.sort((a, b) => 
       (compteurs[a.initiales.toUpperCase()] || 0) - (compteurs[b.initiales.toUpperCase()] || 0)
     );
 
     sortedMedecins.forEach(med => {
       const init = med.initiales.toUpperCase();
-      // On affiche si ça match la recherche ET si ce n'est pas déjà l'option "Effacer"
       if (filterText && !init.includes(filterText.toUpperCase())) return;
 
       const isAbsent = dateAbsences.has(init);
       const labelAbs = isAbsent ? ` <span style="color:var(--purple); font-size:9px;">(${dateAbsences.get(init).type})</span>` : '';
+      
+      // Couleur violette pour les internes dans le menu pour rappel visuel
+      const colorStyle = med.fonction === 'interne' ? 'color:var(--purple);' : 'color:var(--white);';
 
-      addDropdownItem(dropdown, `<span>${init}${labelAbs}</span><span class="dd-count">${compteurs[init]}</span>`, init, () => {
-        confirmPlanningSelection(row, colKey, init, td);
-      });
+      addDropdownItem(dropdown, 
+        `<span style="${colorStyle}">${init}${labelAbs}</span><span class="dd-count">${compteurs[init] || 0}</span>`, 
+        init, 
+        () => confirmPlanningSelection(row, colKey, init, td)
+      );
     });
   };
-
   input.addEventListener('input', () => renderSuggestions(input.value));
   renderSuggestions(); // Premier rendu
   
