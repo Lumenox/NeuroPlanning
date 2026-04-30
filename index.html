@@ -166,6 +166,8 @@ background: rgba(248, 113, 113, 0.05); }
     .dd-item:hover, .dd-item.focused { background: var(--navy-light); }
     .dd-item.hidden { display: none; }
     .dd-count { font-size: 9px; color: var(--gray); background: var(--navy); border-radius: 3px; padding: 1px 5px; min-width: 22px; text-align: center; }
+    .dd-search-input {  width: 100%;  background: var(--navy);  border: none;  border-bottom: 1px solid var(--amber);  color: var(--white);  padding: 10px 12px;   font-family: 'DM Mono', monospace;   font-size: 11px;   outline: none; }
+    .dd-search-input::placeholder { color: var(--gray); font-style: italic; }
 
     #loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; background: var(--navy); z-index: 5; }
     .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--teal); border-radius: 50%; animation: spin .8s linear infinite; }
@@ -216,6 +218,7 @@ background: rgba(248, 113, 113, 0.05); }
 <div id="tabs-bar">
   <button class="tab-btn tab-planning active" onclick="switchTab('planning')">🏥 Planning clinique</button>
   <button class="tab-btn tab-absences"        onclick="switchTab('absences')">🌴 Absences / Non clinique</button>
+  <button class="tab-btn tab-semainier"         onclick="switchTab('semainier')">📅 Semainier </button>
 </div>
 
 <div id="toolbar">
@@ -267,6 +270,37 @@ background: rgba(248, 113, 113, 0.05); }
         <tbody id="abs-body"></tbody>
       </table>
     </div>
+
+    <div id="semainier-wrap" style="display:none; flex:1; overflow:auto;">
+    <div id="semainier-controls" style="padding: 15px 24px; background: var(--navy-mid); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 20px;">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                          <label style="color: var(--teal); font-family: 'DM Mono'; font-size: 11px;">Médecin 1 :</label>
+                          <select id="select-semainier-doc-1" onchange="renderSemainier()" style="background: var(--navy); color: var(--white); border: 1px solid var(--teal); padding: 4px 8px; border-radius: 6px; font-family: 'DM Mono';"></select>
+                  </div>
+    
+                  <div style="width: 1px; height: 20px; background: var(--border);"></div>
+
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                            <label style="color: var(--purple); font-family: 'DM Mono'; font-size: 11px;">Médecin 2 :</label>
+                            <select id="select-semainier-doc-2" onchange="renderSemainier()" style="background: var(--navy); color: var(--white); border: 1px solid var(--purple); padding: 4px 8px; border-radius: 6px; font-family: 'DM Mono';"></select>
+                   </div>
+            </div>
+               <table id="semainier-table">
+               <thead>
+                        <tr>
+                               <th rowspan="2" class="col-date">Date</th>
+                               <th rowspan="2">Heure</th>
+                               <th id="header-doc-1" style="text-align:center; background: rgba(45, 212, 191, 0.1); color: var(--teal); border-bottom: 1px solid var(--teal);">Médecin 1</th>
+                               <th id="header-doc-2" style="text-align:center; background: rgba(192, 132, 252, 0.1); color: var(--purple); border-bottom: 1px solid var(--purple);">Médecin 2</th>
+                        </tr>
+                        <tr>
+                               <th style="font-size: 9px; text-align:center;">Activités / Absences</th>
+                               <th style="font-size: 9px; text-align:center;">Activités / Absences</th>
+                        </tr>
+                </thead>
+                 <tbody id="semainier-body"></tbody>
+              </table>
+         </div>
   </div>
 
   <div id="stats-panel">
@@ -442,6 +476,7 @@ function switchTab(tab) {
 
 async function init() {
   await loadEquipe();
+  populateSemainierDocs();
   buildTableHeader();
   buildColToggles();
   buildAbsTypeToggles();
@@ -626,8 +661,16 @@ function subscribeRealtimeAbsences() {
 }
 
 function onFilterChange() {
-  if (currentTab === 'planning') applyFilters();
-  else applyAbsFilters();
+  if (currentTab === 'planning') {
+    applyFilters();
+  } else if (currentTab === 'absences') {
+    applyAbsFilters();
+  } else if (currentTab === 'semainier') {
+    // Le semainier dépend de currentFilteredRows, on doit donc 
+    // rafraîchir les données filtrées avant de redessiner
+    applyFilters(); 
+    renderSemainier();
+  }
   buildStats();
 }
 
@@ -652,8 +695,11 @@ function applyFilters() {
     if (doctorFilter && !DOCTOR_COLS.some(c => (row[c] || '').trim().toUpperCase() === doctorFilter.toUpperCase())) return false;
     return true;
   });
+  // NE dessiner le tableau que si l'onglet est actif
+  if (currentTab === 'planning') {
+           renderTable(currentFilteredRows, docSearch || doctorFilter);
+      }
 
-  renderTable(currentFilteredRows, docSearch || doctorFilter);
   applyColVisibility();
   buildStats();
 }
@@ -1005,8 +1051,24 @@ function startEdit(td, row, colKey) {
 function openPlanningDropdown(td, row, colKey) {
   const dropdown = document.getElementById('edit-dropdown');
   const rect = td.getBoundingClientRect();
+  dropdown.innerHTML = '';
 
-  // 1. Calcul des compteurs pour le tri
+  // 1. CHAMP DE SAISIE LIBRE (En haut du menu)
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'dd-search-input';
+  input.placeholder = 'Saisir ou choisir...';
+  input.value = (td.textContent === '[ Effacer ]') ? '' : td.textContent;
+  dropdown.appendChild(input);
+
+  // 2. LOGIQUE DE VALIDATION (Touche Entrée ou Perte de focus)
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      confirmPlanningSelection(row, colKey, input.value.trim().toUpperCase(), td);
+    }
+  });
+
+  // 3. CALCUL DES COMPTEURS POUR LES SUGGESTIONS
   const compteurs = {};
   listeMedecins.forEach(m => compteurs[m.initiales.toUpperCase()] = 0);
   currentFilteredRows.forEach(r => {
@@ -1016,43 +1078,44 @@ function openPlanningDropdown(td, row, colKey) {
     });
   });
 
-     // 2. Récupération des absences pour cette date et cette heure précise 
   const absIdx = buildAbsenceIndex();
-     const dateAbsences = absIdx.get(row.date) || new Map();
+  const dateAbsences = absIdx.get(row.date) || new Map();
 
-  // 3. Identification des médecins déjà sur la ligne (pour exclusion)
-  const medecinsSurLigne = new Set();
-  DOCTOR_COLS.forEach(c => {
-    const val = (row[c] || '').trim().toUpperCase();
-    if (val) medecinsSurLigne.add(val);
-  });
-
-  dropdown.innerHTML = '';
-
-     // Option "Effacer"
+  // Option "Effacer"
   addDropdownItem(dropdown, '<span style="color:var(--red)">[ Effacer ]</span>', '', () => {
     confirmPlanningSelection(row, colKey, '', td);
   });
 
-  // 4. Tri et Filtrage des médecins
-  const sortedMedecins = [...listeMedecins].sort((a, b) => 
-    (compteurs[a.initiales.toUpperCase()] || 0) - (compteurs[b.initiales.toUpperCase()] || 0)
-  );
+  // 4. LISTE DES SUGGESTIONS (Filtrée dynamiquement)
+  const renderSuggestions = (filterText = "") => {
+    // On nettoie les anciens items (mais on garde l'input et le bouton effacer)
+    Array.from(dropdown.querySelectorAll('.dd-item:not(:first-of-type)')).forEach(el => el.remove());
 
-  sortedMedecins.forEach(med => {
-    const init = med.initiales.toUpperCase();
-          // EXCLUSION : 
-          // - Si déjà sur la ligne (sauf si c'est la case actuelle qu'on ré-édite)
-           // - Si présent dans l'index des absences (Congés, Formation, etc.)
-    if (medecinsSurLigne.has(init) && init !== (row[colKey] || '').trim().toUpperCase()) return;
-    if (dateAbsences.has(init)) return;
+    const sortedMedecins = [...listeMedecins].sort((a, b) => 
+      (compteurs[a.initiales.toUpperCase()] || 0) - (compteurs[b.initiales.toUpperCase()] || 0)
+    );
 
-    const item = addDropdownItem(dropdown, `<span>${init}</span><span class="dd-count">${compteurs[init]}</span>`, init, () => {
-      confirmPlanningSelection(row, colKey, init, td);
+    sortedMedecins.forEach(med => {
+      const init = med.initiales.toUpperCase();
+      // On affiche si ça match la recherche ET si ce n'est pas déjà l'option "Effacer"
+      if (filterText && !init.includes(filterText.toUpperCase())) return;
+
+      const isAbsent = dateAbsences.has(init);
+      const labelAbs = isAbsent ? ` <span style="color:var(--purple); font-size:9px;">(${dateAbsences.get(init).type})</span>` : '';
+
+      addDropdownItem(dropdown, `<span>${init}${labelAbs}</span><span class="dd-count">${compteurs[init]}</span>`, init, () => {
+        confirmPlanningSelection(row, colKey, init, td);
+      });
     });
-  });
+  };
 
+  input.addEventListener('input', () => renderSuggestions(input.value));
+  renderSuggestions(); // Premier rendu
+  
   showDropdown(dropdown, rect);
+  
+  // Focus automatique sur l'input pour taper direct
+  setTimeout(() => input.focus(), 50);
 }
 
 // --- DROPDOWN POUR LES ABSENCES (CONGÉS) ---
@@ -1079,6 +1142,121 @@ function openAbsenceDropdown(td, row, colKey) {
   showDropdown(dropdown, rect);
 }
 
+
+// --- FONCTIONS SEMAINIERS ---
+// 1. Initialisation du menu déroulant (à appeler dans init())
+function populateSemainierDocs() {
+  const s1 = document.getElementById('select-semainier-doc-1');
+  const s2 = document.getElementById('select-semainier-doc-2');
+  [s1, s2].forEach((select, index) => {
+    select.innerHTML = `<option value="">-- Aucun --</option>`;
+    listeMedecins.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.initiales.toUpperCase();
+      opt.textContent = m.initiales;
+      // Sélection par défaut pour le test (premier et deuxième de la liste)
+      if (index === 0 && listeMedecins.indexOf(m) === 0) opt.selected = true;
+      select.appendChild(opt);
+    });
+  });
+}
+
+// 2. Mise à jour de switchTab pour gérer le nouvel onglet
+const originalSwitchTab = switchTab;
+switchTab = function(tab) {
+  originalSwitchTab(tab); // Appelle l'ancienne logique
+  document.getElementById('semainier-wrap').style.display = (tab === 'semainier') ? 'block' : 'none';
+  if (tab === 'semainier') {
+    if (document.getElementById('select-semainier-doc').options.length === 0) populateSemainierDocs();
+    renderSemainier();
+  }
+};
+
+// 3. Fonction de rendu du Semainier
+function renderSemainier() {
+  const doc1 = document.getElementById('select-semainier-doc-1').value;
+  const doc2 = document.getElementById('select-semainier-doc-2').value;
+  const tbody = document.getElementById('semainier-body');
+  
+  document.getElementById('header-doc-1').textContent = doc1 || "Médecin 1";
+  document.getElementById('header-doc-2').textContent = doc2 || "Médecin 2";
+
+  tbody.innerHTML = '';
+  if (!doc1 && !doc2) return;
+
+  // Préparation de l'index des absences pour la détection de conflit non-clinique
+  const absIdx = buildAbsenceIndex();
+
+  currentFilteredRows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.classList.add(row.heure === '9h00' ? 'creno-matin' : 'creno-aprem');
+
+    const getDocSummary = (doctor) => {
+      if (!doctor) return "";
+      let parts = [];
+      let isClinicalConflict = false;
+      const isAccepted = acceptedConflicts[row.id] === true;
+
+      // 1. Analyse du Planning Clinique
+      let countOnLine = 0;
+      COLUMNS.forEach(col => {
+        if (DOCTOR_COLS.includes(col.key)) {
+          const val = (row[col.key] || '').trim().toUpperCase();
+          if (val === doctor) {
+            parts.push(col.label);
+            if (!CONFLICT_IGNORE_COLS.includes(col.key)) countOnLine++;
+          }
+        }
+      });
+      
+      // Détection Conflit Clinique (présent > 1 fois sur la ligne hors gardes)
+      if (countOnLine > 1) isClinicalConflict = true;
+
+      // 2. Analyse des Absences
+      const dateAbsences = absIdx.get(row.date) || new Map();
+      const absType = dateAbsences.get(doctor)?.type;
+
+      // Détermination de la couleur de fond du statut
+      let statusStyle = "";
+      let cellTitle = "";
+
+      if (isClinicalConflict) {
+        if (isAccepted) {
+          statusStyle = "background: var(--amber-dim); border-left: 3px solid var(--amber); color: var(--amber);";
+          cellTitle = "Conflit clinique accepté";
+        } else {
+          statusStyle = "background: var(--red-dim); border-left: 3px solid var(--red); color: var(--red);";
+          cellTitle = "ATTENTION : Conflit clinique (plusieurs postes)";
+        }
+      } else if (parts.length > 0 && absType) {
+        statusStyle = "background: var(--purple-dim); border-left: 3px solid var(--purple); color: var(--purple);";
+        cellTitle = `Conflit non-clinique : Affecté alors qu'en [${absType}]`;
+      }
+
+      // Rendu HTML
+      let html = `<div title="${cellTitle}" style="display:flex; flex-direction:column; gap:4px; padding: 4px; min-height: 32px; border-radius: 4px; ${statusStyle}">`;
+      
+      if (parts.length > 0) {
+          html += `<span style="font-weight: 600;">${parts.join(' + ')}</span>`;
+      }
+      
+      if (absType) {
+          html += `<span class="abs-${absType}" style="padding:1px 6px; border-radius:3px; font-size:10px; width:fit-content; margin: ${parts.length > 0 ? '0' : '0 auto'};">${absType}</span>`;
+      }
+      
+      html += `</div>`;
+      return (parts.length === 0 && !absType) ? `<span style="color:var(--gray); opacity:0.3">-</span>` : html;
+    };
+
+    tr.innerHTML = `
+      <td class="col-date">${formatDate(row.date)}</td>
+      <td class="col-heure">${row.heure}</td>
+      <td style="text-align:center; border-right: 1px solid var(--border); padding: 4px 8px;">${getDocSummary(doc1)}</td>
+      <td style="text-align:center; padding: 4px 8px;">${getDocSummary(doc2)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
 // --- FONCTIONS UTILITAIRES ---
 
 function addDropdownItem(container, html, value, onClick) {
@@ -1096,12 +1274,15 @@ function showDropdown(dropdown, rect) {
   dropdown.style.display = 'block';
 
   const closeHandler = (e) => {
+    // Si on clique en dehors du dropdown ET que ce n'est pas le TD lui-même
     if (!dropdown.contains(e.target)) {
       closeDropdown();
       document.removeEventListener('mousedown', closeHandler);
     }
   };
-  setTimeout(() => document.addEventListener('mousedown', closeHandler), 10);
+  
+  // Petit délai pour éviter que le clic d'ouverture ne ferme direct
+  setTimeout(() => document.addEventListener('mousedown', closeHandler), 100);
 }
 
 function confirmPlanningSelection(row, colKey, value, td) {
@@ -1257,6 +1438,9 @@ function buildStats() {
 function closeDropdown() {
   document.getElementById('edit-dropdown').style.display = 'none';
 }
+
+
+
 </script>
 
 </body>
