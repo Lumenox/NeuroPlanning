@@ -502,7 +502,7 @@ async function applySession(session) {
     role:        profile.role,
     permissions: profile.permissions
   };
-
+ window.userPermissions = profile.permissions;
   document.getElementById('auth-overlay').style.display = 'none';
   document.getElementById('auth-error').style.display   = 'none';
 
@@ -1054,7 +1054,7 @@ function renderTable(rows, highlightDoctor) {
         if (highlightDoctor && val.trim().toLowerCase().includes(highlightDoctor.toLowerCase())) td.classList.add('doctor-highlight');
         td.textContent = pending !== undefined ? pending : val;
         if (pending !== undefined) td.style.borderColor = 'var(--amber)';
-        if (currentUser?.role === 'admin' && isEditMode) td.addEventListener('dblclick', () => startEdit(td, row, col.key));
+        if (currentUser?.role === 'admin' && isEditMode && canEditCol(col.key)) td.addEventListener('dblclick', () => startEdit(td, row, col.key));
       }
 
       tr.appendChild(td);
@@ -1114,7 +1114,7 @@ function renderAbsences(absRows) {
       const td = document.createElement('td');
       td.style.textAlign = 'center';
 
-      if (currentUser?.role === 'admin' && isEditMode) {
+      if (currentUser?.role === 'admin' && isEditMode && canEditAbsences()) {
         td.style.cursor = 'pointer';
         td.addEventListener('dblclick', () => startEdit(td, row, doc));
       }
@@ -1259,6 +1259,21 @@ function toggleEditMode() {
  * REIMPLÉMENTATION DU MODE MODIFICATION ADMIN
  * Double-clic -> Dropdown trié par compteurs (excluant les doublons de ligne)
  */
+// Vérifie si l'utilisateur a le droit de modifier une colonne donnée
+function canEditCol(colKey) {
+  const p = window.userPermissions;
+  if (!p || !p.can_edit_planning) return false;
+  if (!p.editable_groups) return true;                    // ancien format → accès total
+  if (p.editable_groups.includes('*')) return true;       // admin total
+  // Retrouver le groupe de la colonne
+  const col = COLUMNS.find(c => c.key === colKey);
+  if (!col) return false;
+  return p.editable_groups.includes(col.group);
+}
+
+function canEditAbsences() {
+  return window.userPermissions?.can_edit_absences === true;
+}
 
 function startEdit(td, row, colKey) {
   if (currentTab === 'planning') {
@@ -1527,6 +1542,8 @@ function showDropdown(dropdown, rect) {
 }
 
 function confirmPlanningSelection(row, colKey, value, td) {
+  const oldVal = (allData.find(r => r.id === row.id)?.[colKey] || '').trim();
+
   if (!pendingEdits[row.id]) pendingEdits[row.id] = {};
   pendingEdits[row.id][colKey] = value;
   td.textContent = value;
@@ -1535,6 +1552,20 @@ function confirmPlanningSelection(row, colKey, value, td) {
   if(idx !== -1) allData[idx][colKey] = value;
   closeDropdown();
   buildStats();
+
+  // Enregistrement dans l'historique si la valeur a changé
+  if (value !== oldVal) {
+    _supabase.from('planning_history').insert({
+      modified_by : currentUser.login,
+      row_date    : row.date,
+      row_heure   : row.heure,
+      col_key     : colKey,
+      old_value   : oldVal,
+      new_value   : value
+    }).then(({ error }) => {
+      if (error) console.warn('Historique non enregistré :', error.message);
+    });
+  }
 }
 
 async function confirmAbsenceSelection(row, colKey, value, td) {
