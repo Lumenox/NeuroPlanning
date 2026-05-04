@@ -192,10 +192,17 @@ background: rgba(248, 113, 113, 0.05); }
   <div class="auth-box">
     <h2>Neurologie · Planning</h2>
     <p>Entrez vos identifiants pour accéder au planning.</p>
-    <input type="text" id="auth-login" placeholder="Email professionnel" autocomplete="off" />
+    <p>ID de test pour les viewer: 123 mdp 12345678</p>
+    <input type="text" id="auth-login" placeholder="Email aphp ou APH" autocomplete="off" />
     <input type="password" id="auth-pass"  placeholder="Mot de passe" />
     <div id="auth-error" style="color:var(--red);font-size:11px;display:none;">Identifiants incorrects.</div>
     <button class="btn-primary" onclick="doLogin()">Connexion</button>
+    <p style="text-align:center; margin-top:8px; font-size:12px;">
+      <a href="#" onclick="showForgotPassword()" 
+        style="color:var(--accent); text-decoration:none;">
+        Mot de passe oublié ?
+      </a>
+    </p>
   </div>
 </div>
 
@@ -211,6 +218,7 @@ background: rgba(248, 113, 113, 0.05); }
     <div class="sep"></div>
     <button class="btn-ghost" onclick="refreshAll()">↺</button>
     <button class="btn-ghost" style="font-size:11px" onclick="logout()">Déconnexion</button>
+    <button onclick="showChangePassword()" class="btn-ghost">🔑 Changer MDP</button>
   </div>
 </div>
 
@@ -446,12 +454,31 @@ let showInternes = false;
 
 
 async function doLogin() {
-  const email = document.getElementById('auth-login').value.trim();
-  const pass  = document.getElementById('auth-pass').value;
-  const errEl = document.getElementById('auth-error');
+  const hospitalId = document.getElementById('auth-login').value.trim();
+  const pass       = document.getElementById('auth-pass').value;
+  const errEl      = document.getElementById('auth-error');
+  errEl.style.display = 'none';
 
-  const { data, error } = await _supabase.auth.signInWithPassword({ email, password: pass });
-  if (error) { errEl.style.display = 'block'; return; }
+  // 1. Retrouver l'email depuis l'identifiant hôpital
+  const { data: email, error: lookupError } = await _supabase
+    .rpc('get_email_from_hospital_id', { h_id: hospitalId });
+
+  if (lookupError || !email) {
+    errEl.textContent = 'Identifiant inconnu.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  // 2. Connexion avec l'email retrouvé
+  const { data, error } = await _supabase.auth.signInWithPassword({
+    email, password: pass
+  });
+
+  if (error) {
+    errEl.textContent = 'Mot de passe incorrect.';
+    errEl.style.display = 'block';
+    return;
+  }
 
   await applySession(data.session);
 }
@@ -505,6 +532,99 @@ async function logout() {
   btn.textContent = "✏️ Modifier";
   btn.classList.replace('btn-danger', 'btn-ghost');
   btn.style.display = 'none';
+}
+
+function showForgotPassword() {
+  document.getElementById('auth-overlay').innerHTML = `
+    <div class="auth-box">
+      <h2>🔑 Réinitialiser le mot de passe</h2>
+      <p style="font-size:13px;color:var(--text-muted)">
+        Entrez votre identifiant hôpital. Vous recevrez un email pour choisir un nouveau mot de passe.
+      </p>
+      <input type="text" id="reset-hospital-id" placeholder="Identifiant hôpital (ex: RN001)" />
+      <div id="reset-error"   style="color:var(--red);font-size:11px;display:none;"></div>
+      <div id="reset-success" style="color:var(--green);font-size:12px;display:none;"></div>
+      <button class="btn-primary" onclick="sendResetEmail()">Envoyer le lien</button>
+      <p style="text-align:center;margin-top:8px;font-size:12px;">
+        <a href="#" onclick="location.reload()" 
+           style="color:var(--accent);text-decoration:none;">← Retour</a>
+      </p>
+    </div>`;
+}
+
+async function sendResetEmail() {
+  const hospitalId = document.getElementById('reset-hospital-id').value.trim();
+  const errEl      = document.getElementById('reset-error');
+  const okEl       = document.getElementById('reset-success');
+  errEl.style.display = 'none';
+  okEl.style.display  = 'none';
+
+  // 1. Retrouver l'email depuis l'identifiant hôpital
+  const { data: email, error: lookupError } = await _supabase
+    .rpc('get_email_from_hospital_id', { h_id: hospitalId });
+
+  if (lookupError || !email) {
+    errEl.textContent   = 'Identifiant inconnu.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  // 2. Envoyer l'email de réinitialisation
+  const { error } = await _supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.href.split('#')[0]  // ton URL GitHub Pages
+  });
+
+  if (error) {
+    errEl.textContent   = 'Erreur lors de l\'envoi. Réessaie.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  okEl.textContent   = `✓ Email envoyé à l'adresse enregistrée. Vérifie ta boîte mail.`;
+  okEl.style.display = 'block';
+  document.querySelector('.btn-primary').disabled = true;
+}
+
+function showChangePassword() {
+  // Petit modal inline
+  const modal = document.createElement('div');
+  modal.id = 'change-pass-modal';
+  modal.style.cssText = `
+    position:fixed;inset:0;background:rgba(0,0,0,.5);
+    display:flex;align-items:center;justify-content:center;z-index:9999`;
+  modal.innerHTML = `
+    <div class="auth-box" style="max-width:340px;width:100%">
+      <h2>🔑 Changer mon mot de passe</h2>
+      <input type="password" id="cp-new"     placeholder="Nouveau mot de passe (8 car. min.)" />
+      <input type="password" id="cp-confirm" placeholder="Confirmer" style="margin-top:8px"/>
+      <div id="cp-error" style="color:var(--red);font-size:11px;display:none;margin-top:6px;"></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn-primary"  onclick="doChangePassword()">Enregistrer</button>
+        <button class="btn-ghost"    onclick="document.getElementById('change-pass-modal').remove()">Annuler</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function doChangePassword() {
+  const pass    = document.getElementById('cp-new').value;
+  const confirm = document.getElementById('cp-confirm').value;
+  const errEl   = document.getElementById('cp-error');
+
+  if (pass.length < 8) {
+    errEl.textContent = 'Minimum 8 caractères.'; errEl.style.display = 'block'; return;
+  }
+  if (pass !== confirm) {
+    errEl.textContent = 'Les mots de passe ne correspondent pas.'; errEl.style.display = 'block'; return;
+  }
+
+  const { error } = await _supabase.auth.updateUser({ password: pass });
+  if (error) {
+    errEl.textContent = error.message; errEl.style.display = 'block'; return;
+  }
+
+  document.getElementById('change-pass-modal').remove();
+  toast('✓ Mot de passe mis à jour');
 }
 
 function switchTab(tab) {
