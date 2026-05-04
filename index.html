@@ -192,11 +192,7 @@ background: rgba(248, 113, 113, 0.05); }
   <div class="auth-box">
     <h2>Neurologie · Planning</h2>
     <p>Entrez vos identifiants pour accéder au planning.</p>
-    <div class="hint">
-      👨‍⚕️ Admin → login: <strong>admin</strong> / mdp: <strong>neuro2026</strong><br>
-      👁️ Viewer → login: <strong>rn</strong> / mdp: <strong>123</strong>
-    </div>
-    <input type="text"     id="auth-login" placeholder="Login" autocomplete="off" />
+    <input type="text" id="auth-login" placeholder="Email professionnel" autocomplete="off" />
     <input type="password" id="auth-pass"  placeholder="Mot de passe" />
     <div id="auth-error" style="color:var(--red);font-size:11px;display:none;">Identifiants incorrects.</div>
     <button class="btn-primary" onclick="doLogin()">Connexion</button>
@@ -373,10 +369,6 @@ const SUPABASE_URL = 'https://yseaujinbdwxpcelsywr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_7uC727-tO92zxGsAwCqBnA_E9oX_Xw8';
 const _supabase    = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const USERS = {
-  admin: { pass: 'neuro2026', role: 'admin'  },
-  rn:    { pass: '123',       role: 'viewer' },
-};
 
 const ABS_TYPES = ['CA', 'CF', 'Ens', 'Rech', 'Autre'];
 
@@ -419,7 +411,7 @@ const COLUMNS = [
   { key: 'BOX9',       label: 'BOX 9',   group: 'box'    },
 ];
 
-const GROUP_LABELS = { neurog:'NeuroG', hdj:'HDJ', unv:'UNV', usi:'USI', bip:'BIP', garde:'Garde', repos:'R.Garde', box:'Consult' };
+const GROUP_LABELS = { neurog:'NeuroG', hdj:'HDJ', unv:'UNV', usi:'USI', bip:'BIP', garde:'Garde', repos:'R.Garde', box:'BOX' };
 const GROUP_COLORS = { neurog:'#FFF396', hdj:'#C9F07A', unv:'#F0D37A', usi:'#F07AB5', bip:'#FFA89C', garde:'#E08924', repos:'#F0FBFF', box:'#94a3b8' };
 const CONFLICT_IGNORE_COLS = ['Garde'];
 
@@ -453,27 +445,56 @@ let editingAbsenceId    = null;
 let showInternes = false;
 
 
-function doLogin() {
-  const login = document.getElementById('auth-login').value.trim().toLowerCase();
+async function doLogin() {
+  const email = document.getElementById('auth-login').value.trim();
   const pass  = document.getElementById('auth-pass').value;
-  const user  = USERS[login];
-  if (!user || user.pass !== pass) { document.getElementById('auth-error').style.display = 'block'; return; }
-  currentUser = { login, role: user.role };
+  const errEl = document.getElementById('auth-error');
+
+  const { data, error } = await _supabase.auth.signInWithPassword({ email, password: pass });
+  if (error) { errEl.style.display = 'block'; return; }
+
+  await applySession(data.session);
+}
+
+async function applySession(session) {
+  const { data: profile, error } = await _supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', session.user.id)
+    .single();
+
+  if (error || !profile) {
+    toast('Profil introuvable. Contactez l\'administrateur.', 'error');
+    await _supabase.auth.signOut();
+    return;
+  }
+
+  currentUser = {
+    login:       profile.hospital_id,
+    email:       profile.email,
+    role:        profile.role,
+    permissions: profile.permissions
+  };
+
   document.getElementById('auth-overlay').style.display = 'none';
   document.getElementById('auth-error').style.display   = 'none';
-  if (user.role === 'admin') {
+
+  if (profile.role === 'admin') {
     document.getElementById('btn-toggle-edit').style.display = 'inline';
     document.body.classList.add('is-admin');
   }
   init();
 }
+
+
 document.getElementById('auth-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
-function logout() {
+async function logout() {
   if (realtimeSub)    _supabase.removeChannel(realtimeSub);
   if (realtimeAbsSub) _supabase.removeChannel(realtimeAbsSub);
   closeDropdown(); closeAbsModal();
-  currentUser = null; isEditMode = false; pendingEdits = {}; allData = []; absencesData = [];
+  await _supabase.auth.signOut();
+  currentUser = null; isEditMode = false; pendingEdits = {}; pendingEditsAbs = {}; allData = []; absencesData = [];
   document.body.classList.remove('is-admin');
   document.getElementById('auth-overlay').style.display = 'flex';
   document.getElementById('auth-login').value = '';
@@ -481,9 +502,9 @@ function logout() {
   document.getElementById('status-dot').className = '';
   document.getElementById('realtime-badge').classList.remove('active');
   const btn = document.getElementById('btn-toggle-edit');
-     btn.textContent = "✏️ Modifier";
-     btn.classList.replace('btn-danger', 'btn-ghost');
-     btn.style.display = 'none';
+  btn.textContent = "✏️ Modifier";
+  btn.classList.replace('btn-danger', 'btn-ghost');
+  btn.style.display = 'none';
 }
 
 function switchTab(tab) {
@@ -1540,6 +1561,48 @@ function closeDropdown() {
 }
 
 
+// Restaure la session si l'utilisateur est déjà connecté
+// et gère le lien d'invitation reçu par email
+window.addEventListener('load', async () => {
+  const hash = window.location.hash;
+
+  // L'utilisateur arrive depuis un lien d'invitation
+  if (hash.includes('type=invite') || hash.includes('type=recovery')) {
+    const { data: { session } } = await _supabase.auth.getSession();
+    if (session) { showPasswordSetup(session); return; }
+  }
+
+  // Session déjà active (page rechargée)
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (session) await applySession(session);
+});
+
+function showPasswordSetup(session) {
+  document.getElementById('auth-overlay').innerHTML = `
+    <div class="auth-box">
+      <h2>🔐 Choisir mon mot de passe</h2>
+      <p>Bienvenue ! Définissez votre mot de passe pour accéder au planning.</p>
+      <input type="password" id="new-pass"         placeholder="Nouveau mot de passe (8 car. min.)" />
+      <input type="password" id="new-pass-confirm" placeholder="Confirmer le mot de passe" />
+      <div id="setup-error" style="color:var(--red);font-size:11px;display:none;"></div>
+      <button class="btn-primary" onclick="setNewPassword()">Enregistrer</button>
+    </div>`;
+  document.getElementById('auth-overlay').style.display = 'flex';
+  window._pendingSession = session;
+}
+
+async function setNewPassword() {
+  const pass    = document.getElementById('new-pass').value;
+  const confirm = document.getElementById('new-pass-confirm').value;
+  const errEl   = document.getElementById('setup-error');
+  if (pass.length < 8) { errEl.textContent = 'Minimum 8 caractères.'; errEl.style.display = 'block'; return; }
+  if (pass !== confirm) { errEl.textContent = 'Les mots de passe ne correspondent pas.'; errEl.style.display = 'block'; return; }
+  const { error } = await _supabase.auth.updateUser({ password: pass });
+  if (error) { errEl.textContent = error.message; errEl.style.display = 'block'; return; }
+  window.history.replaceState({}, document.title, window.location.pathname);
+  toast('Mot de passe enregistré ✓');
+  await applySession(window._pendingSession);
+}
 
 </script>
 
