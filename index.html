@@ -87,6 +87,7 @@
 
     #stats-panel { display: none; /* Masqué pour les non-admins */
 width: 230px; background: var(--navy-mid); border-left: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; transition: width .25s ease; }
+    #stats-panel.hidden { display: none; }
     body.is-admin #stats-panel {  display: flex;} /* Afficher uniquement si le body a la classe .is-admin */
     #stats-panel.collapsed { width: 38px; }
     #stats-panel .panel-title {   font-family: 'DM Mono', monospace;   font-size: 10px;   color: var(--gray);   padding: 12px 10px;   border-bottom: 1px solid var(--border);   display: flex;   justify-content: space-between;   align-items: center;   white-space: nowrap; }
@@ -552,6 +553,7 @@ async function applySession(session) {
           document.body.classList.remove('is-admin');
           document.getElementById('btn-toggle-edit').style.display = 'none';
           document.getElementById('btn-save-all').style.display = 'none';
+          document.getElementById('stats-panel').classList.add('hidden');
      }
   const userBadge = document.getElementById('user-id-badge');
   if (userBadge) { userBadge.textContent = profile.hospital_id; userBadge.style.display = 'inline'; }
@@ -573,6 +575,7 @@ async function logout() {
   document.getElementById('auth-pass').value  = '';
   document.getElementById('status-dot').className = '';
   document.getElementById('realtime-badge').classList.remove('active');
+  document.getElementById('stats-panel').classList.remove('hidden');
   const userBadge = document.getElementById('user-id-badge');
   if (userBadge) { userBadge.textContent = ''; userBadge.style.display = 'none'; }
   const btn = document.getElementById('btn-toggle-edit');
