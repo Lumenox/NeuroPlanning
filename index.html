@@ -442,6 +442,7 @@ const COLUMNS = [
   { key: 'USI_int2',       label: 'USIint2',   group: 'usi'    },
   { key: 'BIPv',       label: 'BIP v',   group: 'bip'    },
   { key: 'BIPng',      label: 'BIP ng',  group: 'bip'    },
+  { key: 'SAU',        label: 'SAU',  group: 'bip'    },
   { key: 'Garde',      label: 'Garde',   group: 'garde'  },
   { key: 'Garde_int',      label: 'GardeInt',   group: 'garde'  },
   { key: 'Astr',       label: 'Astr',    group: 'garde'  },
@@ -460,7 +461,7 @@ const COLUMNS = [
 
 const GROUP_LABELS = { neurog:'NeuroG', hdj:'HDJ', unv:'UNV', usi:'USI', bip:'BIP', garde:'Garde', repos:'R.Garde', box:'BOX' };
 const GROUP_COLORS = { neurog:'#FFF396', hdj:'#C9F07A', unv:'#F0D37A', usi:'#F07AB5', bip:'#FFA89C', garde:'#E08924', repos:'#F0FBFF', box:'#94a3b8' };
-const CONFLICT_IGNORE_COLS = ['Garde'];
+const CONFLICT_IGNORE_COLS = ['Garde', 'SAU'];
 
 const groupMap   = {};
 COLUMNS.filter(c => c.group !== 'meta').forEach(col => {
@@ -997,8 +998,14 @@ function onFilterChange() {
 }
 
 function clearFilters() {
-  document.getElementById('filter-date-from').value = '';
-  document.getElementById('filter-date-to').value   = '';
+  const today = new Date();
+      const future = new Date();
+     future.setDate(today.getDate() + 100);
+     const dateFromStr = today.toISOString().split('T')[0];
+     const dateToStr = future.toISOString().split('T')[0];
+
+  document.getElementById('filter-date-from').value = dateFromStr;
+  document.getElementById('filter-date-to').value   = dateToStr;
   document.getElementById('search-doctor').value    = '';
   doctorFilter = null;
   document.querySelectorAll('.stat-row').forEach(r => r.classList.remove('active-filter'));
@@ -1786,7 +1793,18 @@ async function saveAllPending() {
     document.getElementById('btn-toggle-edit').textContent = "✏️ Modifier";
     document.getElementById('btn-toggle-edit').classList.replace('btn-danger', 'btn-ghost');
     saveBtn.style.display = 'none';
-    
+
+
+           isBrushMode = false; // Désactive la logique du pinceau
+           const btnBrush = document.getElementById('btn-brush');
+           if (btnBrush) {
+               btnBrush.style.background = 'transparent';
+               btnBrush.style.borderColor = 'var(--border)';
+            }
+           document.getElementById('brush-container').style.display = 'none';
+           document.getElementById('brush-picker-wrapper').style.display = 'none';
+
+
     await loadData();
   } catch (err) {
     toast('Erreur sauvegarde : ' + err.message, 'error');
