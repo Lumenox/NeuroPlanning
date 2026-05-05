@@ -1002,7 +1002,19 @@ function clearFilters() {
   document.getElementById('search-doctor').value    = '';
   doctorFilter = null;
   document.querySelectorAll('.stat-row').forEach(r => r.classList.remove('active-filter'));
-  onFilterChange();
+     // RÉINITIALISER LES TOGGLES DE GROUPES
+  COLUMNS.forEach(col => { visibleCols[col.key] = true; });
+  showInternes = false;
+     const chkInternes = document.getElementById('chk-show-internes');
+     if (chkInternes) chkInternes.checked = false;
+  document.querySelectorAll('#col-toggles .group-toggle').forEach(label => {
+        label.classList.add('active');
+        const cb = label.querySelector('input[type="checkbox"]');
+        if (cb) cb.checked = true;
+     });
+  applyFilters();
+  applyColVisibility();
+     toggleInternesVisibility();
 }
 
 function applyFilters() {
