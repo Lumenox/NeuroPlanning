@@ -38,6 +38,7 @@
     #status-dot.error     { background: var(--red); }
     #realtime-badge { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--teal); background: var(--teal-dim); border: 1px solid var(--teal); border-radius: 4px; padding: 2px 6px; display: none; }
     #realtime-badge.active { display: inline; }
+    #user-id-badge {   font-family: 'DM Mono', monospace;   font-size: 10px;   color: var(--gray);   background: var(--navy);   border: 1px solid var(--border);   border-radius: 4px;   padding: 2px 8px;   display: none; }
     #admin-badge { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--amber); background: var(--amber-dim); border: 1px solid var(--amber); border-radius: 4px; padding: 3px 8px; display: none; }
     .is-admin #admin-badge { display: inline; }
 
@@ -66,6 +67,10 @@
     .tab-btn.tab-planning.active { color: var(--teal); }
 
     #toolbar { display: flex; align-items: center; gap: 10px; padding: 10px 24px; background: var(--navy-mid); border-bottom: 1px solid var(--border); flex-shrink: 0; flex-wrap: wrap; }
+    #toolbar-toggle-btn {   background: none; border: 1px solid var(--border); color: var(--gray);  cursor: pointer; font-size: 11px; padding: 3px 7px; border-radius: 5px;  line-height: 1; transition: color .15s, border-color .15s;  flex-shrink: 0; font-family: 'DM Mono', monospace;}
+    #toolbar-toggle-btn:hover { color: var(--teal); border-color: var(--teal); opacity: 1; }
+    #toolbar-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1; }
+    #toolbar-filters.collapsed { display: none; }
     #toolbar label { font-size: 11px; color: var(--gray); white-space: nowrap; }
     #toolbar input[type="date"] { background: var(--navy); border: 1px solid var(--border); color: var(--white); padding: 6px 10px; border-radius: 6px; font-family: 'DM Mono', monospace; font-size: 11px; }
     #search-doctor { flex: 1; min-width: 120px; max-width: 200px; }
@@ -80,11 +85,13 @@
 
     #main { display: flex; flex: 1; overflow: hidden; }
 
-    #stats-panel { width: 230px; background: var(--navy-mid); border-left: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; transition: width .25s ease; }
+    #stats-panel { display: none; /* Masqué pour les non-admins */
+width: 230px; background: var(--navy-mid); border-left: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; transition: width .25s ease; }
+    body.is-admin #stats-panel {  display: flex;} /* Afficher uniquement si le body a la classe .is-admin */
     #stats-panel.collapsed { width: 38px; }
-    #stats-panel .panel-title { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--gray); letter-spacing: .1em; text-transform: uppercase; padding: 12px 10px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-    #stats-panel.collapsed .panel-title span { visibility: hidden; }
-    #stats-toggle-btn { background: none; border: none; color: var(--teal); cursor: pointer; font-size: 18px; padding: 0; line-height: 1; flex-shrink: 0; }
+    #stats-panel .panel-title {   font-family: 'DM Mono', monospace;   font-size: 10px;   color: var(--gray);   padding: 12px 10px;   border-bottom: 1px solid var(--border);   display: flex;   justify-content: space-between;   align-items: center;   white-space: nowrap; }
+    #stats-panel.collapsed .panel-title span { display: none; }
+    #stats-toggle-btn { background: none; border: none; color: var(--teal); cursor: pointer; font-size: 18px; padding: 0; line-height: 1; flex-shrink: 0;z-index: 10;min-width: 20px; }
     #stats-content { overflow: hidden; transition: opacity .2s; display: flex; flex-direction: column; flex: 1; min-height: 0; }
     #stats-panel.collapsed #stats-content { opacity: 0; pointer-events: none; }
     #stats-list { overflow-y: auto; flex: 1; padding: 8px 0; }
@@ -101,30 +108,49 @@
 
     #content-wrap { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 
+/* --- CONFIGURATION DE LA TABLE --- */
     #table-wrap { flex: 1; overflow: auto; position: relative; }
     table { border-collapse: collapse; font-family: 'DM Mono', monospace; font-size: 11px; min-width: 100%; }
     thead th { position: sticky; top: 0; z-index: 10; background: var(--navy-light); padding: 10px 8px; text-align: left; font-size: 10px; font-weight: 500; color: var(--gray); letter-spacing: .06em; }
     .col-group { font-size: 9px !important; border-bottom: 1px solid var(--border) !important; text-align: center !important; }
-    thead th[data-col="date"] {  position: sticky;  left: 0 ; z-index: 11;   background: var(--navy-light);}
-    thead th[data-col="heure"] {  position: sticky;  left: 90px;  z-index: 11;   background: var(--navy-light);}
-    thead th.col-group[data-group="meta"] {  position: sticky;  left: 0;  z-index: 12;  background: var(--navy-light); border-right: 1px solid var(--border);}
-    tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
-    tbody tr:hover { background: var(--navy-light); }
+    thead th[data-col="date"] {  position: sticky;  left: 0 ; z-index: 11;   background: var(--navy-light); width: 100px !important;   min-width: 100px !important;   max-width: 100px !important;   left: 0 !important; }
+    thead th[data-col="heure"] {  position: sticky;  left: 90px;  z-index: 11;   background: var(--navy-light); width: 60px !important;   min-width: 60px !important;   left: 100px !important;   z-index: 11;}
+    thead th.col-group[data-group="meta"] {  position: sticky;  left: 0;  z-index: 12;  background: var(--navy-light);width: 160px; border-right: 1px solid var(--border);}
+    tbody tr { border-bottom: none; transition: background .1s; }
+    /* Bordure par défaut pour toutes les cellules */
+    tbody td { border-bottom: 1px solid var(--border); padding: 6px 8px; height: var(--cell-h); white-space: nowrap; color: var(--white); min-width: 50px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+
+    /* --- STYLES DES COLONNES SPÉCIFIQUES --- */
+    td.col-date { color: var(--gray); font-size: 10px; position: sticky; left: 0; background: var(--navy-mid); z-index: 2; width: min-content; white-space: nowrap; border-right: 1px solid var(--border); }
+    td.col-heure { color: var(--teal); position: sticky; left: auto; font-size: 11px; background: var(--navy-mid); font-weight: 500; width: min-content;}
+
+    /* --- SÉPARATION ÉPAISSE DES JOURS (APRES-MIDI) --- */
+    /* On force la bordure sur TOUTES les cellules de la ligne après-midi, y compris les sticky */
+    /*tr.creno-aprem td { 
+        border-bottom: 2.5px solid var(--teal) !important; 
+    } */
     tr.creno-matin { background: rgba(255,255,255,.01); }
     tr.creno-aprem { background: rgba(0,0,0,.15); }
-    tr.creno-aprem:hover { background: var(--navy-light); }
+    tbody tr:hover, tr:hover td.col-date { background: var(--navy-light); }
+
+    /* --- CONFLITS ET ÉDITION --- */
     tr.conflict          { background: var(--red-dim)    !important; border-left: 3px solid var(--red); }
     tr.conflict-accepted { background: var(--amber-dim)  !important; border-left: 3px solid var(--amber); }
     tr.conflict-noncli   { background: var(--purple-dim) !important; border-left: 3px solid var(--purple); }
     td.doctor-highlight  { background: var(--teal-dim); color: var(--teal) !important; font-weight: 500; }
-    td { padding: 6px 8px; height: var(--cell-h); white-space: nowrap; color: var(--white); min-width: 50px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
-    td.col-date { color: var(--gray); font-size: 10px; position: sticky; left: 0; background: var(--navy-mid); z-index: 2; min-width: 90px; border-right: 1px solid var(--border); }
-    tr:hover td.col-date { background: var(--navy-light); }
-    td.col-heure { color: var(--teal); position: sticky; left: 90px; font-size: 11px; background: var(--navy-mid); font-weight: 500; }
     .is-admin td.editable { cursor: pointer; border: 1px solid transparent; border-radius: 3px; transition: border-color .15s; }
     .is-admin td.editable:hover { border-color: var(--amber); background: var(--amber-dim); }
     td.editing { padding: 2px !important; }
     td.editing input { width: 100%; height: 100%; font-family: 'DM Mono', monospace; font-size: 11px; background: var(--navy); color: var(--white); border: 1px solid var(--amber); border-radius: 3px; }
+    
+/* Fixe la largeur des colonnes Date et Heure dans le semainier */
+    #semainier-table .col-date {    width: 120px !important;    min-width: 120px !important;    max-width: 120px !important;}
+
+    #semainier-table th:nth-child(2), 
+    #semainier-table td:nth-child(2) {    width: 80px !important;    min-width: 80px !important;    max-width: 80px !important;     text-align: center;}
+    #semainier-table thead th {  position: sticky;  top: 62px;  z-index: 15;  background: var(--navy-mid);}
+    #semainier-table th.col-date {   z-index: 25;   left: 0;}
+    #semainier-controls {  padding: 15px 24px;  background: var(--navy-mid);  border-bottom: 1px solid var(--border);  display: flex;  align-items: center;   gap: 20px;  position: sticky;  top: 0;   z-index: 20;}
 
     #abs-wrap { flex: 1; overflow: auto; position: relative; display: none; }
     #abs-wrap table thead th { color: var(--purple); }
@@ -210,9 +236,18 @@ background: rgba(248, 113, 113, 0.05); }
   <span class="brand">🧠 Planning Neurologie</span>
   <div class="controls">
     <div id="status-dot"></div>
+    <span id="user-id-badge"></span>
     <span id="realtime-badge">● LIVE</span>
     <span id="admin-badge">ADMIN</span>
     <div class="sep"></div>
+    <div id="brush-container" style="display:none; align-items:center; gap:8px;">
+      <button id="btn-brush" class="btn-ghost" onclick="toggleBrushMode()" title="Mode Pinceau">🖌️</button>
+      <div id="brush-picker-wrapper" style="display:none; position:relative;">
+        <input type="text" id="brush-value" placeholder="Valeur..." list="brush-suggestions" 
+           style="width:120px; height:32px; border-color:var(--purple);">
+        <datalist id="brush-suggestions"></datalist>
+      </div>
+    </div>
     <button id="btn-toggle-edit" class="btn-ghost" style="display:none" onclick="toggleEditMode()">✏️ Modifier</button>
     <button id="btn-save-all"    class="btn-save"  style="display:none" onclick="saveAllPending()">💾 Sauvegarder</button>
     <div class="sep"></div>
@@ -229,31 +264,34 @@ background: rgba(248, 113, 113, 0.05); }
 </div>
 
 <div id="toolbar">
-  <label>Du</label>
-  <input type="date" id="filter-date-from" onchange="onFilterChange()" />
-  <label>Au</label>
-  <input type="date" id="filter-date-to"   onchange="onFilterChange()" />
-  <input type="text" id="search-doctor" placeholder="🔍 Médecin…" oninput="onFilterChange()" />
+  <button id="toolbar-toggle-btn" onclick="toggleToolbarFilters()" title="Masquer les filtres">▲</button>
+     <div id="toolbar-filters"> 
+     <label>Du</label>
+     <input type="date" id="filter-date-from" onchange="onFilterChange()" />
+     <label>Au</label>
+     <input type="date" id="filter-date-to"   onchange="onFilterChange()" />
+     <input type="text" id="search-doctor" placeholder="🔍 Médecin…" oninput="onFilterChange()" />
 
-  <div id="toolbar-planning-extras">
-    <div class="sep"></div>
+     <div id="toolbar-planning-extras">
+       <div class="sep"></div>
            <label class="group-toggle" id="toggle-internes-wrap" >
                  <input type="checkbox" id="chk-show-internes" onchange="toggleInternesVisibility()">
                  <span class="dot"></span> Internes
            </label>
            <div class="sep"></div>
-    <label style="font-size:11px;color:var(--teal)">Afficher :</label>
-    <div id="col-toggles"></div>
-  </div>
+       <label style="font-size:11px;color:var(--teal)">Afficher :</label>
+       <div id="col-toggles"></div>
+     </div>
 
-  <div id="toolbar-absences-extras">
-    <div class="sep"></div>
-    <label style="font-size:11px;color:var(--purple)">Type :</label>
-    <div id="abs-type-toggles" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
-  </div>
+     <div id="toolbar-absences-extras">
+       <div class="sep"></div>
+       <label style="font-size:11px;color:var(--purple)">Type :</label>
+       <div id="abs-type-toggles" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
+     </div>
 
-  <div class="sep"></div>
-  <button class="btn-ghost" onclick="clearFilters()" style="font-size:11px">✕ Réinitialiser</button>
+     <div class="sep"></div>
+     <button class="btn-ghost" onclick="clearFilters()" style="font-size:11px">✕ Réinitialiser</button>
+  </div> 
 </div>
 
 <div id="abs-legend">
@@ -362,7 +400,7 @@ background: rgba(248, 113, 113, 0.05); }
     </div>
 
     <div style="display:flex;gap:10px;margin-top:8px">
-      <button class="btn-primary" style="flex:1" onclick="saveAbsence()">Enregistrer</button>
+      <button class="btn-primary" style="flex:1" onclick="saveAbsence()">Valider</button>
       <button id="btn-delete-absence" class="btn-danger" style="display:none" onclick="deleteAbsence()">Supprimer</button>
       <button class="btn-ghost" onclick="closeAbsModal()">Annuler</button>
     </div>
@@ -405,8 +443,8 @@ const COLUMNS = [
   { key: 'BIPng',      label: 'BIP ng',  group: 'bip'    },
   { key: 'Garde',      label: 'Garde',   group: 'garde'  },
   { key: 'Garde_int',      label: 'GardeInt',   group: 'garde'  },
-  { key: 'Astr',       label: 'AstrInt',    group: 'garde'  },
-  { key: 'Astr_int',       label: 'Astr',    group: 'garde'  },
+  { key: 'Astr',       label: 'Astr',    group: 'garde'  },
+  { key: 'Astr_int',       label: 'AstrInt',    group: 'garde'  },
   { key: 'ReposGarde', label: 'R.Garde', group: 'repos'  },
   { key: 'BOX1',       label: 'BOX 1',   group: 'box'    },
   { key: 'BOX2',       label: 'BOX 2',   group: 'box'    },
@@ -451,7 +489,7 @@ let currentTab          = 'planning';
 let absVisibleTypes     = new Set(ABS_TYPES);
 let editingAbsenceId    = null;
 let showInternes = false;
-
+let isBrushMode = false;
 
 async function doLogin() {
   const hospitalId = document.getElementById('auth-login').value.trim();
@@ -509,7 +547,14 @@ async function applySession(session) {
   if (profile.role === 'admin') {
     document.getElementById('btn-toggle-edit').style.display = 'inline';
     document.body.classList.add('is-admin');
-  }
+  } else {
+          // Sécurité : on s'assure que la classe n'est pas là si ce n'est pas un admin
+          document.body.classList.remove('is-admin');
+          document.getElementById('btn-toggle-edit').style.display = 'none';
+          document.getElementById('btn-save-all').style.display = 'none';
+     }
+  const userBadge = document.getElementById('user-id-badge');
+  if (userBadge) { userBadge.textContent = profile.hospital_id; userBadge.style.display = 'inline'; }
   init();
 }
 
@@ -528,6 +573,8 @@ async function logout() {
   document.getElementById('auth-pass').value  = '';
   document.getElementById('status-dot').className = '';
   document.getElementById('realtime-badge').classList.remove('active');
+  const userBadge = document.getElementById('user-id-badge');
+  if (userBadge) { userBadge.textContent = ''; userBadge.style.display = 'none'; }
   const btn = document.getElementById('btn-toggle-edit');
   btn.textContent = "✏️ Modifier";
   btn.classList.replace('btn-danger', 'btn-ghost');
@@ -684,6 +731,71 @@ async function loadEquipe() {
     listeMedecins = data;
     absenceColNames = listeMedecins.map(m => m.initiales).filter(init => init && init.trim());
   }
+}
+
+function toggleBrushMode() {
+  isBrushMode = !isBrushMode;
+  const btn = document.getElementById('btn-brush');
+  const picker = document.getElementById('brush-picker-wrapper');
+  
+  if (isBrushMode) {
+    btn.style.background = 'var(--purple-dim)';
+    btn.style.borderColor = 'var(--purple)';
+    picker.style.display = 'flex';
+    updateBrushSuggestions();
+    toast('Mode Pinceau activé : cliquez sur les cellules pour remplir', 'purple');
+  } else {
+    btn.style.background = 'transparent';
+    btn.style.borderColor = 'var(--border)';
+    picker.style.display = 'none';
+  }
+}
+
+function updateBrushSuggestions() {
+  const datalist = document.getElementById('brush-suggestions');
+  datalist.innerHTML = '';
+  
+  // Option vide explicite
+  const emptyOpt = document.createElement('option');
+  emptyOpt.value = "vide";
+  emptyOpt.textContent = "(Effacer)";
+  datalist.appendChild(emptyOpt);
+
+  if (currentTab === 'planning') {
+    // Liste des neurologues (non internes par défaut ou selon votre logique)
+    listeMedecins.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.initiales.toUpperCase();
+      datalist.appendChild(opt);
+    });
+  } else if (currentTab === 'absences') {
+    // Types de congés
+    ABS_TYPES.forEach(type => {
+      const opt = document.createElement('option');
+      opt.value = type;
+      datalist.appendChild(opt);
+    });
+  }
+}
+
+function applyBrushValue(row, colKey, td, isAbsence = false) {
+  let val = document.getElementById('brush-value').value.trim();
+  
+  // Règle : si "vide", on injecte null
+  const finalValue = (val.toLowerCase() === 'vide' || val === '') ? null : val.toUpperCase();
+
+  if (isAbsence) {
+    if (!pendingEditsAbs[row.id]) pendingEditsAbs[row.id] = {};
+    pendingEditsAbs[row.id][colKey] = finalValue;
+    td.textContent = finalValue || '';
+    td.className = finalValue ? `abs-${finalValue}` : '';
+  } else {
+    if (!pendingEdits[row.id]) pendingEdits[row.id] = {};
+    pendingEdits[row.id][colKey] = finalValue;
+    td.textContent = finalValue || '';
+    td.style.borderColor = 'var(--amber)';
+  }
+  buildStats(); // Mise à jour des compteurs en temps réel
 }
 
 function buildColToggles() {
@@ -1041,11 +1153,16 @@ function renderTable(rows, highlightDoctor) {
           td.style.cursor = 'pointer';
           td.title = isAccepted ? 'Conflit accepté — cliquer pour rouvrir' : 'Conflit — cliquer pour accepter';
           td.addEventListener('click', () => toggleConflict(row.id));
+          td.addEventListener('click', (e) => {
+                             if (isEditMode && isBrushMode && canEditCol(col.key)) {
+                                applyBrushValue(row, col.key, td);
+                              }
+                            });
         }
       } else if (col.key === 'heure') {
         td.className = 'col-heure'; td.textContent = val;
       } else if (col.key === 'ReposGarde') {
-        td.className = 'editable'; td.style.color = 'var(--amber)'; td.textContent = val;
+        td.className = 'editable'; td.style.color = 'var(--gray)'; td.textContent = val;
       } else {
         td.className = 'editable';
         if (!isAccepted && conflicting.includes(val.trim().toUpperCase())) td.style.color = 'var(--red)';
@@ -1054,7 +1171,19 @@ function renderTable(rows, highlightDoctor) {
         if (highlightDoctor && val.trim().toLowerCase().includes(highlightDoctor.toLowerCase())) td.classList.add('doctor-highlight');
         td.textContent = pending !== undefined ? pending : val;
         if (pending !== undefined) td.style.borderColor = 'var(--amber)';
-        if (currentUser?.role === 'admin' && isEditMode && canEditCol(col.key)) td.addEventListener('dblclick', () => startEdit(td, row, col.key));
+        //if (currentUser?.role === 'admin' && isEditMode && canEditCol(col.key)) td.addEventListener('dblclick', () => startEdit(td, row, col.key));
+        if (currentUser?.role === 'admin' && isEditMode) {
+                        // Double-clic pour le menu déroulant classique
+                         if (canEditCol(col.key)) {
+                                 td.addEventListener('dblclick', () => startEdit(td, row, col.key));
+                          }
+                        // Simple clic pour le pinceau
+                          td.addEventListener('click', () => { 
+                               if (isBrushMode && canEditCol(col.key)) {
+                                     applyBrushValue(row, col.key, td); 
+                                }
+                           });
+                        };
       }
 
       tr.appendChild(td);
@@ -1116,6 +1245,11 @@ function renderAbsences(absRows) {
 
       if (currentUser?.role === 'admin' && isEditMode && canEditAbsences()) {
         td.style.cursor = 'pointer';
+        td.addEventListener('click', () => {
+                            if (isEditMode && isBrushMode && canEditAbsences()) {
+                                applyBrushValue(row, doc, td, true);
+                             }
+                      });
         td.addEventListener('dblclick', () => startEdit(td, row, doc));
       }
 
@@ -1181,16 +1315,19 @@ function openAbsModal(date = null, doctor = null) {
   document.getElementById('abs-modal').classList.add('open');
 }
 
-function closeAbsModal() {
+
+function closeAbsModal() {   
   document.getElementById('abs-modal').classList.remove('open');
   editingAbsenceId = null;
 }
 
+//fonction de l'onglet absence avec le petit + violet
 async function saveAbsence() {
   const medecin = document.getElementById('abs-medecin').value;
   const dateFrom = document.getElementById('abs-date-from').value;
   const dateTo = document.getElementById('abs-date-to').value;
   const type = document.getElementById('abs-type').value;
+  const heures = ['09:00:00', '13:30:00'];
 
   if (!medecin || !dateFrom || !dateTo || !type) { toast('Veuillez remplir tous les champs', 'warning'); return; }
 
@@ -1198,27 +1335,28 @@ async function saveAbsence() {
   let current = new Date(dateFrom + 'T00:00:00');
   const end = new Date(dateTo + 'T00:00:00');
   while (current <= end) {
-    const s = `${current.getFullYear()}-${String(current.getMonth()+1).padStart(2,'0')}-${String(current.getDate()).padStart(2,'0')}`;
-    dates.push(s);
-    current.setDate(current.getDate() + 1);
-  }
+       const s = current.toISOString().split('T')[0];
+    
+      // On cherche les deux créneaux (matin/après-midi) pour cette date dans nos données locales
+    const rowsToUpdate = absencesData.filter(a => a.date === s);
 
-  for (const d of dates) {
-    // On met à jour ou insère par heure (matin et après-midi par défaut si non spécifié)
-    const heures = ['9h00', '14h00'];
-    for(const h of heures) {
-        const { data: existing } = await _supabase.from('absences').select('*').eq('date', d).eq('heure', h).single();
-        if (existing) {
-            await _supabase.from('absences').update({ [medecin]: type }).eq('id', existing.id);
-        } else {
-            await _supabase.from('absences').insert([{ date: d, heure: h, [medecin]: type }]);
-        }
+    rowsToUpdate.forEach(row => {
+      if (!pendingEditsAbs[row.id]) pendingEditsAbs[row.id] = {};
+      
+       // On ajoute à la file d'attente de sauvegarde
+       pendingEditsAbs[row.id][medecin] = type;
+      
+       // On met à jour la donnée locale pour l'affichage immédiat
+       row[medecin] = type;
+      });
+
+       current.setDate(current.getDate() + 1);
     }
-  }
 
-  toast('Absence enregistrée ✓');
+  toast('Modifications ajoutées (n\'oubliez pas de sauvegarder) ✓');
   closeAbsModal();
-  await loadAbsences();
+  renderAbsences(currentFilteredAbs);
+  buildStats();
 }
 
 async function deleteAbsence() {
@@ -1230,16 +1368,26 @@ async function deleteAbsence() {
   await loadAbsences();
 }
 
+function toggleToolbarFilters() {
+  const filters = document.getElementById('toolbar-filters');
+  const btn     = document.getElementById('toolbar-toggle-btn');
+  const isNowCollapsed = filters.classList.toggle('collapsed');
+  btn.textContent = isNowCollapsed ? '▼' : '▲';
+  btn.title = isNowCollapsed ? 'Afficher les filtres' : 'Masquer les filtres';
+}
+
 function toggleEditMode() {
   isEditMode = !isEditMode;
   const btn = document.getElementById('btn-toggle-edit');
   const save = document.getElementById('btn-save-all');
+  const brushCont = document.getElementById('brush-container');
 
   if (isEditMode) {
     // Passage en mode édition
     btn.textContent = "✕ Annuler";
     btn.classList.replace('btn-ghost', 'btn-danger');
     save.style.display = 'inline';
+    brushCont.style.display = 'flex';
   } else {
     // Sortie du mode édition (Annulation)
     btn.textContent = "✏️ Modifier";
@@ -1251,6 +1399,10 @@ function toggleEditMode() {
     pendingEditsAbs = {};
     toast('Modifications annulées', 'info');
     refreshAll(); // On recharge les données proprement depuis Supabase
+    // brush mode
+    brushCont.style.display = 'none';
+          isBrushMode = false;
+          document.getElementById('brush-picker-wrapper').style.display = 'none';
   }
   onFilterChange();
 }
@@ -1278,7 +1430,7 @@ function canEditAbsences() {
 function startEdit(td, row, colKey) {
   if (currentTab === 'planning') {
     openPlanningDropdown(td, row, colKey);
-  } else {
+  } else if (currentTab === 'absences') {
     openAbsenceDropdown(td, row, colKey);
   }
 }
@@ -1434,13 +1586,20 @@ function renderSemainier() {
   const doc2 = document.getElementById('select-semainier-doc-2').value;
   const tbody = document.getElementById('semainier-body');
   
+  // Gestion de l'affichage de la colonne Médecin 2
+  const hasDoc2 = doc2 !== "";
+  const doc2Elements = document.querySelectorAll('#header-doc-2, #header-doc-2-sub, .col-doc2-data');
+  
+  doc2Elements.forEach(el => {
+    el.style.display = hasDoc2 ? '' : 'none';
+  });
+
   document.getElementById('header-doc-1').textContent = doc1 || "Médecin 1";
-  document.getElementById('header-doc-2').textContent = doc2 || "Médecin 2";
+  if (hasDoc2) document.getElementById('header-doc-2').textContent = doc2;
 
   tbody.innerHTML = '';
   if (!doc1 && !doc2) return;
 
-  // Préparation de l'index des absences pour la détection de conflit non-clinique
   const absIdx = buildAbsenceIndex();
 
   currentFilteredRows.forEach(row => {
@@ -1453,7 +1612,6 @@ function renderSemainier() {
       let isClinicalConflict = false;
       const isAccepted = acceptedConflicts[row.id] === true;
 
-      // 1. Analyse du Planning Clinique
       let countOnLine = 0;
       COLUMNS.forEach(col => {
         if (DOCTOR_COLS.includes(col.key)) {
@@ -1465,54 +1623,41 @@ function renderSemainier() {
         }
       });
       
-      // Détection Conflit Clinique (présent > 1 fois sur la ligne hors gardes)
       if (countOnLine > 1) isClinicalConflict = true;
 
-      // 2. Analyse des Absences
       const dateAbsences = absIdx.get(row.date) || new Map();
       const absType = dateAbsences.get(doctor)?.type;
 
-      // Détermination de la couleur de fond du statut
       let statusStyle = "";
       let cellTitle = "";
 
       if (isClinicalConflict) {
-        if (isAccepted) {
-          statusStyle = "background: var(--amber-dim); border-left: 3px solid var(--amber); color: var(--amber);";
-          cellTitle = "Conflit clinique accepté";
-        } else {
-          statusStyle = "background: var(--red-dim); border-left: 3px solid var(--red); color: var(--red);";
-          cellTitle = "ATTENTION : Conflit clinique (plusieurs postes)";
-        }
+        statusStyle = isAccepted 
+          ? "background: var(--amber-dim); border-left: 3px solid var(--amber); color: var(--amber);" 
+          : "background: var(--red-dim); border-left: 3px solid var(--red); color: var(--red);";
       } else if (parts.length > 0 && absType) {
         statusStyle = "background: var(--purple-dim); border-left: 3px solid var(--purple); color: var(--purple);";
-        cellTitle = `Conflit non-clinique : Affecté alors qu'en [${absType}]`;
       }
 
-      // Rendu HTML
-      let html = `<div title="${cellTitle}" style="display:flex; flex-direction:column; gap:4px; padding: 4px; min-height: 32px; border-radius: 4px; ${statusStyle}">`;
-      
-      if (parts.length > 0) {
-          html += `<span style="font-weight: 600;">${parts.join(' + ')}</span>`;
-      }
-      
-      if (absType) {
-          html += `<span class="abs-${absType}" style="padding:1px 6px; border-radius:3px; font-size:10px; width:fit-content; margin: ${parts.length > 0 ? '0' : '0 auto'};">${absType}</span>`;
-      }
-      
+      let html = `<div style="display:flex; flex-direction:column; gap:4px; padding: 4px; min-height: 32px; border-radius: 4px; ${statusStyle}">`;
+      if (parts.length > 0) html += `<span style="font-weight: 600;">${parts.join(' + ')}</span>`;
+      if (absType) html += `<span class="abs-${absType}" style="padding:1px 6px; border-radius:3px; font-size:10px; width:fit-content; margin: ${parts.length > 0 ? '0' : '0 auto'};">${absType}</span>`;
       html += `</div>`;
+      
       return (parts.length === 0 && !absType) ? `<span style="color:var(--gray); opacity:0.3">-</span>` : html;
     };
 
+    // On ajoute une classe spécifique 'col-doc2-data' pour pouvoir la masquer en JS
     tr.innerHTML = `
       <td class="col-date">${formatDate(row.date)}</td>
       <td class="col-heure">${row.heure}</td>
       <td style="text-align:center; border-right: 1px solid var(--border); padding: 4px 8px;">${getDocSummary(doc1)}</td>
-      <td style="text-align:center; padding: 4px 8px;">${getDocSummary(doc2)}</td>
+      <td class="col-doc2-data" style="text-align:center; padding: 4px 8px; ${hasDoc2 ? '' : 'display:none'}">${getDocSummary(doc2)}</td>
     `;
     tbody.appendChild(tr);
   });
 }
+
 // --- FONCTIONS UTILITAIRES ---
 
 function addDropdownItem(container, html, value, onClick) {
