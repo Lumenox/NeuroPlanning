@@ -121,18 +121,18 @@ width: 230px; background: var(--navy-mid); border-left: 1px solid var(--border);
     /* Bordure par défaut pour toutes les cellules */
     tbody td { border-bottom: 1px solid var(--border); padding: 6px 8px; height: var(--cell-h); white-space: nowrap; color: var(--white); min-width: 50px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
 
-    /* --- STYLES DES COLONNES SPÉCIFIQUES --- */
-    td.col-date { color: var(--gray); font-size: 10px; position: sticky; left: 0; background: var(--navy-mid); z-index: 2; width: min-content; white-space: nowrap; border-right: 1px solid var(--border); }
-    td.col-heure { color: var(--teal); position: sticky; left: auto; font-size: 11px; background: var(--navy-mid); font-weight: 500; width: min-content;}
+     /* --- STYLES DES COLONNES SPÉCIFIQUES --- */
+     td.col-date { color: var(--gray); font-size: 10px; position: sticky; left: 0; background: var(--navy-mid); z-index: 2; width: min-content; white-space: nowrap; border-right: 1px solid var(--border); }
+     td.col-heure { color: var(--teal); position: sticky; left: auto; font-size: 11px; background: var(--navy-mid); font-weight: 500; width: min-content;}
 
-    /* --- SÉPARATION ÉPAISSE DES JOURS (APRES-MIDI) --- */
-    /* On force la bordure sur TOUTES les cellules de la ligne après-midi, y compris les sticky */
-    /*tr.creno-aprem td { 
-        border-bottom: 2.5px solid var(--teal) !important; 
-    } */
-    tr.creno-matin { background: rgba(255,255,255,.01); }
-    tr.creno-aprem { background: rgba(0,0,0,.15); }
-    tbody tr:hover, tr:hover td.col-date { background: var(--navy-light); }
+     /* --- GROUPEMENT MATIN / APREM --- */
+     tr.creno-matin { background: rgba(255,255,255,.01); }
+     tr.creno-aprem { background: rgba(0,0,0,.15); }
+
+     /* Pas de bordure entre matin et aprem du même jour */
+     tr.creno-matin td { border-bottom: none !important; }
+
+     tbody tr:hover, tr:hover td.col-date { background: var(--navy-light); }
 
     /* --- CONFLITS ET ÉDITION --- */
     tr.conflict          { background: var(--red-dim)    !important; border-left: 3px solid var(--red); }
@@ -683,7 +683,7 @@ function switchTab(tab) {
   document.querySelector(`.tab-${tab}`).classList.add('active');
   document.getElementById('table-wrap').style.display = tab === 'planning' ? 'block' : 'none';
   document.getElementById('abs-wrap').style.display   = tab === 'absences' ? 'block' : 'none';
-  document.getElementById('toolbar-planning-extras').style.display = tab === 'planning' ? 'flex' : 'none';
+  document.getElementById('toolbar-planning-extras').style.display = (tab === 'planning' || tab === 'semainier') ? 'flex' : 'none';
   document.getElementById('toolbar-absences-extras').style.display = tab === 'absences' ? 'flex' : 'none';
   document.getElementById('abs-legend').style.display    = tab === 'absences' ? 'flex' : 'none';
   document.getElementById('btn-add-absence').style.display = (tab === 'absences' && currentUser?.role === 'admin') ? 'flex' : 'none';
@@ -861,7 +861,9 @@ function applyColVisibility() {
       }
     }
   });
-  
+  if (currentTab === 'semainier') {
+        renderSemainier();
+     }
   buildStats();
 }
 
@@ -1617,7 +1619,7 @@ function renderSemainier() {
 
       let countOnLine = 0;
       COLUMNS.forEach(col => {
-        if (DOCTOR_COLS.includes(col.key)) {
+        if (DOCTOR_COLS.includes(col.key) && visibleCols[col.key]) {
           const val = (row[col.key] || '').trim().toUpperCase();
           if (val === doctor) {
             parts.push(col.label);
