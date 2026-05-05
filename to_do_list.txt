@@ -1,16 +1,8 @@
 to do list:
--create "repos de garde" qui doit être dépendant de "garde" = le médecin noté en garde à une date et créneau donné apparait automatiquement en repos de garde le lendemain au même créneau. cette colonne n'est pas modifiable et peut etre affichée de façon plus terne (seule la colonne garde l'est)
--un conflit doit apparaitre si un médecin est positionné sur une des colonnes en même temps que le repos de garde (pas sur la colonne garde)
--affichage du groupe: même couleur du groupe et de ses colonnes, enlever le "groupe de colonne" avec les colonnes (pour que l'alignement reste identique)
-
--système de gestion du conflit :  l'admin peut assumer le conflit et plutôt qu'un signal "rouge" et affichage du "conflit", la ligne est classée "jaune" et affichage "conflit accepté", on peut faire cela par exemple en cliquant sur la cellule date de la ligne concernée
-
-
-
-D'autres onglets: filtre date et médecin aussi utilisable
--onglet vacances/autres activités/enseignement/recherche qui intéragit aussi en terme de conflit: s'affiche dans cet onglet une colonne par médecin (définit sur la liste du html initial...)
--onglet "semainier" où pour chaque médecin (à afficher en fonction du filtre choisi), toutes les activités prévues sont résumées en 4 colonnes: bip (NG ou V ou NG,V ), garde, clinique (unv, usinv, box...), vacances/formation/enseignement. 
 
 -gestion des colonnes modifiables en fonction du login: en fait il faudrait un système de gestion des profils, si le login n'existe pas, créer le profil avec le mdp lors de la première connexion. et moi je suis capable de choisir quelles colonnes chaque profil peut avoir l'autorisation de modifier.
 Attention, il y a bien une liste des médecins du service, mais c'est pas encrypté... il faudrait que les mdp soient encryptés d'une façn ou d'une autre... ou alors je dis aux médecin qu'il y a un mdp par défaut pour les non admin
--mode "jour"
+-ajout d’un onglet « bac à sable » pour admin faire des modifications tests, et si approuvées => le pousser sur le vrai planning immédiatement.
+-ajout d’un « mode jour » (actuellement mode sombre par défaut)
+-re-work des « compteurs » automatiques
+-faire disparaitre la colonne 2e medecin du semainier si aucun n’est sélectionné
