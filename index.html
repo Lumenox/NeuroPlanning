@@ -604,38 +604,44 @@ function showForgotPassword() {
     </div>`;
 }
 
-async function sendResetEmail() {
+merci! qu'est ce qui est le mieux entre la fonction que tu as vu et celle ci : async function sendResetEmail() {
   const hospitalId = document.getElementById('reset-hospital-id').value.trim();
   const errEl      = document.getElementById('reset-error');
   const okEl       = document.getElementById('reset-success');
+  const btn        = document.querySelector('.auth-box .btn-primary'); // Sélecteur plus précis
   errEl.style.display = 'none';
   okEl.style.display  = 'none';
-
-  // 1. Retrouver l'email depuis l'identifiant hôpital
-  const { data: email, error: lookupError } = await _supabase
-    .rpc('get_email_from_hospital_id', { h_id: hospitalId });
-
-  if (lookupError || !email) {
-    errEl.textContent   = 'Identifiant inconnu.';
+  if (!hospitalId) {
+    errEl.textContent = 'Veuillez entrer un identifiant.';
     errEl.style.display = 'block';
     return;
   }
-
-
-  // 2. Envoyer l'email de réinitialisation
-  const { error } = await _supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.href.split('#')[0]  // ton URL GitHub Pages
-  });
-
-  if (error) {
-    errEl.textContent   = 'Erreur lors de l\'envoi. Réessaie.';
+  try {
+    btn.disabled = true;
+    btn.textContent = "Envoi en cours...";
+    // 1. Récupération de l'email via RPC
+    const { data: email, error: lookupError } = await _supabase
+      .rpc('get_email_from_hospital_id', { h_id: hospitalId });
+    if (lookupError || !email) {
+      throw new Error('Identifiant inconnu ou erreur de base de données.');
+    }
+    // 2. Déconnexion préventive
+    await _supabase.auth.signOut();
+    // 3. Envoi du mail
+    const { error } = await _supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname
+    });
+    if (error) throw error;
+    okEl.textContent = `✓ Un lien a été envoyé à l'adresse associée à ${hospitalId}.`;
+    okEl.style.display = 'block';
+    btn.style.display = 'none'; // On cache le bouton après succès
+  } catch (err) {
+    console.error('Erreur reset:', err);
+    errEl.textContent = err.message || 'Une erreur est survenue.';
     errEl.style.display = 'block';
-    return;
+    btn.disabled = false;
+    btn.textContent = "Envoyer le lien";
   }
-
-  okEl.textContent   = `✓ Email envoyé à l'adresse enregistrée. Vérifie ta boîte mail.`;
-  okEl.style.display = 'block';
-  document.querySelector('.btn-primary').disabled = true;
 }
 
 function showChangePassword() {
