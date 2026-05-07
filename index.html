@@ -557,6 +557,7 @@ async function applySession(session) {
   currentUser = {
     login:       profile.hospital_id,
     email:       profile.email,
+    initiales:            profile.initiales,
     role:        profile.role,
     permissions: profile.permissions
   };
@@ -1608,6 +1609,8 @@ function openAbsenceDropdown(td, row, colKey) {
 function populateSemainierDocs() {
   const s1 = document.getElementById('select-semainier-doc-1');
   const s2 = document.getElementById('select-semainier-doc-2');
+
+  
   [s1, s2].forEach((select, index) => {
     select.innerHTML = `<option value="">-- Aucun --</option>`;
     listeMedecins.forEach(m => {
@@ -1619,6 +1622,11 @@ function populateSemainierDocs() {
       select.appendChild(opt);
     });
   });
+  if (s1 && currentUser?.initiales) {
+    s1.value = currentUser.initiales.toUpperCase();
+  }
+  renderSemainier();
+          
 }
 
 // 2. Mise à jour de switchTab pour gérer le nouvel onglet
