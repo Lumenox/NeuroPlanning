@@ -27,6 +27,19 @@
       --border:      #1e3148;
       --cell-h:      36px;
     }
+
+    body.light-mode {
+       --navy:        #FFFFFF;
+       --navy-mid:    #BDCBD9;   /*C44310 */
+       --navy-light:  #243d55;
+       --teal:        #207A70;
+       --teal-dim:    #205953;
+       --white:       #0f172a;    /* tout ce qui est blanc, Navy très sombre pour le texte */
+       --gray:        #64748b;    /* Gris plus foncé pour rester lisible */
+	--border:      #A1C0E3;
+       /* On garde le --teal pour les accents, ça marche très bien en clair aussi */
+    }
+
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Sora', sans-serif; background: var(--navy); color: var(--white); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
@@ -218,6 +231,7 @@ background: rgba(248, 113, 113, 0.05); }
 <div id="auth-overlay">
   <div class="auth-box">
     <h2>Neurologie · Planning</h2>
+    <p> version 1.01</p>
     <p>Entrez vos identifiants pour accéder au planning.</p>
     <p>ID de test pour les viewer: 123 mdp 12345678</p>
     <input type="text" id="auth-login" placeholder="Email aphp ou APH" autocomplete="off" />
@@ -234,12 +248,13 @@ background: rgba(248, 113, 113, 0.05); }
 </div>
 
 <div id="topbar">
-  <span class="brand">🧠 Planning Neurologie</span>
+  <span class="brand">🧠 Planning Neurologie v.1.01</span>
   <div class="controls">
     <div id="status-dot"></div>
     <span id="user-id-badge"></span>
     <span id="realtime-badge">● LIVE</span>
     <span id="admin-badge">ADMIN</span>
+    <button class="btn-ghost" style="font-size:11px" onclick="logout()">Déconnexion</button>
     <div class="sep"></div>
     <div id="brush-container" style="display:none; align-items:center; gap:8px;">
       <button id="btn-brush" class="btn-ghost" onclick="toggleBrushMode()" title="Mode Pinceau">🖌️</button>
@@ -253,7 +268,9 @@ background: rgba(248, 113, 113, 0.05); }
     <button id="btn-save-all"    class="btn-save"  style="display:none" onclick="saveAllPending()">💾 Sauvegarder</button>
     <div class="sep"></div>
     <button class="btn-ghost" onclick="refreshAll()">↺</button>
-    <button class="btn-ghost" style="font-size:11px" onclick="logout()">Déconnexion</button>
+    <button onclick="toggleTheme()" id="theme-btn" style="margin: 10px; cursor: pointer;" class="btn-ghost">
+                         🌓 Clair/Obscur
+           </button>
     <button onclick="showChangePassword()" class="btn-ghost">🔑 Changer MDP</button>
   </div>
 </div>
@@ -606,43 +623,34 @@ function showForgotPassword() {
 
 async function sendResetEmail() {
   const hospitalId = document.getElementById('reset-hospital-id').value.trim();
-  const errEl      = document.getElementById('reset-error');
-  const okEl       = document.getElementById('reset-success');
-  const btn        = document.querySelector('.auth-box .btn-primary'); // Sélecteur plus précis
-  errEl.style.display = 'none';
-  okEl.style.display  = 'none';
+  const errEl = document.getElementById('reset-error');
+  const okEl = document.getElementById('reset-success');
+  
   if (!hospitalId) {
     errEl.textContent = 'Veuillez entrer un identifiant.';
     errEl.style.display = 'block';
     return;
   }
-  try {
-    btn.disabled = true;
-    btn.textContent = "Envoi en cours...";
-    // 1. Récupération de l'email via RPC
-    const { data: email, error: lookupError } = await _supabase
-      .rpc('get_email_from_hospital_id', { h_id: hospitalId });
-    if (lookupError || !email) {
-      throw new Error('Identifiant inconnu ou erreur de base de données.');
-    }
-    // 2. Déconnexion préventive
-    await _supabase.auth.signOut();
-    // 3. Envoi du mail
-    const { error } = await _supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + window.location.pathname
-    });
-    if (error) throw error;
-    okEl.textContent = `✓ Un lien a été envoyé à l'adresse associée à ${hospitalId}.`;
-    okEl.style.display = 'block';
-    btn.style.display = 'none'; // On cache le bouton après succès
-  } catch (err) {
-    console.error('Erreur reset:', err);
-    errEl.textContent = err.message || 'Une erreur est survenue.';
+
+  const { data: email, error: lookupError } = await _supabase
+    .rpc('get_email_from_hospital_id', { h_id: hospitalId });
+
+  if (lookupError || !email) {
+    errEl.textContent = 'Identifiant inconnu.';
     errEl.style.display = 'block';
-    btn.disabled = false;
-    btn.textContent = "Envoyer le lien";
+    return;
+  }
+
+  const { error } = await _supabase.auth.resetPasswordForEmail(email);
+  if (error) {
+    errEl.textContent = error.message;
+    errEl.style.display = 'block';
+  } else {
+    okEl.textContent = 'Email envoyé !';
+    okEl.style.display = 'block';
   }
 }
+
 
 function showChangePassword() {
   // Petit modal inline
@@ -761,6 +769,18 @@ function toggleBrushMode() {
     btn.style.borderColor = 'var(--border)';
     picker.style.display = 'none';
   }
+}
+function toggleTheme() {
+  document.body.classList.toggle('light-mode');
+  
+  // Optionnel : Sauvegarder le choix de l'utilisateur
+  const isLight = document.body.classList.contains('light-mode');
+  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+}
+
+// Au chargement de la page, appliquer le thème sauvegardé
+if (localStorage.getItem('theme') === 'light') {
+  document.body.classList.add('light-mode');
 }
 
 function updateBrushSuggestions() {
@@ -1834,10 +1854,12 @@ function buildStats() {
       DOCTOR_COLS.forEach(col => {
         const doc = (row[col] || '').trim().toUpperCase();
         if (doc && doc.length <= 6 && visibleCols[col]) {
-          if (!stats[doc]) stats[doc] = { total: 0, Garde: 0, Astr: 0 };
+          if (!stats[doc]) stats[doc] = { total: 0, Garde: 0, Astr: 0, BIPng : 0, BIPv : 0 };
           stats[doc].total++;
           if (col === 'Garde') stats[doc].Garde++;
           if (col === 'Astr')  stats[doc].Astr++;
+          if (col === 'BIPng')  stats[doc].BIPng++;
+          if (col === 'BIPv')  stats[doc].BIPv++;
         }
       });
     });
@@ -1875,8 +1897,10 @@ function buildStats() {
     badgeWrap.className = 'stat-badges';
 
     if (currentTab === 'planning') {
-      if (data.Garde > 0) badgeWrap.innerHTML += `<span class="stat-badge" style="color:var(--amber)">G:${data.Garde}</span>`;
-      if (data.Astr > 0)  badgeWrap.innerHTML += `<span class="stat-badge" style="color:var(--teal)">A:${data.Astr}</span>`;
+      if (data.Garde > 0) badgeWrap.innerHTML += `<span class="stat-badge" style="color:var(--red)">G:${data.Garde}</span>`;
+      if (data.Astr > 0)  badgeWrap.innerHTML += `<span class="stat-badge" style="color:var(--amber)">A:${data.Astr}</span>`;
+      if (data.BIPv > 0)  badgeWrap.innerHTML += `<span class="stat-badge" style="color:var(--red)">Bv:${data.BIPv}</span>`;
+      if (data.BIPng > 0)  badgeWrap.innerHTML += `<span class="stat-badge" style="color:var(--amber)">Bng:${data.BIPng}</span>`; 
     } else {
       Object.entries(data.types).forEach(([type, count]) => {
         const col = ABS_TYPE_COLORS[type] || 'var(--white)';
