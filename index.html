@@ -122,6 +122,66 @@ width: 230px; background: var(--navy-mid); border-left: 1px solid var(--border);
 
     #content-wrap { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 
+/* === MODALE CONFLITS À LA CONNEXION === */
+#conflict-startup-modal {
+  position: fixed; inset: 0;
+  background: rgba(13,27,42,.92);
+  display: none; align-items: center; justify-content: center;
+  z-index: 9999;
+}
+#conflict-startup-modal.open { display: flex; }
+.conf-modal-box {
+  background: var(--navy-mid);
+  border: 2px solid var(--red);
+  border-radius: 12px;
+  padding: 28px 32px;
+  width: 520px; max-width: 95vw;
+  max-height: 80vh;
+  display: flex; flex-direction: column; gap: 16px;
+  box-shadow: 0 8px 32px rgba(248,113,113,.25);
+}
+.conf-modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+}
+.conf-modal-header h3 {
+  font-family: 'DM Mono', monospace; font-size: 15px; color: var(--red);
+}
+.conf-modal-subtitle {
+  font-size: 11px; color: var(--gray); font-family: 'DM Mono', monospace;
+}
+.conf-modal-list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.conf-item {
+  border: 1px solid var(--border); border-radius: 6px;
+  overflow: hidden; cursor: pointer;
+  transition: border-color .15s;
+}
+.conf-item.clinique  { border-left: 3px solid var(--red); }
+.conf-item.noncli    { border-left: 3px solid var(--purple); }
+.conf-item-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; background: var(--navy);
+  font-family: 'DM Mono', monospace; font-size: 11px;
+}
+.conf-item-header:hover { background: var(--navy-light); }
+.conf-badge {
+  font-size: 9px; padding: 2px 6px; border-radius: 3px; font-weight: 600;
+}
+.conf-badge.clinique  { background: var(--red-dim);    color: var(--red);    border: 1px solid var(--red); }
+.conf-badge.noncli    { background: var(--purple-dim); color: var(--purple); border: 1px solid var(--purple); }
+.conf-item-date { color: var(--white); flex: 1; }
+.conf-item-arrow { color: var(--gray); font-size: 10px; transition: transform .2s; }
+.conf-item.open .conf-item-arrow { transform: rotate(90deg); }
+.conf-item-detail {
+  padding: 8px 14px; font-size: 11px; color: var(--gray);
+  background: var(--navy-mid); border-top: 1px solid var(--border);
+  display: none;
+}
+.conf-item.open .conf-item-detail { display: block; }
+.conf-modal-footer {
+  display: flex; justify-content: flex-end; gap: 8px;
+  border-top: 1px solid var(--border); padding-top: 14px;
+}
+
 /* --- CONFIGURATION DE LA TABLE --- */
     #table-wrap { flex: 1; overflow: auto; position: relative; }
     table { border-collapse: collapse; font-family: 'DM Mono', monospace; font-size: 11px; min-width: 100%; }
@@ -244,6 +304,21 @@ background: rgba(248, 113, 113, 0.05); }
         Mot de passe oublié ?
       </a>
     </p>
+  </div>
+</div>
+
+<!-- MODALE CONFLITS À L'OUVERTURE DE SESSION -->
+<div id="conflict-startup-modal">
+  <div class="conf-modal-box">
+    <div class="conf-modal-header">
+      <h3>⚠️ Conflits dans les 30 prochains jours</h3>
+      <button class="btn-ghost" onclick="document.getElementById('conflict-startup-modal').classList.remove('open')">✕</button>
+    </div>
+    <p class="conf-modal-subtitle" id="conf-modal-subtitle">— conflits détectés</p>
+    <div class="conf-modal-list" id="conf-modal-list"></div>
+    <div class="conf-modal-footer">
+      <button class="btn-ghost" onclick="document.getElementById('conflict-startup-modal').classList.remove('open')">Fermer</button>
+    </div>
   </div>
 </div>
 
@@ -733,6 +808,7 @@ async function init() {
   populateAbsModal();
   await loadData();
   await loadAbsences();
+  checkUpcomingConflicts();   
   subscribeRealtime();
   subscribeRealtimeAbsences();
   toggleInternesVisibility();
@@ -752,6 +828,113 @@ async function loadEquipe() {
     listeMedecins = data;
     absenceColNames = listeMedecins.map(m => m.initiales).filter(init => init && init.trim());
   }
+}
+
+
+function checkUpcomingConflicts() {
+  // Condition clé : l'utilisateur doit avoir des initiales (= c'est un médecin)
+  if (!currentUser?.initiales) return;
+  const myInitiales = currentUser.initiales.trim().toUpperCase();
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const horizon = new Date(today); horizon.setDate(today.getDate() + 30);
+
+  const absIdx = buildAbsenceIndex();
+  const conflicts = [];
+
+  allData.forEach(row => {
+    const rowDate = new Date(row.date + 'T00:00:00');
+    if (rowDate < today || rowDate > horizon) return;
+
+    // — Conflits CLINIQUES (médecin dans plusieurs colonnes non-ignorées) —
+    const doctorPos = {};
+    DOCTOR_COLS.forEach(col => {
+      if (CONFLICT_IGNORE_COLS.includes(col)) return;
+      const val = (row[col] || '').trim().toUpperCase();
+      if (val && val.length <= 6) {
+        if (!doctorPos[val]) doctorPos[val] = [];
+        doctorPos[val].push(col);
+      }
+    });
+
+    if (doctorPos[myInitiales]?.length > 1 && !acceptedConflicts[row.id]) {
+      const labels = doctorPos[myInitiales]
+        .map(k => COLUMNS.find(c => c.key === k)?.label || k);
+      conflicts.push({
+        type: 'clinique',
+        date: row.date,
+        heure: row.heure,
+        detail: `Affecté simultanément sur : ${labels.join(' + ')}`
+      });
+    }
+
+    // — Conflits NON-CLINIQUES (planning + absence le même jour) —
+    const dateAbsences = absIdx.get(row.date) || new Map();
+    if (dateAbsences.has(myInitiales)) {
+      const postes = DOCTOR_COLS
+        .filter(col => (row[col] || '').trim().toUpperCase() === myInitiales)
+        .map(col => COLUMNS.find(c => c.key === col)?.label || col);
+      if (postes.length > 0) {
+        conflicts.push({
+          type: 'non-clinique',
+          date: row.date,
+          heure: row.heure,
+          detail: `Absent (${dateAbsences.get(myInitiales).type}) mais affecté sur : ${postes.join(', ')}`
+        });
+      }
+    }
+  });
+
+  if (conflicts.length > 0) showConflictPopup(conflicts);
+}
+
+function showConflictPopup(conflicts) {
+  const list   = document.getElementById('conf-modal-list');
+  const subtitle = document.getElementById('conf-modal-subtitle');
+  list.innerHTML = '';
+
+  const nb = conflicts.length;
+  const nbCli    = conflicts.filter(c => c.type === 'clinique').length;
+  const nbNonCli = conflicts.filter(c => c.type === 'non-clinique').length;
+
+  subtitle.innerHTML =
+    `<span style="color:var(--red)">${nbCli} conflit(s) clinique(s)</span>` +
+    ` &nbsp;·&nbsp; ` +
+    `<span style="color:var(--purple)">${nbNonCli} conflit(s) planning/absence</span>` +
+    ` sur 30 jours`;
+
+  // Dédoublonner par date+heure pour ne pas afficher la même date deux fois
+  // (matin ET après-midi peuvent générer deux entrées sur le même jour)
+  const seen = new Set();
+  conflicts.forEach(conf => {
+    const key = `${conf.date}_${conf.type}`;
+    const isFirst = !seen.has(key);
+    seen.add(key);
+
+    const item = document.createElement('div');
+    item.className = `conf-item ${conf.type === 'clinique' ? 'clinique' : 'noncli'}`;
+
+    const dateStr = new Date(conf.date + 'T00:00:00')
+      .toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    item.innerHTML = `
+      <div class="conf-item-header">
+        <span class="conf-badge ${conf.type === 'clinique' ? 'clinique' : 'noncli'}">
+          ${conf.type === 'clinique' ? 'CLINIQUE' : 'ABS/PLAN'}
+        </span>
+        <span class="conf-item-date">${dateStr} — ${conf.heure}</span>
+        <span class="conf-item-arrow">▶</span>
+      </div>
+      <div class="conf-item-detail">${conf.detail}</div>`;
+
+    item.querySelector('.conf-item-header').addEventListener('click', () => {
+      item.classList.toggle('open');
+    });
+
+    list.appendChild(item);
+  });
+
+  document.getElementById('conflict-startup-modal').classList.add('open');
 }
 
 function toggleBrushMode() {
