@@ -26,6 +26,8 @@
       --gray:        #8fa3b5;
       --border:      #1e3148;
       --cell-h:      36px;
+       --row-matin-bg: #0d1b2a;
+       --row-aprem-bg: #0d1b2a;
     }
 
     body.light-mode {
@@ -37,6 +39,8 @@
        --white:       #0f172a;    /* tout ce qui est blanc, Navy très sombre pour le texte */
        --gray:        #64748b;    /* Gris plus foncé pour rester lisible */
 	--border:      #A1C0E3;
+       --row-matin-bg: #FFFFFF;
+       --row-aprem-bg: #F7F9FB;
        /* On garde le --teal pour les accents, ça marche très bien en clair aussi */
     }
 
@@ -181,6 +185,28 @@ width: 230px; background: var(--navy-mid); border-left: 1px solid var(--border);
   display: flex; justify-content: flex-end; gap: 8px;
   border-top: 1px solid var(--border); padding-top: 14px;
 }
+.conf-accepted-toggle {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.conf-accepted-toggle summary {
+  padding: 9px 12px;
+  font-family: 'DM Mono', monospace; font-size: 11px;
+  color: var(--amber); cursor: pointer;
+  background: var(--navy); list-style: none;
+  display: flex; align-items: center; gap: 8px;
+}
+.conf-accepted-toggle summary::-webkit-details-marker { display: none; }
+.conf-accepted-toggle summary:hover { background: var(--navy-light); }
+.conf-accepted-content {
+  padding: 8px; display: flex; flex-direction: column;
+  gap: 4px; background: var(--navy-mid);
+}
+.conf-item.accepted { opacity: .65; border-left-color: var(--amber) !important; }
+.conf-item.accepted .conf-item-header { text-decoration: line-through; }
+
 
 /* --- CONFIGURATION DE LA TABLE --- */
     #table-wrap { flex: 1; overflow: auto; position: relative; }
@@ -196,11 +222,11 @@ width: 230px; background: var(--navy-mid); border-left: 1px solid var(--border);
 
      /* --- STYLES DES COLONNES SPÉCIFIQUES --- */
      td.col-date { color: var(--gray); font-size: 10px; position: sticky; left: 0; background: var(--navy-mid); z-index: 2; width: min-content; white-space: nowrap; border-right: 1px solid var(--border); }
-     td.col-heure { color: var(--teal); position: sticky; left: auto; font-size: 11px; background: var(--navy-mid); font-weight: 500; width: min-content;}
+     td.col-heure { color: var(--teal); position: sticky; left: 100px; font-size: 11px; background: var(--navy-mid); font-weight: 500; width: min-content;}
 
      /* --- GROUPEMENT MATIN / APREM --- */
-     tr.creno-matin { background: rgba(255,255,255,.01); }
-     tr.creno-aprem { background: rgba(0,0,0,.15); }
+     tr.creno-matin { background:  var(--row-matin-bg); }
+     tr.creno-aprem { background: var(--row-aprem-bg); }
 
      /* Pas de bordure entre matin et aprem du même jour */
      tr.creno-matin td { border-bottom: none !important; }
@@ -832,7 +858,6 @@ async function loadEquipe() {
 
 
 function checkUpcomingConflicts() {
-  // Condition clé : l'utilisateur doit avoir des initiales (= c'est un médecin)
   if (!currentUser?.initiales) return;
   const myInitiales = currentUser.initiales.trim().toUpperCase();
 
@@ -841,12 +866,13 @@ function checkUpcomingConflicts() {
 
   const absIdx = buildAbsenceIndex();
   const conflicts = [];
+  const accepted  = [];  // ← nouveau tableau
 
   allData.forEach(row => {
     const rowDate = new Date(row.date + 'T00:00:00');
     if (rowDate < today || rowDate > horizon) return;
 
-    // — Conflits CLINIQUES (médecin dans plusieurs colonnes non-ignorées) —
+    // — Conflits CLINIQUES —
     const doctorPos = {};
     DOCTOR_COLS.forEach(col => {
       if (CONFLICT_IGNORE_COLS.includes(col)) return;
@@ -857,18 +883,19 @@ function checkUpcomingConflicts() {
       }
     });
 
-    if (doctorPos[myInitiales]?.length > 1 && !acceptedConflicts[row.id]) {
+    if (doctorPos[myInitiales]?.length > 1) {
       const labels = doctorPos[myInitiales]
         .map(k => COLUMNS.find(c => c.key === k)?.label || k);
-      conflicts.push({
-        type: 'clinique',
-        date: row.date,
-        heure: row.heure,
+      const entry = {
+        type: 'clinique', date: row.date, heure: row.heure,
         detail: `Affecté simultanément sur : ${labels.join(' + ')}`
-      });
+      };
+      // ← aiguillage selon statut accepté ou non
+      if (acceptedConflicts[row.id]) accepted.push(entry);
+      else                           conflicts.push(entry);
     }
 
-    // — Conflits NON-CLINIQUES (planning + absence le même jour) —
+    // — Conflits NON-CLINIQUES (absence + planning) —
     const dateAbsences = absIdx.get(row.date) || new Map();
     if (dateAbsences.has(myInitiales)) {
       const postes = DOCTOR_COLS
@@ -876,65 +903,93 @@ function checkUpcomingConflicts() {
         .map(col => COLUMNS.find(c => c.key === col)?.label || col);
       if (postes.length > 0) {
         conflicts.push({
-          type: 'non-clinique',
-          date: row.date,
-          heure: row.heure,
+          type: 'non-clinique', date: row.date, heure: row.heure,
           detail: `Absent (${dateAbsences.get(myInitiales).type}) mais affecté sur : ${postes.join(', ')}`
         });
       }
     }
   });
 
-  if (conflicts.length > 0) showConflictPopup(conflicts);
+  if (conflicts.length > 0 || accepted.length > 0)
+    showConflictPopup(conflicts, accepted);
 }
 
-function showConflictPopup(conflicts) {
-  const list   = document.getElementById('conf-modal-list');
+// Helper partagé entre conflits actifs et acceptés
+function buildConflictItem(conf, isAccepted = false) {
+  const item = document.createElement('div');
+  item.className = `conf-item ${conf.type === 'clinique' ? 'clinique' : 'noncli'}${isAccepted ? ' accepted' : ''}`;
+
+  const dateStr = new Date(conf.date + 'T00:00:00')
+    .toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  item.innerHTML = `
+    <div class="conf-item-header">
+      <span class="conf-badge ${conf.type === 'clinique' ? 'clinique' : 'noncli'}">
+        ${conf.type === 'clinique' ? 'CLINIQUE' : 'ABS/PLAN'}
+      </span>
+      <span class="conf-item-date">${dateStr} — ${conf.heure}</span>
+      ${isAccepted ? '<span style="font-size:10px;color:var(--amber)">✓ accepté</span>' : ''}
+      <span class="conf-item-arrow">▶</span>
+    </div>
+    <div class="conf-item-detail">${conf.detail}</div>`;
+
+  item.querySelector('.conf-item-header').addEventListener('click', () =>
+    item.classList.toggle('open'));
+
+  return item;
+}
+
+function showConflictPopup(conflicts, acceptedList = []) {
+  const list     = document.getElementById('conf-modal-list');
   const subtitle = document.getElementById('conf-modal-subtitle');
+  const modal    = document.getElementById('conflict-startup-modal');
   list.innerHTML = '';
 
-  const nb = conflicts.length;
+  // Adapter le titre si aucun conflit actif (que des acceptés)
+  const h3 = modal.querySelector('h3');
+  if (conflicts.length === 0) {
+    h3.textContent = '✅ Aucun conflit actif dans les 30 prochains jours';
+    h3.style.color = 'var(--amber)';
+    modal.querySelector('.conf-modal-box').style.borderColor = 'var(--amber)';
+  } else {
+    h3.textContent = '⚠️ Conflits dans les 30 prochains jours';
+    h3.style.color = 'var(--red)';
+    modal.querySelector('.conf-modal-box').style.borderColor = 'var(--red)';
+  }
+
   const nbCli    = conflicts.filter(c => c.type === 'clinique').length;
   const nbNonCli = conflicts.filter(c => c.type === 'non-clinique').length;
-
   subtitle.innerHTML =
-    `<span style="color:var(--red)">${nbCli} conflit(s) clinique(s)</span>` +
-    ` &nbsp;·&nbsp; ` +
-    `<span style="color:var(--purple)">${nbNonCli} conflit(s) planning/absence</span>` +
-    ` sur 30 jours`;
+    `<span style="color:var(--red)">${nbCli} clinique(s)</span> &nbsp;·&nbsp; ` +
+    `<span style="color:var(--purple)">${nbNonCli} abs/planning</span>` +
+    (acceptedList.length
+      ? ` &nbsp;·&nbsp; <span style="color:var(--amber)">${acceptedList.length} déjà accepté(s)</span>`
+      : '');
 
-  // Dédoublonner par date+heure pour ne pas afficher la même date deux fois
-  // (matin ET après-midi peuvent générer deux entrées sur le même jour)
-  const seen = new Set();
-  conflicts.forEach(conf => {
-    const key = `${conf.date}_${conf.type}`;
-    const isFirst = !seen.has(key);
-    seen.add(key);
+  // Conflits actifs
+  conflicts.forEach(conf => list.appendChild(buildConflictItem(conf)));
 
-    const item = document.createElement('div');
-    item.className = `conf-item ${conf.type === 'clinique' ? 'clinique' : 'noncli'}`;
+  // Section déroulante des conflits acceptés
+  if (acceptedList.length > 0) {
+    const details = document.createElement('details');
+    details.className = 'conf-accepted-toggle';
 
-    const dateStr = new Date(conf.date + 'T00:00:00')
-      .toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
-
-    item.innerHTML = `
-      <div class="conf-item-header">
-        <span class="conf-badge ${conf.type === 'clinique' ? 'clinique' : 'noncli'}">
-          ${conf.type === 'clinique' ? 'CLINIQUE' : 'ABS/PLAN'}
-        </span>
-        <span class="conf-item-date">${dateStr} — ${conf.heure}</span>
-        <span class="conf-item-arrow">▶</span>
-      </div>
-      <div class="conf-item-detail">${conf.detail}</div>`;
-
-    item.querySelector('.conf-item-header').addEventListener('click', () => {
-      item.classList.toggle('open');
+    const summary = document.createElement('summary');
+    summary.innerHTML = `<span>▶</span>&nbsp;${acceptedList.length} conflit(s) déjà accepté(s) — voir les dates`;
+    details.addEventListener('toggle', () => {
+      summary.querySelector('span').textContent = details.open ? '▼' : '▶';
     });
+    details.appendChild(summary);
 
-    list.appendChild(item);
-  });
+    const content = document.createElement('div');
+    content.className = 'conf-accepted-content';
+    acceptedList.forEach(conf => content.appendChild(buildConflictItem(conf, true)));
+    details.appendChild(content);
 
-  document.getElementById('conflict-startup-modal').classList.add('open');
+    list.appendChild(details);
+  }
+
+  modal.classList.add('open');
 }
 
 function toggleBrushMode() {
@@ -1385,16 +1440,26 @@ function renderTable(rows, highlightDoctor) {
 
       if (col.key === 'date') {
         td.className = 'col-date'; td.textContent = formatDate(val);
-        if (currentUser?.role === 'admin' && isEditMode && conflicting.length) {
-          td.style.cursor = 'pointer';
-          td.title = isAccepted ? 'Conflit accepté — cliquer pour rouvrir' : 'Conflit — cliquer pour accepter';
-          td.addEventListener('click', () => toggleConflict(row.id));
-          td.addEventListener('click', (e) => {
-                             if (isEditMode && isBrushMode && canEditCol(col.key)) {
-                                applyBrushValue(row, col.key, td);
-                              }
-                            });
-        }
+        const myInitiales = currentUser?.initiales?.trim().toUpperCase();
+const isSoleConflict = conflicting.length === 1 
+                    && myInitiales 
+                    && conflicting[0] === myInitiales
+                    && !isAccepted;
+
+if (currentUser?.role === 'admin' && isEditMode && conflicting.length) {
+  td.style.cursor = 'pointer';
+  td.title = isAccepted ? 'Conflit accepté — cliquer pour rouvrir' : 'Conflit — cliquer pour accepter';
+  td.addEventListener('click', () => toggleConflict(row.id));
+  td.addEventListener('click', (e) => {
+    if (isEditMode && isBrushMode && canEditCol(col.key)) applyBrushValue(row, col.key, td);
+  });
+} else if (isSoleConflict) {
+  // Viewer-médecin seul concerné : peut auto-valider
+  td.style.cursor = 'pointer';
+  td.style.textDecoration = 'underline dotted';
+  td.title = '✅ Je suis seul en conflit — cliquer pour accepter ce conflit';
+  td.addEventListener('click', () => toggleConflict(row.id));
+}
       } else if (col.key === 'heure') {
         td.className = 'col-heure'; td.textContent = val;
       } else if (col.key === 'ReposGarde') {
