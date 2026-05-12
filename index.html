@@ -613,22 +613,26 @@ let showInternes = false;
 let isBrushMode = false;
 
 async function doLogin() {
-  const hospitalId = document.getElementById('auth-login').value.trim();
-  const pass       = document.getElementById('auth-pass').value;
-  const errEl      = document.getElementById('auth-error');
+  const input  = document.getElementById('auth-login').value.trim();
+  const pass   = document.getElementById('auth-pass').value;
+  const errEl  = document.getElementById('auth-error');
   errEl.style.display = 'none';
 
-  // 1. Retrouver l'email depuis l'identifiant hôpital
-  const { data: email, error: lookupError } = await _supabase
-    .rpc('get_email_from_hospital_id', { h_id: hospitalId });
+  let email = input;
 
-  if (lookupError || !email) {
-    errEl.textContent = 'Identifiant inconnu.';
-    errEl.style.display = 'block';
-    return;
+  // Si ce n'est pas un email, on passe par la RPC de lookup
+  if (!input.includes('@')) {
+    const { data: foundEmail, error: lookupError } = await _supabase
+      .rpc('get_email_from_hospital_id', { h_id: input });
+
+    if (lookupError || !foundEmail) {
+      errEl.textContent = 'Identifiant inconnu.';
+      errEl.style.display = 'block';
+      return;
+    }
+    email = foundEmail;
   }
 
-  // 2. Connexion avec l'email retrouvé
   const { data, error } = await _supabase.auth.signInWithPassword({
     email, password: pass
   });
