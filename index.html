@@ -266,6 +266,12 @@ width: 230px; background: var(--navy-mid); border-left: 1px solid var(--border);
     .legend-item { display: flex; align-items: center; gap: 6px; font-family: 'DM Mono', monospace; font-size: 10px; }
     .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
 
+/* Highlight colonne au survol — subtil pour ne pas écraser les conflits */
+#table-body td.col-hover,
+#abs-body td.col-hover {
+  background: var(--navy-light) !important;
+}
+
     #btn-add-absence {
       position: fixed; bottom: 24px; left: 24px;
       background: var(--purple); color: var(--navy);
@@ -275,7 +281,7 @@ width: 230px; background: var(--navy-mid); border-left: 1px solid var(--border);
       box-shadow: 0 4px 16px rgba(192,132,252,.5);
       z-index: 50; border: none; cursor: pointer;
     }
-    .is-admin #btn-add-absence { display: flex; }
+    .is-admin.edit-mode #btn-add-absence { display: flex; }
 
     #abs-modal { position: fixed; inset: 0; background: rgba(13,27,42,.9); display: none; align-items: center; justify-content: center; z-index: 200; }
     #abs-modal.open { display: flex; }
@@ -310,6 +316,179 @@ background: rgba(248, 113, 113, 0.05); }
     .toast.warning { border-color: var(--amber); }
     .toast.purple  { border-color: var(--purple); }
     @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+
+/* === MODAL PARAMÈTRES === */
+#settings-modal {
+  position: fixed; inset: 0;
+  background: rgba(13,27,42,.92);
+  display: none; align-items: center; justify-content: center;
+  z-index: 500;
+}
+#settings-modal.open { display: flex; }
+
+.settings-box {
+  background: var(--navy-mid);
+  border: 1px solid var(--teal);
+  border-radius: 12px;
+  padding: 28px 32px;
+  width: 480px; max-width: 95vw;
+  max-height: 85vh;
+  display: flex; flex-direction: column; gap: 20px;
+  overflow-y: auto;
+}
+.settings-box h3 {
+  font-family: 'DM Mono', monospace;
+  font-size: 14px; color: var(--teal);
+  display: flex; align-items: center; gap: 8px;
+}
+.settings-section {
+  display: flex; flex-direction: column; gap: 10px;
+}
+.settings-section-title {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px; color: var(--gray);
+  letter-spacing: .08em; text-transform: uppercase;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.settings-row {
+  display: flex; align-items: center;
+  justify-content: space-between; gap: 12px;
+}
+.settings-row label {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px; color: var(--white);
+}
+.settings-row select {
+  background: var(--navy); border: 1px solid var(--border);
+  color: var(--white); padding: 6px 10px; border-radius: 6px;
+  font-family: 'DM Mono', monospace; font-size: 11px;
+}
+.settings-row select:focus { border-color: var(--teal); outline: none; }
+
+.settings-group-grid {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.settings-group-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px; border-radius: 20px;
+  border: 1px solid var(--border);
+  font-family: 'DM Mono', monospace; font-size: 10px;
+  cursor: pointer; opacity: 0.45;
+  transition: opacity .15s, border-color .15s;
+  user-select: none;
+}
+.settings-group-chip input { display: none; }
+.settings-group-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.settings-group-chip.active { opacity: 1; }
+
+.settings-toggle-row {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px; border-radius: 8px;
+  background: var(--navy); border: 1px solid var(--border);
+}
+.settings-toggle-row span {
+  font-family: 'DM Mono', monospace; font-size: 11px; color: var(--white);
+}
+.settings-toggle-row .toggle-hint {
+  font-size: 10px; color: var(--gray); margin-top: 2px;
+}
+
+/* Toggle switch */
+.sw { position: relative; display: inline-block; width: 36px; height: 20px; flex-shrink: 0; }
+.sw input { opacity: 0; width: 0; height: 0; }
+.sw-slider {
+  position: absolute; inset: 0;
+  background: var(--border); border-radius: 20px;
+  transition: background .2s; cursor: pointer;
+}
+.sw-slider::before {
+  content: ''; position: absolute;
+  left: 3px; top: 3px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--gray); transition: transform .2s, background .2s;
+}
+.sw input:checked + .sw-slider { background: var(--teal-dim); border: 1px solid var(--teal); }
+.sw input:checked + .sw-slider::before { transform: translateX(16px); background: var(--teal); }
+
+.settings-footer {
+  display: flex; justify-content: space-between; align-items: center;
+  border-top: 1px solid var(--border); padding-top: 16px; gap: 10px;
+}
+.settings-saved-hint {
+  font-family: 'DM Mono', monospace; font-size: 10px;
+  color: var(--teal); opacity: 0;
+  transition: opacity .4s;
+}
+.settings-saved-hint.show { opacity: 1; }
+
+/* === MODAL ANNONCES === */
+#annonces-modal {
+  position: fixed; inset: 0;
+  background: rgba(13,27,42,.92);
+  display: none; align-items: center; justify-content: center;
+  z-index: 600;  /* au-dessus de tout, y compris l'auth-overlay */
+}
+#annonces-modal.open { display: flex; }
+
+.annonces-box {
+  background: var(--navy-mid);
+  border: 1px solid var(--teal);
+  border-radius: 12px;
+  width: 520px; max-width: 95vw;
+  max-height: 80vh;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.annonces-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.annonces-header h3 {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px; color: var(--teal);
+  display: flex; align-items: center; gap: 8px;
+}
+.annonces-list {
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.annonce-item {
+  border-radius: 8px;
+  padding: 14px 16px;
+  border-left: 3px solid var(--teal);
+  background: var(--navy);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.annonce-item.warning { border-left-color: var(--amber); }
+.annonce-item.urgent  { border-left-color: var(--red);   background: var(--red-dim); }
+
+.annonce-titre {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px; font-weight: 600;
+  color: var(--teal);
+}
+.annonce-item.warning .annonce-titre { color: var(--amber); }
+.annonce-item.urgent  .annonce-titre { color: var(--red);   }
+
+.annonce-message {
+  font-size: 12px; color: var(--white); line-height: 1.6;
+}
+.annonce-date {
+  font-family: 'DM Mono', monospace;
+  font-size: 6px; color: var(--gray);
+}
+.annonces-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end;
+}
+
+
   </style>
 </head>
 <body>
@@ -317,7 +496,7 @@ background: rgba(248, 113, 113, 0.05); }
 <div id="auth-overlay">
   <div class="auth-box">
     <h2>Neurologie · Planning</h2>
-    <p> version 1.01</p>
+    <p> version 1.02</p>
     <p>Entrez vos identifiants pour accéder au planning.</p>
     <p>ID de test pour les viewer: 123 mdp 12345678</p>
     <input type="text" id="auth-login" placeholder="Email aphp ou APH" autocomplete="off" />
@@ -330,6 +509,20 @@ background: rgba(248, 113, 113, 0.05); }
         Mot de passe oublié ?
       </a>
     </p>
+  </div>
+</div>
+
+<!-- MODAL ANNONCES (avant auth) -->
+<div id="annonces-modal">
+  <div class="annonces-box">
+    <div class="annonces-header">
+      <h3>📢 Annonces de service</h3>
+      <button class="btn-ghost" onclick="closeAnnoncesModal()" style="font-size:11px">✕ Fermer</button>
+    </div>
+    <div class="annonces-list" id="annonces-list"></div>
+    <div class="annonces-footer">
+      <button class="btn-primary" onclick="closeAnnoncesModal()">J'ai lu ✓</button>
+    </div>
   </div>
 </div>
 
@@ -349,7 +542,7 @@ background: rgba(248, 113, 113, 0.05); }
 </div>
 
 <div id="topbar">
-  <span class="brand">🧠 Planning Neurologie v.1.01</span>
+  <span class="brand">🧠 Planning Neurologie v.1.02</span>
   <div class="controls">
     <div id="status-dot"></div>
     <span id="user-id-badge"></span>
@@ -369,10 +562,11 @@ background: rgba(248, 113, 113, 0.05); }
     <button id="btn-save-all"    class="btn-save"  style="display:none" onclick="saveAllPending()">💾 Sauvegarder</button>
     <div class="sep"></div>
     <button class="btn-ghost" onclick="refreshAll()">↺</button>
+    <button class="btn-ghost" onclick="openSettingsModal()" title="Préférences">⚙️</button>
     <button onclick="toggleTheme()" id="theme-btn" style="margin: 10px; cursor: pointer;" class="btn-ghost">
                          🌓 Clair/Obscur
            </button>
-    <button onclick="showChangePassword()" class="btn-ghost">🔑 Changer MDP</button>
+    
   </div>
 </div>
 
@@ -526,6 +720,72 @@ background: rgba(248, 113, 113, 0.05); }
   </div>
 </div>
 
+<!-- MODAL PARAMÈTRES UTILISATEUR -->
+<div id="settings-modal">
+  <div class="settings-box">
+
+    <h3>⚙️ Mes préférences</h3>
+  <button onclick="showChangePassword()" class="btn-ghost">🔑 Changer MDP</button>
+    <!-- Onglet par défaut -->
+    <div class="settings-section">
+      <div class="settings-section-title">Onglet à l'ouverture</div>
+      <div class="settings-row">
+        <label>Afficher en premier</label>
+        <select id="pref-default-tab">
+          <option value="planning">🏥 Planning clinique</option>
+          <option value="absences">🌴 Absences / Non clinique</option>
+          <option value="semainier">📅 Semainier</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Colonnes visibles par défaut -->
+    <div class="settings-section">
+      <div class="settings-section-title">Colonnes affichées par défaut</div>
+      <div class="settings-group-grid" id="pref-group-grid"></div>
+    </div>
+
+    <!-- Options -->
+    <div class="settings-section">
+      <div class="settings-section-title">Options</div>
+
+      <div class="settings-toggle-row">
+        <div>
+          <span>Afficher les internes</span>
+          <div class="toggle-hint">Colonnes _int1 / _int2</div>
+        </div>
+        <label class="sw">
+          <input type="checkbox" id="pref-show-internes">
+          <span class="sw-slider"></span>
+        </label>
+      </div>
+
+      <div class="settings-toggle-row">
+        <div>
+          <span>Thème clair</span>
+          <div class="toggle-hint">Mode Clair/Obscur 🌓</div>
+
+        </div>
+        <label class="sw">
+          <input type="checkbox" id="pref-theme-light">
+          <span class="sw-slider"></span>
+        </label>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="settings-footer">
+      <span class="settings-saved-hint" id="settings-saved-hint">✓ Préférences enregistrées</span>
+      <div style="display:flex;gap:8px;margin-left:auto">
+        <button class="btn-ghost" onclick="closeSettingsModal()">Annuler</button>
+        <button class="btn-primary" onclick="saveUserPreferences()">💾 Enregistrer</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 <div id="edit-dropdown"></div>
 <div id="toast-container"></div>
 
@@ -646,6 +906,44 @@ async function doLogin() {
   await applySession(data.session);
 }
 
+
+async function loadAnnonces() {
+  const today = new Date().toISOString().split('T')[0];
+
+  const { data, error } = await _supabase
+    .from('annonces')
+    .select('*')
+    .gte('date_expiration', today)
+    .order('priorite', { ascending: false })  // urgent en premier
+    .order('date_creation', { ascending: false });
+
+  if (error || !data || data.length === 0) return; // rien à afficher
+
+  const list = document.getElementById('annonces-list');
+  list.innerHTML = '';
+
+  data.forEach(a => {
+    const item = document.createElement('div');
+    item.className = `annonce-item ${a.priorite || 'info'}`;
+
+    const dateExp = new Date(a.date_expiration + 'T00:00:00')
+      .toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    item.innerHTML = `
+      ${a.titre ? `<div class="annonce-titre">${a.titre}</div>` : ''}
+      <div class="annonce-message">${a.message}</div>
+      <div class="annonce-date">Jusqu'au ${dateExp}</div>
+    `;
+    list.appendChild(item);
+  });
+
+  document.getElementById('annonces-modal').classList.add('open');
+}
+
+function closeAnnoncesModal() {
+  document.getElementById('annonces-modal').classList.remove('open');
+}
+
 async function applySession(session) {
   const { data: profile, error } = await _supabase
     .from('profiles')
@@ -665,7 +963,15 @@ async function applySession(session) {
     initiales:            profile.initiales,
     role:        profile.role,
     permissions: profile.permissions
-  };
+  }
+
+
+if (profile.preferences) {
+  window._userPrefs = profile.preferences;
+} else {
+  window._userPrefs = {};
+};
+
  window.userPermissions = profile.permissions;
   document.getElementById('auth-overlay').style.display = 'none';
   document.getElementById('auth-error').style.display   = 'none';
@@ -682,11 +988,157 @@ async function applySession(session) {
      }
   const userBadge = document.getElementById('user-id-badge');
   if (userBadge) { userBadge.textContent = profile.hospital_id; userBadge.style.display = 'inline'; }
+  window._userPrefs = profile.preferences || {};
   init();
 }
 
 
 document.getElementById('auth-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+// ─── PRÉFÉRENCES UTILISATEUR ────────────────────────────────────────────────
+
+function applyUserPreferences(prefs) {
+  if (!prefs || Object.keys(prefs).length === 0) return;
+
+  // Onglet par défaut
+  if (prefs.default_tab) {
+    switchTab(prefs.default_tab);
+  }
+
+  // Groupes de colonnes visibles
+  if (Array.isArray(prefs.visible_groups)) {
+    Object.keys(groupMap).forEach(group => {
+      const isVisible = prefs.visible_groups.includes(group);
+      groupMap[group].forEach(key => { visibleCols[key] = isVisible; });
+    });
+    // Sync visuel des toggles dans la toolbar
+    document.querySelectorAll('#col-toggles .group-toggle').forEach(label => {
+      const group = label.dataset.group;
+      if (!group) return;
+      const cb = label.querySelector('input');
+      const isActive = prefs.visible_groups.includes(group);
+      cb.checked = isActive;
+      label.classList.toggle('active', isActive);
+    });
+    applyColVisibility();
+  }
+
+  // Internes
+  if (typeof prefs.show_internes === 'boolean') {
+    showInternes = prefs.show_internes;
+    const chk = document.getElementById('chk-show-internes');
+    if (chk) chk.checked = showInternes;
+    toggleInternesVisibility();
+  }
+
+  // Thème
+  if (prefs.theme === 'light') {
+    document.body.classList.add('light-mode');
+  } else if (prefs.theme === 'dark') {
+    document.body.classList.remove('light-mode');
+  }
+}
+
+function openSettingsModal() {
+  const prefs = window._userPrefs || {};
+
+  // Onglet par défaut
+  const tabSelect = document.getElementById('pref-default-tab');
+  tabSelect.value = prefs.default_tab || currentTab;
+
+  // Grille des groupes
+  const grid = document.getElementById('pref-group-grid');
+  grid.innerHTML = '';
+  const activeGroups = Array.isArray(prefs.visible_groups)
+    ? prefs.visible_groups
+    : Object.keys(groupMap); // tout visible si pas encore de prefs
+
+  Object.keys(groupMap).forEach(group => {
+    const isActive = activeGroups.includes(group);
+    const chip = document.createElement('label');
+    chip.className = 'settings-group-chip' + (isActive ? ' active' : '');
+    chip.style.color       = GROUP_COLORS[group] || 'var(--white)';
+    chip.style.borderColor = GROUP_COLORS[group] || 'var(--border)';
+    chip.dataset.group = group;
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = isActive;
+    cb.addEventListener('change', () => {
+      chip.classList.toggle('active', cb.checked);
+    });
+
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+
+    chip.appendChild(cb);
+    chip.appendChild(dot);
+    chip.appendChild(document.createTextNode(GROUP_LABELS[group] || group));
+    grid.appendChild(chip);
+  });
+
+  // Toggle internes
+  document.getElementById('pref-show-internes').checked =
+    typeof prefs.show_internes === 'boolean' ? prefs.show_internes : showInternes;
+
+  // Toggle thème
+  document.getElementById('pref-theme-light').checked =
+    prefs.theme === 'light' || document.body.classList.contains('light-mode');
+
+  // Reset hint
+  const hint = document.getElementById('settings-saved-hint');
+  hint.classList.remove('show');
+
+  document.getElementById('settings-modal').classList.add('open');
+}
+
+function closeSettingsModal() {
+  document.getElementById('settings-modal').classList.remove('open');
+}
+
+async function saveUserPreferences() {
+  // Lire les valeurs du modal
+  const defaultTab = document.getElementById('pref-default-tab').value;
+
+  const visibleGroups = [];
+  document.querySelectorAll('#pref-group-grid .settings-group-chip input').forEach(cb => {
+    const group = cb.closest('label').dataset.group;
+    if (cb.checked && group) visibleGroups.push(group);
+  });
+
+  const showInts  = document.getElementById('pref-show-internes').checked;
+  const themeLight = document.getElementById('pref-theme-light').checked;
+
+  const prefs = {
+    default_tab:    defaultTab,
+    visible_groups: visibleGroups,
+    show_internes:  showInts,
+    theme:          themeLight ? 'light' : 'dark'
+  };
+
+  // Appliquer immédiatement
+  applyUserPreferences(prefs);
+
+  // Sauvegarder en base
+  const { data: { user } } = await _supabase.auth.getUser();
+  const { error } = await _supabase
+    .from('profiles')
+    .update({ preferences: prefs })
+    .eq('id', user.id);
+
+  if (error) {
+    toast('Erreur sauvegarde préférences : ' + error.message, 'error');
+    return;
+  }
+
+  window._userPrefs = prefs;
+
+  // Feedback visuel dans le modal + fermeture auto
+  const hint = document.getElementById('settings-saved-hint');
+  hint.classList.add('show');
+  setTimeout(() => closeSettingsModal(), 1200);
+}
+
 
 async function logout() {
   if (realtimeSub)    _supabase.removeChannel(realtimeSub);
@@ -842,6 +1294,8 @@ async function init() {
   subscribeRealtime();
   subscribeRealtimeAbsences();
   toggleInternesVisibility();
+  applyUserPreferences(window._userPrefs);
+  attachColHover();
 }
 
 async function refreshAll() {
@@ -860,6 +1314,38 @@ async function loadEquipe() {
   }
 }
 
+function attachColHover() {
+  [
+    { table: 'planning-table',  tbody: 'table-body'    },
+    { table: 'abs-table', tbody: 'abs-body' }
+  ].forEach(({ table: tableId, tbody: tbodyId }) => {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    let lastColIdx = -1;
+
+    table.addEventListener('mouseover', (e) => {
+      const td = e.target.closest(`#${tbodyId} td`);
+      if (!td) return;
+      const idx = td.cellIndex;
+      if (idx === lastColIdx) return;
+      if (lastColIdx >= 0) {
+        document.querySelectorAll(`#${tbodyId} td:nth-child(${lastColIdx + 1})`)
+          .forEach(c => c.classList.remove('col-hover'));
+      }
+      lastColIdx = idx;
+      document.querySelectorAll(`#${tbodyId} td:nth-child(${idx + 1})`)
+        .forEach(c => c.classList.add('col-hover'));
+    });
+
+    table.addEventListener('mouseleave', () => {
+      if (lastColIdx >= 0) {
+        document.querySelectorAll(`#${tbodyId} td:nth-child(${lastColIdx + 1})`)
+          .forEach(c => c.classList.remove('col-hover'));
+        lastColIdx = -1;
+      }
+    });
+  });
+}
 
 function checkUpcomingConflicts() {
   if (!currentUser?.initiales) return;
@@ -900,7 +1386,7 @@ function checkUpcomingConflicts() {
     }
 
     // — Conflits NON-CLINIQUES (absence + planning) —
-    const dateAbsences = absIdx.get(row.date) || new Map();
+    const dateAbsences = absIdx.get(`${row.date}_${row.heure}`) || new Map();
     if (dateAbsences.has(myInitiales)) {
       const postes = DOCTOR_COLS
         .filter(col => (row[col] || '').trim().toUpperCase() === myInitiales)
@@ -1079,6 +1565,7 @@ function buildColToggles() {
   Object.keys(groupMap).forEach(group => {
     const label = document.createElement('label');
     label.className = 'group-toggle active';
+    label.dataset.group = group; 
     label.style.color       = GROUP_COLORS[group] || 'var(--white)';
     label.style.borderColor = GROUP_COLORS[group] || 'var(--border)';
     
@@ -1207,12 +1694,13 @@ async function loadAbsences() {
 function buildAbsenceIndex() {
   const idx = new Map();
   absencesData.forEach(absRow => {
-    if (!absRow.date) return;
-    if (!idx.has(absRow.date)) idx.set(absRow.date, new Map());
+    if (!absRow.date || !absRow.heure) return;
+    const key = `${absRow.date}_${absRow.heure}`;
+    if (!idx.has(key)) idx.set(key, new Map());
     absenceColNames.forEach(docCol => {
       const absType = absRow[docCol];
       if (absType && absType.trim()) {
-        idx.get(absRow.date).set(docCol.toUpperCase(), { type: absType });
+        idx.get(key).set(docCol.toUpperCase(), { type: absType });
       }
     });
   });
@@ -1415,7 +1903,7 @@ function renderTable(rows, highlightDoctor) {
     const conflicting = Object.entries(doctorPos).filter(([, cs]) => cs.length > 1).map(([d]) => d);
     const isAccepted  = acceptedConflicts[row.id] === true;
 
-    const dateAbsences = absIdx.get(row.date) || new Map();
+    const dateAbsences = absIdx.get(`${row.date}_${row.heure}`) || new Map();
     const nonCliConflicts = [];
     DOCTOR_COLS.forEach(col => {
       const val = (row[col] || '').trim().toUpperCase();
@@ -1641,7 +2129,7 @@ async function saveAbsence() {
   let current = new Date(dateFrom + 'T00:00:00');
   const end = new Date(dateTo + 'T00:00:00');
   while (current <= end) {
-       const s = current.toISOString().split('T')[0];
+       const s = current.getFullYear() + '-' +     String(current.getMonth() + 1).padStart(2, '0') + '-' +      String(current.getDate()).padStart(2, '0');
     
       // On cherche les deux créneaux (matin/après-midi) pour cette date dans nos données locales
     const rowsToUpdate = absencesData.filter(a => a.date === s);
@@ -1694,6 +2182,7 @@ function toggleEditMode() {
     btn.classList.replace('btn-ghost', 'btn-danger');
     save.style.display = 'inline';
     brushCont.style.display = 'flex';
+    document.body.classList.add('edit-mode');  
   } else {
     // Sortie du mode édition (Annulation)
     btn.textContent = "✏️ Modifier";
@@ -1707,8 +2196,9 @@ function toggleEditMode() {
     refreshAll(); // On recharge les données proprement depuis Supabase
     // brush mode
     brushCont.style.display = 'none';
-          isBrushMode = false;
-          document.getElementById('brush-picker-wrapper').style.display = 'none';
+    isBrushMode = false;
+    document.getElementById('brush-picker-wrapper').style.display = 'none';
+    document.body.classList.remove('edit-mode'); 
   }
   onFilterChange();
 }
@@ -1773,13 +2263,20 @@ function openPlanningDropdown(td, row, colKey) {
   });
 
   const absIdx = buildAbsenceIndex();
-  const dateAbsences = absIdx.get(row.date) || new Map();
+  const dateAbsences = absIdx.get(`${row.date}_${row.heure}`) || new Map();
 
   // Option "Effacer"
   addDropdownItem(dropdown, '<span style="color:var(--red)">[ Effacer ]</span>', '', () => {
     confirmPlanningSelection(row, colKey, '', td);
   });
-
+// 3 bis.  Médecins déjà présents sur la ligne → à exclure (conflit clinique)
+const alreadyOnRow = new Set();
+DOCTOR_COLS.forEach(col => {
+  if (col === colKey) return;                       // colonne en cours : ignorer
+  if (CONFLICT_IGNORE_COLS.includes(col)) return;  // colonnes exemptées : ignorer
+  const val = (row[col] || '').trim().toUpperCase();
+  if (val && val.length <= 6) alreadyOnRow.add(val);
+});
   // 4. LISTE DES SUGGESTIONS (Filtrée dynamiquement)
 const renderSuggestions = (filterText = "") => {
     // On nettoie les anciens items
@@ -1799,7 +2296,7 @@ const renderSuggestions = (filterText = "") => {
       } else {
         return !medIsInterne;
       }
-    });
+    }).filter(med => !alreadyOnRow.has(med.initiales.toUpperCase()));;
 
     // Tri par compteur pour les médecins filtrés
     const sortedMedecins = filteredMedecins.sort((a, b) => 
@@ -1938,7 +2435,7 @@ function renderSemainier() {
       
       if (countOnLine > 1) isClinicalConflict = true;
 
-      const dateAbsences = absIdx.get(row.date) || new Map();
+      const dateAbsences = absIdx.get(`${row.date}_${row.heure}`) || new Map();
       const absType = dateAbsences.get(doctor)?.type;
 
       let statusStyle = "";
@@ -2079,6 +2576,7 @@ async function saveAllPending() {
     
     // On quitte le mode édition proprement
     isEditMode = false;
+    document.body.classList.remove('edit-mode');
     document.getElementById('btn-toggle-edit').textContent = "✏️ Modifier";
     document.getElementById('btn-toggle-edit').classList.replace('btn-danger', 'btn-ghost');
     saveBtn.style.display = 'none';
@@ -2188,6 +2686,7 @@ function closeDropdown() {
 // Restaure la session si l'utilisateur est déjà connecté
 // et gère le lien d'invitation reçu par email
 window.addEventListener('load', async () => {
+  await loadAnnonces();
   const hash = window.location.hash;
 
   // L'utilisateur arrive depuis un lien d'invitation
