@@ -2212,7 +2212,11 @@ function canEditCol(colKey) {
   const p = window.userPermissions;
   if (!p || !p.can_edit_planning) return false;
   if (!p.editable_groups) return true;                    // ancien format → accès total
-  if (p.editable_groups.includes('*')) return true;       // admin total
+  if (p.editable_groups.includes('*')) return true;       // admin total (tous les groupes)
+
+  // 3. editable_columns : colonnes individuelles autorisées hors groupes
+  if (Array.isArray(p.editable_columns) && p.editable_columns.includes(colKey)) return true;
+
   // Retrouver le groupe de la colonne
   const col = COLUMNS.find(c => c.key === colKey);
   if (!col) return false;
