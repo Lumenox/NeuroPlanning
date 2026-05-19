@@ -1168,7 +1168,7 @@ function showForgotPassword() {
       <p style="font-size:13px;color:var(--text-muted)">
         Entrez votre identifiant hôpital. Vous recevrez un email pour choisir un nouveau mot de passe.
       </p>
-      <input type="text" id="reset-hospital-id" placeholder="Identifiant hôpital (ex: RN001)" />
+      <input type="text" id="reset-hospital-id" placeholder="Identifiant hôpital (APH)" />
       <div id="reset-error"   style="color:var(--red);font-size:11px;display:none;"></div>
       <div id="reset-success" style="color:var(--green);font-size:12px;display:none;"></div>
       <button class="btn-primary" onclick="sendResetEmail()">Envoyer le lien</button>
@@ -1199,7 +1199,7 @@ async function sendResetEmail() {
     return;
   }
 
-  const { error } = await _supabase.auth.resetPasswordForEmail(email);
+  const { error } = await _supabase.auth.resetPasswordForEmail(email, {redirectTo: window.location.href.split('#')[0]});
   if (error) {
     errEl.textContent = error.message;
     errEl.style.display = 'block';
