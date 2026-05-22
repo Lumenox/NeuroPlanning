@@ -1,5 +1,5 @@
 to do list:
-
+-ajouter une option "cache" pour cocher qu'un message d'annonce a bien été lu; + messagerie pour les relire
 -mode semainier modifiable pour directement y mettre des box. peut etre d'autres choses? à revoir avec utilisations bip/gardes (pour faciliter visualisation des échanges?) 
     cf code sur claude
 -ajout d’un onglet « bac à sable » pour admin faire des modifications tests, et si approuvées => le pousser sur le vrai planning immédiatement.
