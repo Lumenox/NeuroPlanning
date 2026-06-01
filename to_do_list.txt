@@ -1,5 +1,8 @@
 to do list:
 -enlever le code provisoire
+-ajouter une ligne pour séparer les grands groupes de colonnes.
+-ajouter une option de ligne pour séparer les jours.
+-ajouter une option pour différencier matin et aprem? (peut etre une surcouche de couleur)
 -cocher les "jai lu" et enregistrer dans le navigateur... ou voir si façon astucieuse et peu couteuse de faire "accepter" par chaque personne qui ont un conflit pour "acceptation"
 -ajouter une option "cache" pour cocher qu'un message d'annonce a bien été lu; + messagerie pour les relire
 -mode semainier modifiable pour directement y mettre des box. peut etre d'autres choses? à revoir avec utilisations bip/gardes (pour faciliter visualisation des échanges?) 
