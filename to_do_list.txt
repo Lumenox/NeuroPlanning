@@ -1,4 +1,14 @@
 to do list:
+-onglet de notification unifiée : permet de trier messages et alertes déjà lues et décocher si besoin.
+-a ouverture, seuls les messages "urgents" ou non lues/traitees apparaitront
+-esthetique: ajout de lignes verticales entre les catégories de salle
+Ajout de lignes horizontales entre les jours
+-ajout d'une bouton impression
+-ajout d'une sandbox
+-ameluoration du mode édition (double clic droit = remettre le dernier input clavier). Navigation avec croix directionnelle dans la table?
+-ajout d'une exportation du semainier en ics
+
+
 -enlever le code provisoire
 -ajouter une ligne pour séparer les grands groupes de colonnes.
 -ajouter une option de ligne pour séparer les jours.
