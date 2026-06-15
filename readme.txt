@@ -1,11 +1,14 @@
 
+1.10
+
+update majeure 1.10 : Messagerie et implémentation de la gestion individuelle de conflits : "rouge" à résoudre, "jaune" accepté, "violet" non clinique
 
 Fonctionnalités :
-Mode clair/sombre dispo
+Mode clair/sombre améliorée
 
 pour vous connecter :
 votre APH et par défaut 123 > vous pourrez changer le mdp une fois connecté
-Si cela ne marche pas : je n’ai pas encore crée votre session, c’est prévu. En attendant, j’ai crée une session test provisoire (login 123, mdp 12345678)
+Si cela ne marche pas : je n’ai pas encore crée votre session, prévenez moi
 
 Mode Viewer : 
 -3 onglets : planning, absences, semainier
@@ -16,10 +19,8 @@ Mode Viewer :
 -les internes peuvent être affichés (petit filtre sur lequel cliquer)
 -planning absence : désormais par colonne de médecin. Figurent CA (congé annuel et rtt), CF (formation), Ens (enseignement), Rech (Recherche)
 -semainier : résumé de ce qui figure dans les précédentes tables à l’échelle d’un médecin. Vous pouvez aussi afficher un deuxième à droite pour anticiper des échanges par exemple.
--filtres :
--dates : par défaut à partir du jour même jusqu’à +100 ; peut etre changé
--nom médecin : permet de surligner sur le tableau le nom recherché
--boutons : interne et groupes de salles : pour afficher ou non des colonnes (valider aussi pour le semainier pour n’afficher que les gardes pour un médecin par exemple)
+-filtres : dates : par défaut à partir du jour même jusqu’à +100 ; peut etre changé. nom médecin : permet de surligner sur le tableau le nom recherché. boutons : interne et groupes de salles : pour afficher ou non des colonnes (valider aussi pour le semainier pour n’afficher que les gardes pour un médecin par exemple)
+-double cliquer pour voir médecins dispo
 
 Mode Admin :
 -chaque admin a des droits de modification qui différent (ex la consultation n’a aucun droit sur les absences) : revenir vers moi si besoin d’upgrader les droits
@@ -30,6 +31,7 @@ Mode Admin :
                 -« ajouter en masse » : + : ajouter de grosses plages d’absence.
 -« Sauvegarder » pour valider les modif qui seront répercutées sur la base de données (et sur l’historique de modif). Ou « Annuler ».
 -sur la page planning : en glissant la souris sur le jour « rouge » ou « jaune », on peut passer de l’état « conflit à traiter » à « conflit accepté » (vice versa)
+
 
 Sécurité :
 code écrit et hébergé sur mon github perso + sécurisation des data sur supabase Supabase Auth,
