@@ -30,19 +30,24 @@
        --row-aprem-bg: #0d1b2a;
     }
 
-    body.light-mode {
-       --navy:        #FFFFFF;
-       --navy-mid:    #BDCBD9;   /*C44310 */
-       --navy-light:  #243d55;
-       --teal:        #207A70;
-       --teal-dim:    #205953;
-       --white:       #0f172a;    /* tout ce qui est blanc, Navy très sombre pour le texte */
-       --gray:        #64748b;    /* Gris plus foncé pour rester lisible */
-	--border:      #A1C0E3;
-       --row-matin-bg: #FFFFFF;
-       --row-aprem-bg: #F7F9FB;
-       /* On garde le --teal pour les accents, ça marche très bien en clair aussi */
-    }
+body.light-mode {
+  --navy:        #F4F6F8;   /* fond principal : gris warm très léger */
+  --navy-mid:    #FFFFFF;   /* surfaces (topbar, panels) : blanc pur */
+  --navy-light:  #E8EDF2;   /* hover, sélection : gris bleuté doux */
+  --teal:        #0D9488;   /* accent principal : teal vif lisible sur clair */
+  --teal-dim:    #CCFBF1;   /* fond accent teal : mint très pâle */
+  --red:         #DC2626;   /* rouge : plus saturé pour rester lisible */
+  --red-dim:     #FEE2E2;   /* fond rouge : rose très pâle */
+  --amber:       #D97706;   /* amber : ocre foncé lisible */
+  --amber-dim:   #FEF3C7;   /* fond amber : jaune crème */
+  --purple:      #7C3AED;   /* purple : violet franc */
+  --purple-dim:  #EDE9FE;   /* fond purple : lavande très pâle */
+  --white:       #1E293B;   /* texte principal : bleu-ardoise, pas noir pur */
+  --gray:        #64748B;   /* texte secondaire : slate medium */
+  --border:      #CBD5E1;   /* bordures : gris bleuté neutre */
+  --row-matin-bg: #FFFFFF;  /* matin : blanc pur */
+  --row-aprem-bg: #F1F5F9;  /* après-midi : gris très légèrement bleuté */
+}
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Sora', sans-serif; background: var(--navy); color: var(--white); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -126,86 +131,6 @@ width: 230px; background: var(--navy-mid); border-left: 1px solid var(--border);
 
     #content-wrap { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
 
-/* === MODALE CONFLITS À LA CONNEXION === */
-#conflict-startup-modal {
-  position: fixed; inset: 0;
-  background: rgba(13,27,42,.92);
-  display: none; align-items: center; justify-content: center;
-  z-index: 9999;
-}
-#conflict-startup-modal.open { display: flex; }
-.conf-modal-box {
-  background: var(--navy-mid);
-  border: 2px solid var(--red);
-  border-radius: 12px;
-  padding: 28px 32px;
-  width: 520px; max-width: 95vw;
-  max-height: 80vh;
-  display: flex; flex-direction: column; gap: 16px;
-  box-shadow: 0 8px 32px rgba(248,113,113,.25);
-}
-.conf-modal-header {
-  display: flex; justify-content: space-between; align-items: center;
-}
-.conf-modal-header h3 {
-  font-family: 'DM Mono', monospace; font-size: 15px; color: var(--red);
-}
-.conf-modal-subtitle {
-  font-size: 11px; color: var(--gray); font-family: 'DM Mono', monospace;
-}
-.conf-modal-list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
-.conf-item {
-  border: 1px solid var(--border); border-radius: 6px;
-  overflow: hidden; cursor: pointer;
-  transition: border-color .15s;
-}
-.conf-item.clinique  { border-left: 3px solid var(--red); }
-.conf-item.noncli    { border-left: 3px solid var(--purple); }
-.conf-item-header {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 12px; background: var(--navy);
-  font-family: 'DM Mono', monospace; font-size: 11px;
-}
-.conf-item-header:hover { background: var(--navy-light); }
-.conf-badge {
-  font-size: 9px; padding: 2px 6px; border-radius: 3px; font-weight: 600;
-}
-.conf-badge.clinique  { background: var(--red-dim);    color: var(--red);    border: 1px solid var(--red); }
-.conf-badge.noncli    { background: var(--purple-dim); color: var(--purple); border: 1px solid var(--purple); }
-.conf-item-date { color: var(--white); flex: 1; }
-.conf-item-arrow { color: var(--gray); font-size: 10px; transition: transform .2s; }
-.conf-item.open .conf-item-arrow { transform: rotate(90deg); }
-.conf-item-detail {
-  padding: 8px 14px; font-size: 11px; color: var(--gray);
-  background: var(--navy-mid); border-top: 1px solid var(--border);
-  display: none;
-}
-.conf-item.open .conf-item-detail { display: block; }
-.conf-modal-footer {
-  display: flex; justify-content: flex-end; gap: 8px;
-  border-top: 1px solid var(--border); padding-top: 14px;
-}
-.conf-accepted-toggle {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  overflow: hidden;
-  margin-top: 4px;
-}
-.conf-accepted-toggle summary {
-  padding: 9px 12px;
-  font-family: 'DM Mono', monospace; font-size: 11px;
-  color: var(--amber); cursor: pointer;
-  background: var(--navy); list-style: none;
-  display: flex; align-items: center; gap: 8px;
-}
-.conf-accepted-toggle summary::-webkit-details-marker { display: none; }
-.conf-accepted-toggle summary:hover { background: var(--navy-light); }
-.conf-accepted-content {
-  padding: 8px; display: flex; flex-direction: column;
-  gap: 4px; background: var(--navy-mid);
-}
-.conf-item.accepted { opacity: .65; border-left-color: var(--amber) !important; }
-.conf-item.accepted .conf-item-header { text-decoration: line-through; }
 
 
 /* --- CONFIGURATION DE LA TABLE --- */
@@ -487,7 +412,78 @@ background: rgba(248, 113, 113, 0.05); }
   border-top: 1px solid var(--border);
   display: flex; justify-content: flex-end;
 }
+	  
+/* === LIGHT MODE BONUS PARAMÈTRES === */
+/* Topbar plus contrastée en mode clair */
+body.light-mode #topbar {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  border-bottom-color: var(--border);
+}
 
+/* Thead sticky : fond explicite pour éviter la transparence */
+body.light-mode thead th {
+  background: #E8EDF2;
+  color: #475569;
+}
+
+/* Cellules date/heure sticky */
+body.light-mode td.col-date,
+body.light-mode td.col-heure {
+  background: var(--row-matin-bg);
+}
+
+body.light-mode tr.creno-aprem td.col-date,
+body.light-mode tr.creno-aprem td.col-heure {
+  background: var(--row-aprem-bg);
+}
+
+/* Onglets */
+body.light-mode .tab-btn {
+  background: #E8EDF2;
+  color: #64748B;
+}
+body.light-mode .tab-btn.active {
+  background: #FFFFFF;
+  color: #1E293B;
+}
+
+/* Dropdown */
+body.light-mode #edit-dropdown {
+  background: #FFFFFF;
+  border-color: var(--amber);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+body.light-mode .dd-item:hover {
+  background: #F1F5F9;
+}
+
+/* Stats panel */
+body.light-mode #stats-panel {
+  background: #FFFFFF;
+  border-left-color: var(--border);
+}
+body.light-mode .stat-row:hover {
+  background: #F1F5F9;
+}
+
+
+/* === Print mode=== */ 
+@media print {
+  body * { visibility: hidden; }
+  #print-area, #print-area * { visibility: visible; }
+  #print-area { position: absolute; inset: 0; }
+}
+	  
+[data-col="C_Periph"]   { border-left: 2px solid #FFF396 !important; }
+[data-col="HDJ1"]       { border-left: 2px solid #C9F07A !important; }
+[data-col="UNV1"]       { border-left: 2px solid #F0D37A !important; }
+[data-col="USI1"]       { border-left: 2px solid #F07AB5 !important; }
+[data-col="BIPv"]       { border-left: 2px solid #FFA89C !important; }
+[data-col="Garde"]      { border-left: 2px solid #E08924 !important; }
+[data-col="ReposGarde"] { border-left: 2px solid #F0FBFF !important; }
+[data-col="BOX1"]       { border-left: 2px solid #94a3b8 !important; }
+/* Séparateur horizontal entre chaque jour */
+tr.new-day td { box-shadow: inset 0 3px 0 -2px var(--gray); }
 
   </style>
 </head>
@@ -496,9 +492,8 @@ background: rgba(248, 113, 113, 0.05); }
 <div id="auth-overlay">
   <div class="auth-box">
     <h2>Neurologie · Planning</h2>
-    <p> version 1.02</p>
+    <p> version 1.10</p>
     <p>Entrez vos identifiants pour accéder au planning.</p>
-    <p>ID de test pour les viewer: 123 mdp 12345678</p>
     <input type="text" id="auth-login" placeholder="Email aphp ou APH" autocomplete="off" />
     <input type="password" id="auth-pass"  placeholder="Mot de passe" />
     <div id="auth-error" style="color:var(--red);font-size:11px;display:none;">Identifiants incorrects.</div>
@@ -526,23 +521,10 @@ background: rgba(248, 113, 113, 0.05); }
   </div>
 </div>
 
-<!-- MODALE CONFLITS À L'OUVERTURE DE SESSION -->
-<div id="conflict-startup-modal">
-  <div class="conf-modal-box">
-    <div class="conf-modal-header">
-      <h3>⚠️ Conflits dans les 30 prochains jours</h3>
-      <button class="btn-ghost" onclick="document.getElementById('conflict-startup-modal').classList.remove('open')">✕</button>
-    </div>
-    <p class="conf-modal-subtitle" id="conf-modal-subtitle">— conflits détectés</p>
-    <div class="conf-modal-list" id="conf-modal-list"></div>
-    <div class="conf-modal-footer">
-      <button class="btn-ghost" onclick="document.getElementById('conflict-startup-modal').classList.remove('open')">Fermer</button>
-    </div>
-  </div>
-</div>
+
 
 <div id="topbar">
-  <span class="brand">🧠 Planning Neurologie v.1.02</span>
+  <span class="brand">🧠 Planning Neurologie v.1.10</span>
   <div class="controls">
     <div id="status-dot"></div>
     <span id="user-id-badge"></span>
@@ -551,7 +533,7 @@ background: rgba(248, 113, 113, 0.05); }
     <button class="btn-ghost" style="font-size:11px" onclick="logout()">Déconnexion</button>
     <div class="sep"></div>
     <div id="brush-container" style="display:none; align-items:center; gap:8px;">
-      <button id="btn-brush" class="btn-ghost" onclick="toggleBrushMode()" title="Mode Pinceau">🖌️</button>
+      <button id="btn-brush" class="btn-ghost" onclick="toggleBrushMode()" title="Mode Pinceau (alt+clic)">🖌️</button>
       <div id="brush-picker-wrapper" style="display:none; position:relative;">
         <input type="text" id="brush-value" placeholder="Valeur..." list="brush-suggestions" 
            style="width:120px; height:32px; border-color:var(--purple);">
@@ -561,7 +543,20 @@ background: rgba(248, 113, 113, 0.05); }
     <button id="btn-toggle-edit" class="btn-ghost" style="display:none" onclick="toggleEditMode()">✏️ Modifier</button>
     <button id="btn-save-all"    class="btn-save"  style="display:none" onclick="saveAllPending()">💾 Sauvegarder</button>
     <div class="sep"></div>
-    <button class="btn-ghost" onclick="refreshAll()">↺</button>
+<button class="btn-ghost" onclick="refreshAll()">↺</button>
+<button class="btn-ghost" onclick="printPlanning()" title="Imprimer le planning" 
+  id="btn-print" style="display:none">🖨️</button>
+<button id="btn-conflicts-bell" class="btn-ghost" onclick="openConflictManager()" 
+  title="Mes conflits" style="display:none; position:relative;">
+  🔔
+  <span id="bell-badge" style="
+    position:absolute; top:-4px; right:-4px;
+    background:var(--red); color:white;
+    border-radius:50%; width:16px; height:16px;
+    font-size:9px; display:none;
+    align-items:center; justify-content:center;
+    font-family:'DM Mono',monospace;">0</span>
+</button>
     <button class="btn-ghost" onclick="openSettingsModal()" title="Préférences">⚙️</button>
     <button onclick="toggleTheme()" id="theme-btn" style="margin: 10px; cursor: pointer;" class="btn-ghost">
                          🌓 Clair/Obscur
@@ -786,6 +781,113 @@ background: rgba(248, 113, 113, 0.05); }
   </div>
 </div>
 
+<!-- MODALE CENTRE DE NOTIFICATIONS -->
+<div id="conflict-manager-modal" style="
+  position:fixed; inset:0;
+  background:rgba(13,27,42,.92);
+  display:none; align-items:center; justify-content:center;
+  z-index:9998;">
+  <div id="notif-modal-box" style="
+    background:var(--navy-mid);
+    border:2px solid var(--red);
+    border-radius:12px;
+    padding:0;
+    width:560px; max-width:95vw;
+    max-height:85vh;
+    display:flex; flex-direction:column;
+    box-shadow: 0 8px 32px rgba(248,113,113,.25);">
+
+    <!-- Header -->
+    <div style="
+      display:flex; justify-content:space-between; align-items:center;
+      padding:18px 24px 0; ">
+      <h3 id="conflict-manager-title" style="
+        font-family:'DM Mono',monospace; font-size:15px; color:var(--red);">
+        🔔 Notifications
+      </h3>
+      <div style="display:flex; align-items:center; gap:8px;">
+  <label style="font-family:'DM Mono',monospace; font-size:10px; color:var(--gray);">
+    Horizon :
+  </label>
+  <select id="conflict-horizon-select" onchange="changeConflictHorizon(this.value)"
+    style="background:var(--navy); border:1px solid var(--border); color:var(--white);
+           padding:3px 6px; border-radius:4px; font-family:'DM Mono',monospace; font-size:10px;">
+   
+    <option value="30" selected>30 jours</option>
+    <option value="90">90 jours</option>
+    <option value="180">6 mois</option>
+	<option value="360">1 an</option>
+  </select>
+  <button class="btn-ghost" onclick="closeConflictManager()">✕</button>
+</div>
+    </div>
+
+    <!-- Onglets -->
+    <div style="
+      display:flex; gap:0; padding:12px 24px 0;
+      border-bottom:1px solid var(--border);">
+      <button id="notif-tab-conflicts" onclick="switchNotifTab('conflicts')" style="
+        font-family:'DM Mono',monospace; font-size:11px;
+        padding:6px 16px; border:1px solid var(--border);
+        border-bottom:none; border-radius:6px 6px 0 0;
+        background:var(--navy); color:var(--white);
+        cursor:pointer; position:relative; bottom:-1px;">
+        ⚠️ Conflits
+        <span id="notif-tab-conflicts-badge" style="
+          display:none; margin-left:6px;
+          background:var(--red); color:white;
+          border-radius:10px; padding:1px 6px;
+          font-size:9px;">0</span>
+      </button>
+      <button id="notif-tab-annonces" onclick="switchNotifTab('annonces')" style="
+        font-family:'DM Mono',monospace; font-size:11px;
+        padding:6px 16px; border:1px solid var(--border);
+        border-bottom:none; border-radius:6px 6px 0 0;
+        background:var(--navy); color:var(--gray);
+        cursor:pointer; position:relative; bottom:-1px; margin-left:4px;">
+        📢 Annonces
+        <span id="notif-tab-annonces-badge" style="
+          display:none; margin-left:6px;
+          background:var(--teal); color:var(--navy);
+          border-radius:10px; padding:1px 6px;
+          font-size:9px;">0</span>
+      </button>
+    </div>
+
+    <!-- Contenu onglet Conflits -->
+    <div id="notif-panel-conflicts" style="
+      flex:1; overflow-y:auto; padding:16px 24px;
+      display:flex; flex-direction:column; gap:8px;">
+      <p id="conflict-manager-subtitle" style="
+        font-family:'DM Mono',monospace; font-size:11px; color:var(--gray);"></p>
+      <div id="conflict-manager-list" style="
+        display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
+
+    <!-- Contenu onglet Annonces -->
+    <div id="notif-panel-annonces" style="
+      flex:1; overflow-y:auto; padding:16px 24px;
+      display:none; flex-direction:column; gap:8px;">
+      <div style="display:flex; justify-content:flex-end; margin-bottom:4px;">
+        <button class="btn-ghost" onclick="markAllAnnoncesRead()" 
+          style="font-size:10px; font-family:'DM Mono',monospace;">
+          ✓ Tout marquer comme lu
+        </button>
+      </div>
+      <div id="annonces-tab-list" style="
+        display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
+
+    <!-- Footer -->
+    <div style="
+      border-top:1px solid var(--border); padding:12px 24px;
+      display:flex; justify-content:flex-end;">
+      <button class="btn-ghost" onclick="closeConflictManager()">Fermer</button>
+    </div>
+
+  </div>
+</div>
+
 <div id="edit-dropdown"></div>
 <div id="toast-container"></div>
 
@@ -870,11 +972,14 @@ let activeInput         = null;
 let listeMedecins       = [];
 let absenceColNames     = [];
 let acceptedConflicts   = {};
+let conflictAcceptances = [];
 let currentTab          = 'planning';
 let absVisibleTypes     = new Set(ABS_TYPES);
 let editingAbsenceId    = null;
 let showInternes = false;
 let isBrushMode = false;
+let allAnnonces = [];
+let conflictHorizonDays = 30;
 
 async function doLogin() {
   const input  = document.getElementById('auth-login').value.trim();
@@ -910,6 +1015,16 @@ async function doLogin() {
   await applySession(data.session);
 }
 
+async function loadConflictAcceptances() {
+  const { data, error } = await _supabase
+    .from('conflict_acceptances')
+    .select('*');
+  if (error) { 
+    toast('Erreur chargement acceptances : ' + error.message, 'error'); 
+    return; 
+  }
+  conflictAcceptances = data || [];
+}
 
 async function loadAnnonces() {
   const today = new Date().toISOString().split('T')[0];
@@ -918,21 +1033,65 @@ async function loadAnnonces() {
     .from('annonces')
     .select('*')
     .gte('date_expiration', today)
-    .order('priorite', { ascending: false })  // urgent en premier
+    .order('priorite', { ascending: false })
     .order('date_creation', { ascending: false });
 
-  if (error || !data || data.length === 0) return; // rien à afficher
+  if (error || !data) return;
+  allAnnonces = data;
+}
+
+// ── Retourne les IDs d'annonces déjà lues pour cet utilisateur ──
+function getReadAnnonces() {
+  if (!currentUser?.login) return [];
+  const key = `read_annonces_${currentUser.login}`;
+  try {
+    return JSON.parse(localStorage.getItem(key) || '[]');
+  } catch { return []; }
+}
+
+// ── Marque une annonce comme lue ──
+function markAnnonceRead(id) {
+  if (!currentUser?.login) return;
+  const key  = `read_annonces_${currentUser.login}`;
+  const read = getReadAnnonces();
+  if (!read.includes(id)) {
+    read.push(id);
+    localStorage.setItem(key, JSON.stringify(read));
+  }
+  updateBellBadge();
+  renderAnnoncesTab(); // rafraîchit l'onglet si ouvert
+}
+
+// ── Marque toutes les annonces non urgentes comme lues ──
+function markAllAnnoncesRead() {
+  allAnnonces
+    .filter(a => a.priorite !== 'urgent')
+    .forEach(a => markAnnonceRead(a.id));
+  updateBellBadge();
+  renderAnnoncesTab();
+}
+
+// ── Compte les annonces non lues (hors urgentes déjà vues) ──
+function countUnreadAnnonces() {
+  const read = getReadAnnonces();
+  return allAnnonces.filter(a => !read.includes(a.id)).length;
+}
+
+// ── Affiche la popup pour les annonces urgentes non lues ──
+function showUrgentAnnonces() {
+  const read = getReadAnnonces();
+  const urgentes = allAnnonces.filter(a =>
+    a.priorite === 'urgent' && !read.includes(a.id)
+  );
+  if (urgentes.length === 0) return;
 
   const list = document.getElementById('annonces-list');
   list.innerHTML = '';
-
-  data.forEach(a => {
+  urgentes.forEach(a => {
     const item = document.createElement('div');
-    item.className = `annonce-item ${a.priorite || 'info'}`;
-
+    item.className = 'annonce-item urgent';
     const dateExp = new Date(a.date_expiration + 'T00:00:00')
-      .toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
+      .toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
     item.innerHTML = `
       ${a.titre ? `<div class="annonce-titre">${a.titre}</div>` : ''}
       <div class="annonce-message">${a.message}</div>
@@ -944,6 +1103,15 @@ async function loadAnnonces() {
   document.getElementById('annonces-modal').classList.add('open');
 }
 
+// ── Fermer la popup urgente et marquer ces annonces comme lues ──
+function closeAnnoncesModal() {
+  const read = getReadAnnonces();
+  allAnnonces
+    .filter(a => a.priorite === 'urgent' && !read.includes(a.id))
+    .forEach(a => markAnnonceRead(a.id));
+  document.getElementById('annonces-modal').classList.remove('open');
+  updateBellBadge();
+}
 function closeAnnoncesModal() {
   document.getElementById('annonces-modal').classList.remove('open');
 }
@@ -990,6 +1158,7 @@ if (profile.preferences) {
           document.getElementById('btn-save-all').style.display = 'none';
           document.getElementById('stats-panel').classList.add('hidden');
      }
+	document.getElementById('btn-print').style.display = 'inline';
   const userBadge = document.getElementById('user-id-badge');
   if (userBadge) { userBadge.textContent = profile.hospital_id; userBadge.style.display = 'inline'; }
   window._userPrefs = profile.preferences || {};
@@ -1294,7 +1463,15 @@ async function init() {
   populateAbsModal();
   await loadData();
   await loadAbsences();
-  checkUpcomingConflicts();   
+  await loadConflictAcceptances();
+  await loadAnnonces();
+checkUpcomingConflicts();
+updateBellBadge();
+
+// Ouvre automatiquement sur l'onglet annonces si des annonces non lues existent
+if (countUnreadAnnonces() > 0) {
+  openConflictManager(true, 'annonces');
+}
   subscribeRealtime();
   subscribeRealtimeAbsences();
   toggleInternesVisibility();
@@ -1351,139 +1528,380 @@ function attachColHover() {
   });
 }
 
-function checkUpcomingConflicts() {
-  if (!currentUser?.initiales) return;
+// ── Calcule les conflits à venir pour l'utilisateur connecté ──────────────
+function computeMyConflicts() {
+  if (!currentUser?.initiales) return { red: [], yellow: [] };
   const myInitiales = currentUser.initiales.trim().toUpperCase();
 
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const horizon = new Date(today); horizon.setDate(today.getDate() + 30);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const horizon = new Date(today); horizon.setDate(today.getDate() + conflictHorizonDays);
 
   const absIdx = buildAbsenceIndex();
-  const conflicts = [];
-  const accepted  = [];  // ← nouveau tableau
+  const red    = [];
+  const yellow = [];
 
   allData.forEach(row => {
     const rowDate = new Date(row.date + 'T00:00:00');
     if (rowDate < today || rowDate > horizon) return;
 
     // — Conflits CLINIQUES —
-    const doctorPos = {};
+    const conflictCols = [];
     DOCTOR_COLS.forEach(col => {
       if (CONFLICT_IGNORE_COLS.includes(col)) return;
       const val = (row[col] || '').trim().toUpperCase();
-      if (val && val.length <= 6) {
-        if (!doctorPos[val]) doctorPos[val] = [];
-        doctorPos[val].push(col);
-      }
+      if (val === myInitiales) conflictCols.push(col);
     });
 
-    if (doctorPos[myInitiales]?.length > 1) {
-      const labels = doctorPos[myInitiales]
-        .map(k => COLUMNS.find(c => c.key === k)?.label || k);
+    if (conflictCols.length > 1) {
+      const labels = conflictCols.map(k => COLUMNS.find(c => c.key === k)?.label || k);
+
+      // Vérifier si admin a accepté
+      const adminAccepted = acceptedConflicts[row.id] === true;
+
+      // Vérifier si moi j'ai accepté tous mes postes
+      const myFullyAccepted = !adminAccepted && conflictCols.every(col =>
+        conflictAcceptances.some(a =>
+          a.planning_row_id === row.id &&
+          a.doctor_initiales === myInitiales &&
+          a.col_key === col &&
+          a.accepted_value === (row[col] || '').trim().toUpperCase()
+        )
+      );
+
       const entry = {
-        type: 'clinique', date: row.date, heure: row.heure,
-        detail: `Affecté simultanément sur : ${labels.join(' + ')}`
+        type: 'clinique',
+        rowId: row.id,
+        date: row.date,
+        heure: row.heure,
+        cols: conflictCols,
+        detail: `Affecté simultanément sur : ${labels.join(' + ')}`,
+        adminAccepted,
+        myAccepted: adminAccepted || myFullyAccepted
       };
-      // ← aiguillage selon statut accepté ou non
-      if (acceptedConflicts[row.id]) accepted.push(entry);
-      else                           conflicts.push(entry);
+
+      if (adminAccepted || myFullyAccepted) yellow.push(entry);
+      else red.push(entry);
     }
 
-    // — Conflits NON-CLINIQUES (absence + planning) —
+    // — Conflits NON-CLINIQUES (pas résolvables) —
     const dateAbsences = absIdx.get(`${row.date}_${row.heure}`) || new Map();
     if (dateAbsences.has(myInitiales)) {
       const postes = DOCTOR_COLS
         .filter(col => (row[col] || '').trim().toUpperCase() === myInitiales)
         .map(col => COLUMNS.find(c => c.key === col)?.label || col);
       if (postes.length > 0) {
-        conflicts.push({
-          type: 'non-clinique', date: row.date, heure: row.heure,
-          detail: `Absent (${dateAbsences.get(myInitiales).type}) mais affecté sur : ${postes.join(', ')}`
+        red.push({
+          type: 'non-clinique',
+          rowId: row.id,
+          date: row.date,
+          heure: row.heure,
+          cols: [],
+          detail: `Absent (${dateAbsences.get(myInitiales).type}) mais affecté sur : ${postes.join(', ')}`,
+          adminAccepted: false,
+          myAccepted: false
         });
       }
     }
   });
 
-  if (conflicts.length > 0 || accepted.length > 0)
-    showConflictPopup(conflicts, accepted);
+  return { red, yellow };
 }
 
-// Helper partagé entre conflits actifs et acceptés
-function buildConflictItem(conf, isAccepted = false) {
+// ── Met à jour le badge de la cloche ─────────────────────────────────────
+function updateBellBadge() {
+  const bell  = document.getElementById('btn-conflicts-bell');
+  const badge = document.getElementById('bell-badge');
+  if (!bell) return;
+
+  const { red } = computeMyConflicts();
+  const redClinique = red.filter(c => c.type === 'clinique').length;
+  const unread      = countUnreadAnnonces();
+  const total       = redClinique + unread;
+
+  bell.style.display = 'inline-flex';
+  if (total > 0) {
+    badge.style.display = 'flex';
+    badge.textContent   = total;
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// ── Vérifie les conflits à l'ouverture de session ─────────────────────────
+function checkUpcomingConflicts() {
+  const { red } = computeMyConflicts();
+  // N'affiche la popup que s'il y a des conflits cliniques rouges
+  const redClinique = red.filter(c => c.type === 'clinique');
+  if (redClinique.length > 0) openConflictManager(true);
+  updateBellBadge();
+}
+
+// ── Ouvre la modale de gestion des conflits ───────────────────────────────
+function openConflictManager(isStartup = false, startTab = 'conflicts') {
+  const { red, yellow } = computeMyConflicts();
+  const modal    = document.getElementById('conflict-manager-modal');
+  const title    = document.getElementById('conflict-manager-title');
+  const subtitle = document.getElementById('conflict-manager-subtitle');
+  const list     = document.getElementById('conflict-manager-list');
+
+  list.innerHTML = '';
+
+  // Mise à jour des badges d'onglets
+  const redClinique = red.filter(c => c.type === 'clinique').length;
+  const unread      = countUnreadAnnonces();
+
+  const conflictsBadge = document.getElementById('notif-tab-conflicts-badge');
+  const annoncesBadge  = document.getElementById('notif-tab-annonces-badge');
+
+  conflictsBadge.style.display = redClinique > 0 ? 'inline' : 'none';
+  conflictsBadge.textContent   = redClinique;
+  annoncesBadge.style.display  = unread > 0 ? 'inline' : 'none';
+  annoncesBadge.textContent    = unread;
+
+  // Activer le bon onglet
+  switchNotifTab(startTab);
+
+  const redCliniqueList     = red.filter(c => c.type === 'clinique');
+  const redNonClinique = red.filter(c => c.type === 'non-clinique');
+
+  // Titre et couleur de bordure selon état
+  if (redCliniqueList .length === 0) {
+    title.textContent = '✅ Aucun conflit clinique à résoudre';
+    title.style.color = 'var(--teal)';
+    modal.querySelector('div').style.borderColor = 'var(--teal)';
+  } else {
+    title.textContent = '⚠️ Mes conflits';
+    title.style.color = 'var(--red)';
+    modal.querySelector('div').style.borderColor = 'var(--red)';
+  }
+
+subtitle.innerHTML =
+    `<span style="color:var(--red)">${redCliniqueList.length} conflit(s) clinique(s) à résoudre</span>` +
+    (redNonClinique.length ? ` &nbsp;·&nbsp; <span style="color:var(--purple)">${redNonClinique.length} conflit(s) non-clinique(s)</span>` : '') +
+    (yellow.length         ? ` &nbsp;·&nbsp; <span style="color:var(--amber)">${yellow.length} déjà accepté(s)</span>` : '');
+
+  // ── Conflits rouges cliniques (résolvables) ──
+  redCliniqueList.forEach(conf => list.appendChild(buildManagerItem(conf)));
+
+  // ── Conflits rouges non-cliniques (info seulement) ──
+  if (redNonClinique.length > 0) {
+    const sep = document.createElement('div');
+    sep.style.cssText = 'font-family:DM Mono,monospace; font-size:10px; color:var(--purple); padding:8px 0 4px; border-top:1px solid var(--border); margin-top:4px;';
+    sep.textContent = '🌴 Conflits non-cliniques — à régler avec un admin';
+    list.appendChild(sep);
+    redNonClinique.forEach(conf => list.appendChild(buildManagerItem(conf)));
+  }
+
+  // ── Conflits jaunes (déjà acceptés) ──
+  if (yellow.length > 0) {
+    const details = document.createElement('details');
+    details.style.cssText = 'border:1px solid var(--border); border-radius:6px; overflow:hidden; margin-top:4px;';
+    const summary = document.createElement('summary');
+    summary.style.cssText = 'padding:9px 12px; font-family:DM Mono,monospace; font-size:11px; color:var(--amber); cursor:pointer; background:var(--navy); list-style:none;';
+    summary.textContent = `▶ ${yellow.length} conflit(s) déjà accepté(s)`;
+    details.addEventListener('toggle', () => {
+      summary.textContent = (details.open ? '▼' : '▶') + ` ${yellow.length} conflit(s) déjà accepté(s)`;
+    });
+    details.appendChild(summary);
+    const content = document.createElement('div');
+    content.style.cssText = 'padding:8px; display:flex; flex-direction:column; gap:4px; background:var(--navy-mid);';
+    yellow.forEach(conf => content.appendChild(buildManagerItem(conf)));
+    details.appendChild(content);
+    list.appendChild(details);
+  }
+
+  modal.style.display = 'flex';
+// Synchroniser le select avec la valeur actuelle
+const horizonSelect = document.getElementById('conflict-horizon-select');
+if (horizonSelect) horizonSelect.value = conflictHorizonDays;
+  updateBellBadge();
+}
+
+function closeConflictManager() {
+  document.getElementById('conflict-manager-modal').style.display = 'none';
+}
+
+// ── Switcher entre les onglets de la modale ───────────────────────────────
+function switchNotifTab(tab) {
+  const tabs   = ['conflicts', 'annonces'];
+  tabs.forEach(t => {
+    const btn   = document.getElementById(`notif-tab-${t}`);
+    const panel = document.getElementById(`notif-panel-${t}`);
+    const isActive = t === tab;
+    btn.style.background  = isActive ? 'var(--navy-mid)' : 'var(--navy)';
+    btn.style.color       = isActive ? 'var(--white)'    : 'var(--gray)';
+    btn.style.borderBottom= isActive ? '1px solid var(--navy-mid)' : '';
+    panel.style.display   = isActive ? 'flex' : 'none';
+  });
+  if (tab === 'annonces') renderAnnoncesTab();
+}
+
+// ── Rendu de l'onglet Annonces ────────────────────────────────────────────
+function renderAnnoncesTab() {
+  const list = document.getElementById('annonces-tab-list');
+  if (!list) return;
+  list.innerHTML = '';
+
+  const read = getReadAnnonces();
+
+  if (allAnnonces.length === 0) {
+    list.innerHTML = `<p style="color:var(--gray); font-size:12px; text-align:center; padding:20px;">
+      Aucune annonce active.</p>`;
+    return;
+  }
+
+  allAnnonces.forEach(a => {
+    const isRead = read.includes(a.id);
+    const dateExp = new Date(a.date_expiration + 'T00:00:00')
+      .toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
+
+    const borderColor = a.priorite === 'urgent'
+      ? 'var(--red)' : a.priorite === 'warning'
+      ? 'var(--amber)' : 'var(--teal)';
+
+    const item = document.createElement('div');
+    item.style.cssText = `
+      border:1px solid var(--border);
+      border-left:3px solid ${borderColor};
+      border-radius:6px; overflow:hidden;
+      opacity:${isRead ? '0.5' : '1'};
+      transition: opacity .2s;
+    `;
+
+    item.innerHTML = `
+      <div style="
+        display:flex; align-items:center; gap:10px;
+        padding:8px 12px; background:var(--navy);
+        font-family:'DM Mono',monospace; font-size:11px;">
+        <span style="flex:1; color:${borderColor}; font-weight:600;">
+          ${a.titre || '📢 Annonce'}
+        </span>
+        <span style="font-size:10px; color:var(--gray);">
+          Jusqu'au ${dateExp}
+        </span>
+        ${!isRead ? `
+          <button onclick="markAnnonceRead(${a.id})" style="
+            font-size:10px; background:var(--teal-dim); color:var(--teal);
+            border:1px solid var(--teal); border-radius:4px;
+            padding:2px 8px; cursor:pointer;
+            font-family:'DM Mono',monospace;">
+            ✓ Lu
+          </button>` : `
+          <span style="font-size:10px; color:var(--gray); 
+            font-family:'DM Mono',monospace;">✓ Lu</span>
+        `}
+      </div>
+      <div style="
+        padding:10px 14px; font-size:12px; color:var(--white);
+        background:var(--navy-mid); border-top:1px solid var(--border);
+        line-height:1.6;">
+        ${a.message}
+      </div>
+    `;
+    list.appendChild(item);
+  });
+}
+
+// ── Construit un item de conflit dans la modale ───────────────────────────
+function buildManagerItem(conf) {
+  const myInitiales = currentUser.initiales.trim().toUpperCase();
   const item = document.createElement('div');
-  item.className = `conf-item ${conf.type === 'clinique' ? 'clinique' : 'noncli'}${isAccepted ? ' accepted' : ''}`;
+  item.style.cssText = `
+    border:1px solid var(--border); border-radius:6px; overflow:hidden;
+    border-left:3px solid ${conf.type === 'non-clinique' ? 'var(--purple)' : conf.myAccepted ? 'var(--amber)' : 'var(--red)'};
+  `;
 
   const dateStr = new Date(conf.date + 'T00:00:00')
-    .toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+    .toLocaleDateString('fr-FR', { weekday:'short', day:'2-digit', month:'2-digit', year:'numeric' });
+
+  // Bouton d'action selon état
+  let actionBtn = '';
+  if (conf.type === 'non-clinique') {
+    actionBtn = `<span style="font-size:10px; color:var(--purple); font-family:'DM Mono',monospace;">ℹ️ Non résolvable</span>`;
+  } else if (conf.adminAccepted) {
+    actionBtn = `<span style="font-size:10px; color:var(--amber); font-family:'DM Mono',monospace;">🔒 Accepté par admin</span>`;
+  } else if (conf.myAccepted) {
+    actionBtn = `<button onclick="revokeConflictAcceptance('${conf.rowId}', '${myInitiales}', this)" 
+      style="font-size:11px; background:var(--amber-dim); color:var(--amber); 
+             border:1px solid var(--amber); border-radius:4px; padding:3px 8px; cursor:pointer;">
+      ✓ Accepté — annuler ?
+    </button>`;
+} else {
+    // On échappe les guillemets doubles générés par JSON.stringify pour ne pas casser l'attribut HTML
+    const colsJson = JSON.stringify(conf.cols).replace(/"/g, '&quot;');
+    const initJson = JSON.stringify(conf.cols.map(c => myInitiales)).replace(/"/g, '&quot;');
+
+    actionBtn = `<button onclick="acceptConflict(${conf.rowId}, '${myInitiales}', ${colsJson}, ${initJson}, this)" 
+      style="font-size:11px; background:var(--teal-dim); color:var(--teal); 
+             border:1px solid var(--teal); border-radius:4px; padding:3px 8px; cursor:pointer;">
+      ✓ Accepter
+    </button>`;
+  }
 
   item.innerHTML = `
-    <div class="conf-item-header">
-      <span class="conf-badge ${conf.type === 'clinique' ? 'clinique' : 'noncli'}">
-        ${conf.type === 'clinique' ? 'CLINIQUE' : 'ABS/PLAN'}
-      </span>
-      <span class="conf-item-date">${dateStr} — ${conf.heure}</span>
-      ${isAccepted ? '<span style="font-size:10px;color:var(--amber)">✓ accepté</span>' : ''}
-      <span class="conf-item-arrow">▶</span>
+    <div style="display:flex; align-items:center; gap:10px; padding:8px 12px; 
+                background:var(--navy); font-family:'DM Mono',monospace; font-size:11px;">
+      <span style="color:var(--white); flex:1;">${dateStr} — ${conf.heure}</span>
+      ${actionBtn}
     </div>
-    <div class="conf-item-detail">${conf.detail}</div>`;
-
-  item.querySelector('.conf-item-header').addEventListener('click', () =>
-    item.classList.toggle('open'));
+    <div style="padding:8px 14px; font-size:11px; color:var(--gray); 
+                background:var(--navy-mid); border-top:1px solid var(--border);">
+      ${conf.detail}
+    </div>
+  `;
 
   return item;
 }
 
-function showConflictPopup(conflicts, acceptedList = []) {
-  const list     = document.getElementById('conf-modal-list');
-  const subtitle = document.getElementById('conf-modal-subtitle');
-  const modal    = document.getElementById('conflict-startup-modal');
-  list.innerHTML = '';
+// ── Accepter un conflit ───────────────────────────────────────────────────
+async function acceptConflict(rowId, doctor, cols, values, btnEl) {
+  const inserts = cols.map((col, i) => ({
+    planning_row_id  : rowId,
+    doctor_initiales : doctor,
+    col_key          : col,
+    accepted_value   : values[i]
+  }));
 
-  // Adapter le titre si aucun conflit actif (que des acceptés)
-  const h3 = modal.querySelector('h3');
-  if (conflicts.length === 0) {
-    h3.textContent = '✅ Aucun conflit actif dans les 30 prochains jours';
-    h3.style.color = 'var(--amber)';
-    modal.querySelector('.conf-modal-box').style.borderColor = 'var(--amber)';
-  } else {
-    h3.textContent = '⚠️ Conflits dans les 30 prochains jours';
-    h3.style.color = 'var(--red)';
-    modal.querySelector('.conf-modal-box').style.borderColor = 'var(--red)';
-  }
+  const { error } = await _supabase
+    .from('conflict_acceptances')
+    .upsert(inserts, { onConflict: 'planning_row_id,doctor_initiales,col_key' });
 
-  const nbCli    = conflicts.filter(c => c.type === 'clinique').length;
-  const nbNonCli = conflicts.filter(c => c.type === 'non-clinique').length;
-  subtitle.innerHTML =
-    `<span style="color:var(--red)">${nbCli} clinique(s)</span> &nbsp;·&nbsp; ` +
-    `<span style="color:var(--purple)">${nbNonCli} abs/planning</span>` +
-    (acceptedList.length
-      ? ` &nbsp;·&nbsp; <span style="color:var(--amber)">${acceptedList.length} déjà accepté(s)</span>`
-      : '');
+  if (error) { toast('Erreur : ' + error.message, 'error'); return; }
 
-  // Conflits actifs
-  conflicts.forEach(conf => list.appendChild(buildConflictItem(conf)));
+  // Mettre à jour le cache local
+  inserts.forEach(ins => {
+const idx = conflictAcceptances.findIndex(a =>
+    String(a.planning_row_id) === String(ins.planning_row_id) &&
+    a.doctor_initiales === ins.doctor_initiales &&
+    a.col_key === ins.col_key
+  );
+    if (idx >= 0) conflictAcceptances[idx] = ins;
+    else conflictAcceptances.push(ins);
+  });
 
-  // Section déroulante des conflits acceptés
-  if (acceptedList.length > 0) {
-    const details = document.createElement('details');
-    details.className = 'conf-accepted-toggle';
+  toast('Conflit accepté ✓');
+  applyFilters();
+  openConflictManager(); // Rafraîchit la modale
+}
 
-    const summary = document.createElement('summary');
-    summary.innerHTML = `<span>▶</span>&nbsp;${acceptedList.length} conflit(s) déjà accepté(s) — voir les dates`;
-    details.addEventListener('toggle', () => {
-      summary.querySelector('span').textContent = details.open ? '▼' : '▶';
-    });
-    details.appendChild(summary);
+// ── Révoquer une acceptance ───────────────────────────────────────────────
+async function revokeConflictAcceptance(rowId, doctor, btnEl) {
+  const { error } = await _supabase
+    .from('conflict_acceptances')
+    .delete()
+    .eq('planning_row_id', rowId)
+    .eq('doctor_initiales', doctor);
 
-    const content = document.createElement('div');
-    content.className = 'conf-accepted-content';
-    acceptedList.forEach(conf => content.appendChild(buildConflictItem(conf, true)));
-    details.appendChild(content);
+  if (error) { toast('Erreur : ' + error.message, 'error'); return; }
 
-    list.appendChild(details);
-  }
+  // Mettre à jour le cache local
+conflictAcceptances = conflictAcceptances.filter(a =>
+    !(String(a.planning_row_id) === String(rowId) && a.doctor_initiales === doctor)
+  );
 
-  modal.classList.add('open');
+  toast('Acceptance annulée');
+  applyFilters();
+  openConflictManager(); // Rafraîchit la modale
 }
 
 function toggleBrushMode() {
@@ -1723,7 +2141,9 @@ function subscribeRealtime() {
       } else if (payload.eventType === 'DELETE') {
         allData = allData.filter(r => r.id !== payload.old.id);
       }
-      applyFilters(); toast('Planning mis à jour');
+      applyFilters();
+      updateBellBadge();
+      toast('Planning mis à jour');
     })
     .subscribe(s => { if (s === 'SUBSCRIBED') document.getElementById('realtime-badge').classList.add('active'); });
 }
@@ -1742,6 +2162,7 @@ function subscribeRealtimeAbsences() {
       }
       applyAbsFilters();
       applyFilters();
+      updateBellBadge();
       toast('Absences mises à jour', 'purple');
     })
     .subscribe();
@@ -1876,6 +2297,40 @@ async function toggleConflict(rowId) {
   applyFilters();
 }
 
+function getConflictStatus(row, conflictingDoctors) {
+  // Si admin a accepté toute la ligne → jaune immédiatement
+  if (acceptedConflicts[row.id] === true) return 'accepted';
+  if (conflictingDoctors.length === 0) return 'none';
+
+  // Pour chaque médecin en conflit, on vérifie ses acceptances individuelles
+  for (const doctor of conflictingDoctors) {
+    // Trouver les postes en conflit pour ce médecin sur cette ligne
+    const conflictCols = [];
+    DOCTOR_COLS.forEach(col => {
+      if (CONFLICT_IGNORE_COLS.includes(col)) return;
+      const val = (row[col] || '').trim().toUpperCase();
+      if (val === doctor) conflictCols.push(col);
+    });
+
+    // Vérifier que chaque poste a une acceptance valide
+    const allAccepted = conflictCols.every(col => {
+return conflictAcceptances.some(a =>
+    String(a.planning_row_id) === String(row.id) &&
+    a.doctor_initiales === doctor &&
+    a.col_key === col &&
+    a.accepted_value === (row[col] || '').trim().toUpperCase()
+  );
+    });
+
+    // Si ce médecin n'a pas tout accepté → la ligne reste rouge
+    if (!allAccepted) return 'conflict';
+  }
+
+  // Tous les médecins ont accepté → jaune
+  return 'accepted';
+}
+
+
 function renderTable(rows, highlightDoctor) {
   const tbody = document.getElementById('table-body');
   const empty = document.getElementById('empty-state');
@@ -1892,8 +2347,14 @@ function renderTable(rows, highlightDoctor) {
   const absIdx = buildAbsenceIndex();
   let conflictCount = 0, conflictNonCliCount = 0;
 
-  rows.forEach(row => {
-    const tr = document.createElement('tr');
+let lastDate = null;
+
+rows.forEach(row => {
+  const tr = document.createElement('tr');
+  if (row.date !== lastDate) {
+    tr.classList.add('new-day');
+    lastDate = row.date;
+  }
 
     const doctorPos = {};
     DOCTOR_COLS.forEach(col => {
@@ -1916,16 +2377,18 @@ function renderTable(rows, highlightDoctor) {
       }
     });
 
-    if (conflicting.length && !isAccepted) {
-      tr.classList.add('conflict'); conflictCount++;
-      tr.title = '⚠️ Conflit clinique : ' + conflicting.join(', ');
-    } else if (conflicting.length && isAccepted) {
-      tr.classList.add('conflict-accepted');
-      tr.title = '⚠️ Conflit accepté : ' + conflicting.join(', ');
-    } else if (nonCliConflicts.length) {
-      tr.classList.add('conflict-noncli'); conflictNonCliCount++;
-      tr.title = '🌴 Conflit non-clinique : ' + nonCliConflicts.map(c => `${c.doctor} (${c.type})`).join(', ');
-    }
+const conflictStatus = getConflictStatus(row, conflicting);
+
+if (conflicting.length && conflictStatus === 'conflict') {
+  tr.classList.add('conflict'); conflictCount++;
+  tr.title = '⚠️ Conflit clinique : ' + conflicting.join(', ');
+} else if (conflicting.length && conflictStatus === 'accepted') {
+  tr.classList.add('conflict-accepted');
+  tr.title = '✓ Conflit accepté : ' + conflicting.join(', ');
+} else if (nonCliConflicts.length) {
+  tr.classList.add('conflict-noncli'); conflictNonCliCount++;
+  tr.title = '🌴 Conflit non-clinique : ' + nonCliConflicts.map(c => `${c.doctor} (${c.type})`).join(', ');
+}
 
     tr.classList.add(row.heure === '9h00' ? 'creno-matin' : 'creno-aprem');
 
@@ -1970,18 +2433,17 @@ if (currentUser?.role === 'admin' && isEditMode && conflicting.length) {
         td.textContent = pending !== undefined ? pending : val;
         if (pending !== undefined) td.style.borderColor = 'var(--amber)';
         //if (currentUser?.role === 'admin' && isEditMode && canEditCol(col.key)) td.addEventListener('dblclick', () => startEdit(td, row, col.key));
-        if (currentUser?.role === 'admin' && isEditMode) {
-                        // Double-clic pour le menu déroulant classique
-                         if (canEditCol(col.key)) {
-                                 td.addEventListener('dblclick', () => startEdit(td, row, col.key));
-                          }
-                        // Simple clic pour le pinceau
-                          td.addEventListener('click', () => { 
-                               if (isBrushMode && canEditCol(col.key)) {
-                                     applyBrushValue(row, col.key, td); 
-                                }
-                           });
-                        };
+if (currentUser?.role === 'admin' && isEditMode) {
+  if (canEditCol(col.key)) {
+    td.addEventListener('dblclick', () => startEdit(td, row, col.key));
+  }
+td.addEventListener('click', (e) => { 
+  if (!canEditCol(col.key)) return;
+  if (isBrushMode || e.altKey) applyBrushValue(row, col.key, td); 
+});
+} else {
+  td.addEventListener('dblclick', () => openPlanningDropdownReadOnly(td, row, col.key));
+};
       }
 
       tr.appendChild(td);
@@ -1994,6 +2456,11 @@ if (currentUser?.role === 'admin' && isEditMode && conflicting.length) {
   document.getElementById('conflict-count-noncli').textContent = conflictNonCliCount;
 }
 
+function changeConflictHorizon(days) {
+  conflictHorizonDays = parseInt(days);
+  openConflictManager(false, 'conflicts');
+}
+	
 function renderAbsences(absRows) {
   const thead = document.getElementById('abs-head');
   const tbody = document.getElementById('abs-body');
@@ -2017,7 +2484,10 @@ function renderAbsences(absRows) {
   });
 
   const headerRow = document.createElement('tr');
-  headerRow.innerHTML = `<th class="col-date">Date</th><th style="color:var(--teal)">Heure</th>`;
+headerRow.innerHTML = `
+  <th class="col-date" style="position:sticky;left:0;z-index:12;background:var(--navy-light);min-width:100px;max-width:100px;">Date</th>
+  <th style="position:sticky;left:100px;z-index:12;background:var(--navy-light);color:var(--teal);min-width:60px;max-width:60px;">Heure</th>
+`;
   absenceColNames.forEach(doc => {
     headerRow.innerHTML += `<th style="color:var(--purple); text-align:center;">${doc}</th>`;
   });
@@ -2027,10 +2497,10 @@ function renderAbsences(absRows) {
     const tr = document.createElement('tr');
     tr.classList.add(row.heure === '9h00' ? 'creno-matin' : 'creno-aprem');
     
-    tr.innerHTML = `
-      <td class="col-date">${formatDate(row.date)}</td>
-      <td class="col-heure">${row.heure || ''}</td>
-    `;
+tr.innerHTML = `
+  <td class="col-date" style="position:sticky;left:0;z-index:2;background:var(--navy-mid);min-width:100px;max-width:100px;">${formatDate(row.date)}</td>
+  <td class="col-heure" style="position:sticky;left:100px;z-index:2;background:var(--navy-mid);min-width:60px;max-width:60px;">${row.heure || ''}</td>
+`;
     
     const key = `${row.date}_${row.heure}`;
     const clinicalStaff = clinicalIndex.get(key) || new Set();
@@ -2186,6 +2656,7 @@ function toggleEditMode() {
     btn.classList.replace('btn-ghost', 'btn-danger');
     save.style.display = 'inline';
     brushCont.style.display = 'flex';
+	document.getElementById('brush-picker-wrapper').style.display = 'flex';
     document.body.classList.add('edit-mode');  
   } else {
     // Sortie du mode édition (Annulation)
@@ -2342,6 +2813,65 @@ const renderSuggestions = (filterText = "") => {
   setTimeout(() => input.focus(), 50);
 }
 
+function openPlanningDropdownReadOnly(td, row, colKey) {
+  const dropdown = document.getElementById('edit-dropdown');
+  const rect = td.getBoundingClientRect();
+  dropdown.innerHTML = '';
+
+  // Compteurs par colonne (comme dans openPlanningDropdown)
+  const compteurs = {};
+  listeMedecins.forEach(m => compteurs[m.initiales.toUpperCase()] = 0);
+  currentFilteredRows.forEach(r => {
+    DOCTOR_COLS.forEach(c => {
+      const val = (r[c] || '').trim().toUpperCase();
+      if (compteurs.hasOwnProperty(val)) compteurs[val]++;
+    });
+  });
+
+  const absIdx = buildAbsenceIndex();
+  const dateAbsences = absIdx.get(`${row.date}_${row.heure}`) || new Map();
+
+  // Médecins déjà présents sur la ligne → à exclure
+  const alreadyOnRow = new Set();
+  DOCTOR_COLS.forEach(col => {
+    if (col === colKey) return;
+    if (CONFLICT_IGNORE_COLS.includes(col)) return;
+    const val = (row[col] || '').trim().toUpperCase();
+    if (val && val.length <= 6) alreadyOnRow.add(val);
+  });
+
+  const isEditingInterneCol = colKey.endsWith('_int') || colKey.endsWith('_int1') || colKey.endsWith('_int2');
+
+  const filteredMedecins = listeMedecins
+    .filter(med => {
+      const medIsInterne = med.fonction === 'interne';
+      if (isEditingInterneCol) return medIsInterne;
+      else return !medIsInterne;
+    })
+    .filter(med => !alreadyOnRow.has(med.initiales.toUpperCase()))
+    .sort((a, b) =>
+      (compteurs[a.initiales.toUpperCase()] || 0) - (compteurs[b.initiales.toUpperCase()] || 0)
+    );
+
+  filteredMedecins.forEach(med => {
+    const init = med.initiales.toUpperCase();
+    const isAbsent = dateAbsences.has(init);
+    const labelAbs = isAbsent
+      ? ` <span style="color:var(--purple); font-size:9px;">(${dateAbsences.get(init).type})</span>`
+      : '';
+    const colorStyle = med.fonction === 'interne' ? 'color:var(--purple);' : 'color:var(--white);';
+
+    const item = document.createElement('div');
+    item.className = 'dd-item';
+    item.style.cursor = 'default';
+    item.innerHTML = `<span style="${colorStyle}">${init}${labelAbs}</span>
+                      <span class="dd-count">${compteurs[init] || 0}</span>`;
+    dropdown.appendChild(item);
+  });
+
+  showDropdown(dropdown, rect);
+}
+	
 // --- DROPDOWN POUR LES ABSENCES (CONGÉS) ---
 function openAbsenceDropdown(td, row, colKey) {
   const dropdown = document.getElementById('edit-dropdown');
@@ -2425,10 +2955,15 @@ function renderSemainier() {
 
   const absIdx = buildAbsenceIndex();
 
-  currentFilteredRows.forEach(row => {
+let lastDateSemainier = null;
+currentFilteredRows.forEach(row => {
     const tr = document.createElement('tr');
+    if (row.date !== lastDateSemainier) {
+      tr.classList.add('new-day');
+      lastDateSemainier = row.date;
+    }
     tr.classList.add(row.heure === '9h00' ? 'creno-matin' : 'creno-aprem');
-
+	
     const getDocSummary = (doctor) => {
       if (!doctor) return "";
       let parts = [];
@@ -2534,6 +3069,9 @@ function confirmPlanningSelection(row, colKey, value, td) {
       if (error) console.warn('Historique non enregistré :', error.message);
     });
   }
+  // Charger silencieusement la valeur dans le pinceau
+  const brushInput = document.getElementById('brush-value');
+  if (brushInput && value) brushInput.value = value;
 }
 
 async function confirmAbsenceSelection(row, colKey, value, td) {
@@ -2699,7 +3237,6 @@ function closeDropdown() {
 // Restaure la session si l'utilisateur est déjà connecté
 // et gère le lien d'invitation reçu par email
 window.addEventListener('load', async () => {
-  await loadAnnonces();
   const hash = window.location.hash;
 
   // L'utilisateur arrive depuis un lien d'invitation
@@ -2739,7 +3276,224 @@ async function setNewPassword() {
   toast('Mot de passe enregistré ✓');
   await applySession(window._pendingSession);
 }
+function printPlanning() {
+  const dateFrom = document.getElementById('filter-date-from').value;
+  const dateTo   = document.getElementById('filter-date-to').value;
 
+  // Récupère les colonnes actuellement visibles
+  const visibleDataCols = COLUMNS.filter(col => {
+    if (col.group === 'meta') return false;
+    const isInterne = col.key.endsWith('_int') || col.key.endsWith('_int1') || col.key.endsWith('_int2');
+    return visibleCols[col.key] && (!isInterne || showInternes);
+  });
+
+  // Groupe → couleur (réutilise les tiennes)
+  const groupColors = {
+    neurog:'#FFF396', hdj:'#C9F07A', unv:'#F0D37A',
+    usi:'#F07AB5', bip:'#FFA89C', garde:'#E08924',
+    repos:'#F0FBFF', box:'#94a3b8'
+  };
+
+  // Construire l'en-tête de groupes (colspan correct)
+  const groupSpans = {};
+  visibleDataCols.forEach(col => {
+    groupSpans[col.group] = (groupSpans[col.group] || 0) + 1;
+  });
+
+  let groupHeaders = '';
+  const seenGroups = new Set();
+  visibleDataCols.forEach(col => {
+    if (!seenGroups.has(col.group)) {
+      seenGroups.add(col.group);
+      const color = groupColors[col.group] || '#ccc';
+      groupHeaders += `<th colspan="${groupSpans[col.group]}" 
+        style="text-align:center;background:#0d1b2a;color:${color};
+               border-bottom:1px solid ${color};font-size:8px;
+               letter-spacing:.06em;padding:4px 6px;">
+        ${GROUP_LABELS[col.group] || col.group}
+      </th>`;
+    }
+  });
+
+  let colHeaders = visibleDataCols.map(col => {
+    const color = groupColors[col.group] || '#ccc';
+    return `<th style="color:${color};background:#1a2d42;padding:5px 6px;
+                        font-size:9px;white-space:nowrap;">${col.label}</th>`;
+  }).join('');
+
+  // Construire les lignes
+  const absIdx = buildAbsenceIndex();
+  let rowsHtml = '';
+  let lastDate  = null;
+  let conflictCount = 0;
+
+  currentFilteredRows.forEach(row => {
+    // Calcul des médecins en conflit sur cette ligne
+    const doctorPos = {};
+    DOCTOR_COLS.forEach(col => {
+      if (CONFLICT_IGNORE_COLS.includes(col)) return;
+      const val = (row[col] || '').trim().toUpperCase();
+      if (val && val.length <= 6) {
+        if (!doctorPos[val]) doctorPos[val] = [];
+        doctorPos[val].push(col);
+      }
+    });
+    const conflicting = Object.entries(doctorPos)
+      .filter(([, cs]) => cs.length > 1).map(([d]) => d);
+    const isConflict  = conflicting.length > 0 && !acceptedConflicts[row.id];
+    const isAccepted  = conflicting.length > 0 &&  acceptedConflicts[row.id];
+    if (isConflict) conflictCount++;
+
+    const borderStyle = isConflict  ? 'border-left:2px solid #e24b4a;'
+                      : isAccepted  ? 'border-left:2px solid #fbbf24;'
+                      : '';
+    const rowBg = isConflict  ? 'background:#fff5f5;'
+                : isAccepted  ? 'background:#fffbeb;'
+                : (row.heure === '9h00') ? 'background:#fff;' : 'background:#f9fafb;';
+
+    const newDayBorder = row.date !== lastDate
+      ? 'border-top:1.5px solid #8fa3b5;' : '';
+    lastDate = row.date;
+
+    const dateCell = row.date !== lastDate || rowsHtml === ''
+      ? `<td style="color:#6b7f93;font-size:9px;${newDayBorder}">
+           ${formatDate(row.date)}
+         </td>`
+      : `<td style="color:#6b7f93;font-size:9px;"></td>`;
+
+    const cells = visibleDataCols.map(col => {
+      const val = (row[col.key] || '').trim().toUpperCase();
+      const isConflictCell = conflicting.includes(val) && !acceptedConflicts[row.id];
+      const isNonCli = (() => {
+        const dateAbs = absIdx.get(`${row.date}_${row.heure}`) || new Map();
+        return dateAbs.has(val);
+      })();
+      const color = isConflictCell ? 'color:#e24b4a;font-weight:500;'
+                  : isNonCli      ? 'color:#9333ea;'
+                  : '';
+      return `<td style="${color}padding:3px 6px;white-space:nowrap;">${val}</td>`;
+    }).join('');
+
+    rowsHtml += `<tr style="${rowBg}${borderStyle}">
+      <td style="color:#6b7f93;font-size:9px;${newDayBorder}padding:3px 8px;">${formatDate(row.date)}</td>
+      <td style="color:#0f6e56;font-weight:500;${newDayBorder}padding:3px 6px;">${row.heure}</td>
+      ${cells}
+    </tr>`;
+  });
+
+  // Mise en forme de la date pour l'en-tête
+  const fmt = d => d ? new Date(d + 'T00:00:00')
+    .toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' }) : '…';
+
+  const printWindow = window.open('', '_blank', 'width=1200,height=800');
+  printWindow.document.write(`<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Planning Neurologie · ${fmt(dateFrom)} – ${fmt(dateTo)}</title>
+  <style>
+    @page { size: A4 landscape; margin: 10mm 8mm 10mm 8mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Mono', 'Courier New', monospace;
+      font-size: 10px;
+      color: #1a2d42;
+      background: #fff;
+    }
+    .page-header {
+      display: flex; justify-content: space-between; align-items: flex-end;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid #2dd4bf;
+    }
+    .page-header h1 { font-size: 14px; font-weight: 600; color: #0d1b2a; }
+    .page-header .meta { font-size: 10px; color: #6b7f93; }
+    table { width: 100%; border-collapse: collapse; table-layout: auto; }
+    thead th { padding: 4px 6px; font-size: 9px; letter-spacing:.04em; }
+    tbody td { padding: 3px 6px; border-bottom: 0.5px solid #e2e8f0; }
+    tbody tr:hover { background: #f0f4f8; }
+    .legend {
+      margin-top: 8px; display: flex; gap: 16px;
+      font-size: 9px; color: #6b7f93;
+    }
+    .legend-item { display: flex; align-items: center; gap: 4px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+    .page-footer {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      border-top: 0.5px solid #ccc;
+      padding: 4px 8px;
+      font-size: 8px; color: #aaa;
+      display: flex; justify-content: space-between;
+      background: #fff;
+    }
+    @media print {
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div style="padding:4mm;">
+    <div class="page-header">
+      <div>
+        <h1>🧠 Planning Neurologie</h1>
+        <div class="meta">
+          Période : ${fmt(dateFrom)} → ${fmt(dateTo)} &nbsp;·&nbsp;
+          ${currentFilteredRows.length} créneaux &nbsp;·&nbsp;
+          ${visibleDataCols.length} colonnes affichées
+          ${conflictCount ? `&nbsp;·&nbsp; <span style="color:#e24b4a">⚠️ ${conflictCount} conflit(s)</span>` : ''}
+        </div>
+      </div>
+      <div class="meta" style="text-align:right;">
+        Imprimé le ${new Date().toLocaleDateString('fr-FR', 
+          { weekday:'long', day:'2-digit', month:'long', year:'numeric' })}<br>
+        par ${currentUser?.login || '—'}
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th rowspan="2" style="background:#0d1b2a;color:#8fa3b5;text-align:left;padding:4px 8px;min-width:75px">Date</th>
+          <th rowspan="2" style="background:#0d1b2a;color:#2dd4bf;text-align:left;padding:4px 6px;min-width:42px">Heure</th>
+          ${groupHeaders}
+        </tr>
+        <tr>${colHeaders}</tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#fff5f5;border:1px solid #e24b4a;"></div>
+        Conflit clinique non résolu
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#fffbeb;border:1px solid #fbbf24;"></div>
+        Conflit accepté
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="border-left:3px solid #9333ea;background:#faf5ff;"></div>
+        Conflit non-clinique (absence)
+      </div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <span>Planning Neurologie v1.10 · Impression automatique</span>
+    <span>${fmt(dateFrom)} – ${fmt(dateTo)}</span>
+  </div>
+
+  <script>
+    window.onload = () => {
+      window.print();
+      // Ferme la fenêtre après impression (optionnel)
+      // window.onafterprint = () => window.close();
+    };
+  <\/script>
+</body>
+</html>`);
+  printWindow.document.close();
+}
 </script>
 
 </body>
