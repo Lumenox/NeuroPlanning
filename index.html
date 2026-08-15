@@ -146,7 +146,7 @@ width: 230px; background: var(--navy-mid); border-left: 1px solid var(--border);
     tbody td { border-bottom: 1px solid var(--border); padding: 6px 8px; height: var(--cell-h); white-space: nowrap; color: var(--white); min-width: 50px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
 
      /* --- STYLES DES COLONNES SPÉCIFIQUES --- */
-     td.col-date { color: var(--gray); font-size: 10px; position: sticky; left: 0; background: var(--navy-mid); z-index: 2; width: min-content; white-space: nowrap; border-right: 1px solid var(--border); }
+     td.col-date { color: var(--white); font-size: 10px; position: sticky; left: 0; background: var(--navy-mid); z-index: 2; width: min-content; white-space: nowrap; border-right: 1px solid var(--border); }
      td.col-heure { color: var(--teal); position: sticky; left: 100px; font-size: 11px; background: var(--navy-mid); font-weight: 500; width: min-content;}
 
      /* --- GROUPEMENT MATIN / APREM --- */
@@ -492,7 +492,7 @@ tr.new-day td { box-shadow: inset 0 3px 0 -2px var(--gray); }
 <div id="auth-overlay">
   <div class="auth-box">
     <h2>Neurologie · Planning</h2>
-    <p> version 1.10</p>
+    <p> version 1.20</p>
     <p>Entrez vos identifiants pour accéder au planning.</p>
     <input type="text" id="auth-login" placeholder="Email aphp ou APH" autocomplete="off" />
     <input type="password" id="auth-pass"  placeholder="Mot de passe" />
@@ -524,7 +524,7 @@ tr.new-day td { box-shadow: inset 0 3px 0 -2px var(--gray); }
 
 
 <div id="topbar">
-  <span class="brand">🧠 Planning Neurologie v.1.10</span>
+  <span class="brand">🧠 Planning Neurologie v.1.20</span>
   <div class="controls">
     <div id="status-dot"></div>
     <span id="user-id-badge"></span>
@@ -541,7 +541,7 @@ tr.new-day td { box-shadow: inset 0 3px 0 -2px var(--gray); }
       </div>
     </div>
     <button id="btn-toggle-edit" class="btn-ghost" style="display:none" onclick="toggleEditMode()">✏️ Modifier</button>
-    <button id="btn-save-all"    class="btn-save"  style="display:none" onclick="saveAllPending()">💾 Sauvegarder</button>
+    <button id="btn-save-all"    class="btn-save"  style="display:none" onclick="()">💾 Sauvegarder</button>
     <div class="sep"></div>
 <button class="btn-ghost" onclick="refreshAll()">↺</button>
 <button class="btn-ghost" onclick="printPlanning()" title="Imprimer le planning" 
@@ -569,6 +569,8 @@ tr.new-day td { box-shadow: inset 0 3px 0 -2px var(--gray); }
   <button class="tab-btn tab-planning active" onclick="switchTab('planning')">🏥 Planning clinique</button>
   <button class="tab-btn tab-absences"        onclick="switchTab('absences')">🌴 Absences / Non clinique</button>
   <button class="tab-btn tab-semainier"         onclick="switchTab('semainier')">📅 Semainier </button>
+  <button class="tab-btn tab-secretariat" id="tab-btn-secretariat"      onclick="switchTab('secretariat')" style="display:none; color:var(--purple)">📋 Gestion Cs</button>
+  <button class="tab-btn tab-sandbox" id="tab-btn-sandbox" onclick="switchTab('sandbox')" style="display:none; color:var(--purple)">🧪 Sandbox</button>
 </div>
 
 <div id="toolbar">
@@ -659,6 +661,205 @@ tr.new-day td { box-shadow: inset 0 3px 0 -2px var(--gray); }
                  <tbody id="semainier-body"></tbody>
               </table>
          </div>
+
+<!-- ===== ONGLET SECRÉTARIAT ===== -->
+<div id="secretariat-wrap" style="display:none; flex:1; overflow:auto;">
+
+  <div id="secretariat-controls" style="
+    padding: 12px 24px;
+    background: var(--navy-mid);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 16px;
+    position: sticky; top: 0; z-index: 20; flex-wrap: wrap;">
+
+    <label style="color: var(--teal); font-family: 'DM Mono'; font-size: 11px;">Médecin :</label>
+    <select id="select-secr-doc" onchange="renderSecretariat()"
+      style="background: var(--navy); color: var(--white); border: 1px solid var(--teal);
+             padding: 4px 8px; border-radius: 6px; font-family: 'DM Mono'; font-size: 11px;">
+    </select>
+
+    <div style="width:1px; height:20px; background:var(--border);"></div>
+
+    <label style="font-family:'DM Mono'; font-size:11px; color:var(--gray);">Simulation risque salle :</label>
+    <label style="position:relative; display:inline-block; width:36px; height:20px;">
+      <input type="checkbox" id="secr-sim-toggle" checked onchange="renderSecretariat()"
+        style="opacity:0; width:0; height:0; position:absolute;">
+      <span id="secr-sim-slider" style="
+        position:absolute; inset:0; background:var(--teal-dim);
+        border:1px solid var(--teal); border-radius:20px; cursor:pointer; transition:background .2s;">
+        <span id="secr-sim-thumb" style="
+          position:absolute; top:3px; left:3px;
+          width:14px; height:14px; border-radius:50%;
+          background:var(--teal); transition:transform .2s;"></span>
+      </span>
+    </label>
+    <script>
+      document.getElementById('secr-sim-toggle').addEventListener('change', function() {
+        const thumb = document.getElementById('secr-sim-thumb');
+        thumb.style.transform = this.checked ? 'translateX(16px)' : '';
+      });
+    </script>
+
+    <div style="width:1px; height:20px; background:var(--border);"></div>
+    <span id="secr-sim-info" style="font-family:'DM Mono'; font-size:10px; color:var(--amber);"></span>
+  </div>
+
+  <!-- Légende -->
+  <div id="secr-legend" style="
+    display:flex; gap:14px; flex-wrap:wrap;
+    padding: 7px 24px; background: var(--navy-mid);
+    border-bottom: 1px solid var(--border); font-family:'DM Mono'; font-size:9px; color:var(--gray);">
+    <span style="display:flex;align-items:center;gap:5px;">
+      <span style="width:9px;height:9px;border-radius:2px;background:var(--red-dim);border:1px solid var(--red);display:inline-block;"></span> Salle confirmée (planning)
+    </span>
+    <span style="display:flex;align-items:center;gap:5px;">
+      <span style="width:9px;height:9px;border-radius:2px;background:var(--amber-dim);border:1px solid var(--amber);display:inline-block;"></span> Période à risque estimée
+    </span>
+    <span style="display:flex;align-items:center;gap:5px;">
+      <span style="width:9px;height:9px;border-radius:2px;background:var(--purple-dim);border:1px solid var(--purple);display:inline-block;"></span> Jour férié
+    </span>
+    <span style="display:flex;align-items:center;gap:5px;">
+      <span style="width:9px;height:9px;border-radius:2px;background:var(--navy-light);border:1px solid var(--border);display:inline-block;"></span> Week-end
+    </span>
+  </div>
+
+  <table id="secretariat-table" style="border-collapse:collapse; font-family:'DM Mono'; font-size:11px; min-width:100%;">
+    <thead>
+      <tr>
+        <th rowspan="2" style="
+          position:sticky; top:62px; left:0; z-index:25;
+          background:var(--navy-light); padding:8px 8px; text-align:left;
+          font-size:10px; font-weight:500; color:var(--gray); letter-spacing:.06em;
+          width:100px; min-width:100px; border-right:1px solid var(--border);">Date</th>
+        <th rowspan="2" style="
+          position:sticky; top:62px; left:100px; z-index:25;
+          background:var(--navy-light); padding:8px 8px; text-align:left;
+          font-size:10px; font-weight:500; color:var(--gray);
+          width:60px; min-width:60px;">Heure</th>
+        <th rowspan="2" id="secr-header-doc" style="
+          position:sticky; top:62px; z-index:15;
+          background:var(--navy-light); padding:8px 12px; text-align:center;
+          font-size:10px; font-weight:500; color:var(--teal);
+          width:130px; min-width:130px;
+          border-right:2px solid var(--teal); border-bottom:1px solid var(--teal);">Médecin</th>
+        <th colspan="9" style="
+          position:sticky; top:62px; z-index:15;
+          background:var(--navy-light); padding:6px 8px; text-align:center;
+          font-size:9px; font-weight:500; color:#94a3b8; letter-spacing:.08em;
+          border-left:2px solid #94a3b830; border-bottom:1px solid var(--border);">BOX — Consultations</th>
+      </tr>
+      <tr id="secr-box-headers">
+        <!-- Les 9 BOX headers sont injectés en JS -->
+      </tr>
+    </thead>
+    <tbody id="secretariat-body"></tbody>
+  </table>
+</div>
+<!-- ===== FIN ONGLET SECRÉTARIAT ===== -->
+
+
+<!-- ===== ONGLET sandbox ===== -->
+<div id="sandbox-wrap" style="display:none; flex:1; overflow:hidden; flex-direction:column; min-height:0;">
+
+  <!-- État : pas de sandbox -->
+<div id="sandbox-empty-state" style="padding:60px; text-align:center;">
+    <p style="color:var(--gray); font-size:13px; margin-bottom:24px;">
+      Aucune sandbox active. Crée une copie temporaire du planning sur une période pour préparer de lourdes modifications sans risque.
+    </p>
+    <div style="display:flex; gap:12px; justify-content:center; align-items:flex-end; margin-bottom:20px;">
+      <div style="text-align:left;">
+        <label style="font-size:11px; color:var(--gray); display:block; margin-bottom:4px;">Du</label>
+        <input type="date" id="sandbox-create-from" />
+      </div>
+      <div style="text-align:left;">
+        <label style="font-size:11px; color:var(--gray); display:block; margin-bottom:4px;">Au</label>
+        <input type="date" id="sandbox-create-to" />
+      </div>
+    </div>
+    <div>
+      <label style="font-size:11px; color:var(--gray); display:block; margin-bottom:4px;">Note (optionnel)</label>
+      <input type="text" id="sandbox-create-note" placeholder="ex: préparation planning juillet" style="width:300px; margin-bottom:20px;" />
+    </div>
+    <div>
+      <button class="btn-primary" id="btn-create-sandbox" onclick="createSandbox()">🧪 Créer la sandbox</button>
+    </div>
+  </div>
+
+  <!-- État : sandbox active -->
+  <div id="sandbox-active-state" style="display:none; flex-direction:column; flex:1; min-height:0;">
+    <div id="sandbox-info-bar" style="padding:12px 24px; background:var(--purple-dim); border-bottom:1px solid var(--purple); display:flex; align-items:center; gap:16px; font-family:'DM Mono',monospace; font-size:11px;">
+      <span style="color:var(--purple); font-weight:600;">🧪 SANDBOX ACTIVE</span>
+      <span id="sandbox-info-period" style="color:var(--white);"></span>
+      <span id="sandbox-info-creator" style="color:var(--gray);"></span>
+      <div style="flex:1"></div>
+      <button class="btn-ghost" id="btn-compare-sandbox" onclick="compareSandboxWithReal()" style="font-size:11px; border-color:var(--amber); color:var(--amber);">🔍 Comparer avec le planning réel</button>
+      <button class="btn-save" id="btn-save-sandbox" onclick="saveSandboxPending()" style="font-size:11px;">💾 Sauvegarder</button>
+      <button class="btn-ghost" onclick="openPushModal()" style="font-size:11px;">🚀 Publier vers le planning réel</button>
+      <button class="btn-danger" onclick="deleteSandbox()" style="font-size:11px;">🗑️ Supprimer la sandbox</button>
+    </div>
+
+<div id="sandbox-table-zone" style="flex:1; overflow:auto; position:relative; min-height:0;">
+      <div id="sandbox-empty-rows" style="padding:60px; text-align:center; color:var(--gray); display:none;">Aucune ligne dans la sandbox.</div>
+      <table id="sandbox-table">
+        <thead id="sandbox-table-head"></thead>
+        <tbody id="sandbox-table-body"></tbody>
+      </table>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ===== Fin ONGLET sandbox ===== -->
+
+<!-- ===== Push modal du sandbox ===== -->
+<div id="push-modal" style="position:fixed; inset:0; background:rgba(13,27,42,.92); display:none; align-items:center; justify-content:center; z-index:700;">
+  <div style="background:var(--navy-mid); border:1px solid var(--amber); border-radius:12px; padding:28px 32px; width:640px; max-width:95vw; max-height:85vh; display:flex; flex-direction:column; gap:18px; overflow-y:auto;">
+
+    <h3 style="font-family:'DM Mono',monospace; font-size:14px; color:var(--amber);">🚀 Publier vers le planning réel</h3>
+
+    <!-- Étape A : sélection période + colonnes -->
+    <div id="push-step-select">
+      <div style="display:flex; gap:16px; margin-bottom:16px;">
+        <div>
+          <label style="font-size:11px; color:var(--gray); display:block; margin-bottom:4px;">Du</label>
+          <input type="date" id="push-date-from" />
+        </div>
+        <div>
+          <label style="font-size:11px; color:var(--gray); display:block; margin-bottom:4px;">Au</label>
+          <input type="date" id="push-date-to" />
+        </div>
+      </div>
+
+      <label style="font-size:11px; color:var(--amber); display:block; margin-bottom:8px;">Groupes de colonnes à publier</label>
+      <div class="settings-group-grid" id="push-group-grid" style="margin-bottom:16px;"></div>
+
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button class="btn-ghost" onclick="closePushModal()">Annuler</button>
+        <button class="btn-primary" onclick="prepareDiffPreview()">Analyser →</button>
+      </div>
+    </div>
+
+    <!-- Étape B : prévisualisation du diff -->
+    <div id="push-step-preview" style="display:none; flex-direction:column; gap:14px;">
+      <div id="push-summary" style="font-family:'DM Mono',monospace; font-size:11px; color:var(--gray);"></div>
+      <div id="push-conflict-warning" style="display:none; background:var(--red-dim); border:1px solid var(--red); border-radius:8px; padding:12px 16px; font-size:12px; color:var(--red);"></div>
+      <div id="push-diff-list" style="display:flex; flex-direction:column; gap:6px; max-height:320px; overflow-y:auto;"></div>
+
+      <div style="display:flex; justify-content:space-between; gap:10px; border-top:1px solid var(--border); padding-top:14px;">
+        <button class="btn-ghost" onclick="backToPushSelect()">← Retour</button>
+        <div style="display:flex; gap:10px;">
+          <button class="btn-ghost" onclick="closePushModal()">Annuler</button>
+          <button class="btn-danger" id="btn-confirm-push" onclick="confirmPush()">✅ Confirmer la publication</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== Fin push modal sandbox ===== -->
+
   </div>
 
   <div id="stats-panel">
@@ -730,6 +931,7 @@ tr.new-day td { box-shadow: inset 0 3px 0 -2px var(--gray); }
           <option value="planning">🏥 Planning clinique</option>
           <option value="absences">🌴 Absences / Non clinique</option>
           <option value="semainier">📅 Semainier</option>
+          <option value="secretariat">📋 Gestion Cs</option>
         </select>
       </div>
     </div>
@@ -963,6 +1165,7 @@ let absencesData        = [];
 let currentFilteredRows = [];
 let currentFilteredAbs  = [];
 let pendingEdits        = {};
+let editModeSnapshot    = {};  //permet d'éviter que confirmPlanningSelection, en supprimant directement l'ancienne valeur, on ait plus la possibilité de comparer si la nouvelle valeur est bien entrée...
 let   pendingEditsAbs             =  {};
 let isEditMode          = false;
 let realtimeSub         = null;
@@ -980,6 +1183,17 @@ let showInternes = false;
 let isBrushMode = false;
 let allAnnonces = [];
 let conflictHorizonDays = 30;
+
+let currentSandboxMeta = null;
+let sandboxData = [];
+let sandboxBaseline = [];
+let pendingEditsSandbox = {};
+let isSandboxEditMode   = false;
+let sandboxConflicts = {}; // { sandboxRowId: { colKey: { realValue, baselineValue } } }
+let isSandboxBrushMode = false;
+let pendingPushDiff = []; // [{ sandboxRow, realRow, colKey, sandboxVal, realVal, hasConflict, conflictInfo }]
+
+
 
 async function doLogin() {
   const input  = document.getElementById('auth-login').value.trim();
@@ -1151,6 +1365,8 @@ if (profile.preferences) {
   if (profile.role === 'admin') {
     document.getElementById('btn-toggle-edit').style.display = 'inline';
     document.body.classList.add('is-admin');
+    document.getElementById('tab-btn-secretariat').style.display = 'inline-block';
+    document.getElementById('tab-btn-sandbox').style.display = 'inline-block';
   } else {
           // Sécurité : on s'assure que la classe n'est pas là si ce n'est pas un admin
           document.body.classList.remove('is-admin');
@@ -1431,10 +1647,13 @@ function switchTab(tab) {
   document.querySelector(`.tab-${tab}`).classList.add('active');
   document.getElementById('table-wrap').style.display = tab === 'planning' ? 'block' : 'none';
   document.getElementById('abs-wrap').style.display   = tab === 'absences' ? 'block' : 'none';
+  document.getElementById('sandbox-wrap').style.display = tab === 'sandbox' ? 'flex' : 'none';
   document.getElementById('toolbar-planning-extras').style.display = (tab === 'planning' || tab === 'semainier') ? 'flex' : 'none';
   document.getElementById('toolbar-absences-extras').style.display = tab === 'absences' ? 'flex' : 'none';
   document.getElementById('abs-legend').style.display    = tab === 'absences' ? 'flex' : 'none';
   document.getElementById('btn-add-absence').style.display = (tab === 'absences' && currentUser?.role === 'admin') ? 'flex' : 'none';
+  
+  if (tab === 'sandbox') checkSandboxState();
   onFilterChange();
 }
 
@@ -1458,6 +1677,7 @@ async function init() {
   document.getElementById('chk-show-internes').checked = showInternes;
   populateSemainierDocs();
   buildTableHeader();
+  buildTableHeader('sandbox-table-head');
   buildColToggles();
   buildAbsTypeToggles();
   populateAbsModal();
@@ -2079,13 +2299,37 @@ function toggleStatsPanel() {
   btn.textContent = panel.classList.contains('collapsed') ? '‹' : '›';
 }
 
+async function fetchAllRows(table, orderCols) {
+  const pageSize = 1000;
+  let allRows = [];
+  let from = 0;
+
+  while (true) {
+    let query = _supabase.from(table).select('*').range(from, from + pageSize - 1);
+    orderCols.forEach(([col, opts]) => { query = query.order(col, opts); });
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allRows = allRows.concat(data);
+    if (data.length < pageSize) break; // dernière page atteinte
+    from += pageSize;
+  }
+  return allRows;
+}
+
+	
 async function loadData() {
   showLoading(true);
-  const { data, error } = await _supabase.from('planning').select('*')
-    .order('date', { ascending: true }).order('heure', { ascending: true });
-  if (error) { showLoading(false); setStatus('error'); toast('Erreur planning : ' + error.message, 'error'); return; }
-
-  const rows = data || [];
+  let rows;
+  try {
+    rows = await fetchAllRows('planning', [
+      ['date', { ascending: true }],
+      ['heure', { ascending: true }]
+    ]);
+  } catch (error) {
+    showLoading(false); setStatus('error'); toast('Erreur planning : ' + error.message, 'error'); return;
+  }
+	
   const planMap = {};
   rows.forEach(row => { row.ReposGarde = ''; planMap[`${row.date}_${row.heure}`] = row; });
   rows.forEach(row => {
@@ -2106,9 +2350,14 @@ async function loadData() {
 }
 
 async function loadAbsences() {
-  const { data, error } = await _supabase.from('absences').select('*').order('date');
-  if (error) { toast('Erreur absences : ' + error.message, 'error'); return; }
-  absencesData = data || [];
+  try {
+    absencesData = await fetchAllRows('absences', [
+      ['date', {}],
+      ['heure', {}]
+    ]);
+  } catch (error) {
+    toast('Erreur absences : ' + error.message, 'error'); return;
+  }
   applyAbsFilters();
   applyFilters(); 
 }
@@ -2134,7 +2383,7 @@ function subscribeRealtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'planning' }, payload => {
       if (payload.eventType === 'UPDATE') {
         const idx = allData.findIndex(r => r.id === payload.new.id);
-        if (idx >= 0) allData[idx] = payload.new; else allData.push(payload.new);
+        if (idx >= 0) allData[idx] = payload.new; else allData.push(payload.new); absencesData.sort((a, b) => a.date.localeCompare(b.date) || a.heure.localeCompare(b.heure));
       } else if (payload.eventType === 'INSERT') {
         allData.push(payload.new);
         allData.sort((a, b) => a.date.localeCompare(b.date) || a.heure.localeCompare(b.heure));
@@ -2156,7 +2405,7 @@ function subscribeRealtimeAbsences() {
         if (idx >= 0) absencesData[idx] = payload.new; else absencesData.push(payload.new);
       } else if (payload.eventType === 'INSERT') {
         absencesData.push(payload.new);
-        absencesData.sort((a, b) => a.date.localeCompare(b.date));
+        absencesData.sort((a, b) => a.date.localeCompare(b.date) || a.heure.localeCompare(b.heure));
       } else if (payload.eventType === 'DELETE') {
         absencesData = absencesData.filter(r => r.id !== payload.old.id);
       }
@@ -2174,10 +2423,11 @@ function onFilterChange() {
   } else if (currentTab === 'absences') {
     applyAbsFilters();
   } else if (currentTab === 'semainier') {
-    // Le semainier dépend de currentFilteredRows, on doit donc 
-    // rafraîchir les données filtrées avant de redessiner
     applyFilters(); 
     renderSemainier();
+  } else if (currentTab === 'secretariat') {
+    applyFilters();
+    renderSecretariat();
   }
   buildStats();
 }
@@ -2260,8 +2510,8 @@ function toggleInternesVisibility() {
   // On met à jour l'affichage des colonnes
   applyColVisibility();
 }
-function buildTableHeader() {
-  const thead = document.getElementById('table-head');
+function buildTableHeader(theadId = 'table-head') {
+  const thead = document.getElementById(theadId);
   thead.innerHTML = '';
   const groupRow = document.createElement('tr');
   let prevGroup = null, span = 0;
@@ -2390,7 +2640,7 @@ if (conflicting.length && conflictStatus === 'conflict') {
   tr.title = '🌴 Conflit non-clinique : ' + nonCliConflicts.map(c => `${c.doctor} (${c.type})`).join(', ');
 }
 
-    tr.classList.add(row.heure === '9h00' ? 'creno-matin' : 'creno-aprem');
+    tr.classList.add(row.heure === '09:00:00' ? 'creno-matin' : 'creno-aprem');
 
     COLUMNS.forEach(col => {
       const td      = document.createElement('td');
@@ -2399,7 +2649,7 @@ if (conflicting.length && conflictStatus === 'conflict') {
       td.dataset.col = col.key;
 
       if (col.key === 'date') {
-        td.className = 'col-date'; td.textContent = formatDate(val);
+        td.className = 'col-date'; td.textContent = (row.heure === '09:00:00') ? formatDate(val) : '';
         const myInitiales = currentUser?.initiales?.trim().toUpperCase();
 const isSoleConflict = conflicting.length === 1 
                     && myInitiales 
@@ -2495,10 +2745,10 @@ headerRow.innerHTML = `
 
   absRows.forEach(row => {
     const tr = document.createElement('tr');
-    tr.classList.add(row.heure === '9h00' ? 'creno-matin' : 'creno-aprem');
+    tr.classList.add(row.heure === '09:00:00' ? 'creno-matin' : 'creno-aprem');
     
 tr.innerHTML = `
-  <td class="col-date" style="position:sticky;left:0;z-index:2;background:var(--navy-mid);min-width:100px;max-width:100px;">${formatDate(row.date)}</td>
+  <td class="col-date" style="position:sticky;left:0;z-index:2;background:var(--navy-mid);min-width:100px;max-width:100px;">${row.heure === '09:00:00' ? formatDate(row.date) : ''}</td>
   <td class="col-heure" style="position:sticky;left:100px;z-index:2;background:var(--navy-mid);min-width:60px;max-width:60px;">${row.heure || ''}</td>
 `;
     
@@ -2554,11 +2804,22 @@ function setStatus(status) {
 
 function toast(msg, type = 'info') {
   const container = document.getElementById('toast-container');
-  const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  toast.textContent = msg;
-  container.appendChild(toast);
-  setTimeout(() => toast.remove(), 3000);
+  const toastEl = document.createElement('div');
+  toastEl.className = `toast ${type}`;
+  toastEl.textContent = msg;
+  toastEl.style.cursor = 'pointer';
+  toastEl.title = 'Cliquer pour fermer';
+
+  // Durée : les erreurs restent affichées bien plus longtemps
+  const duration = (type === 'error') ? null : (type === 'warning' ? 6000 : 3000);
+
+  toastEl.addEventListener('click', () => toastEl.remove());
+  container.appendChild(toastEl);
+
+  if (duration !== null) {
+    setTimeout(() => toastEl.remove(), duration);
+  }
+  // type === 'error' → pas de setTimeout, reste affiché jusqu'au clic
 }
 
 function populateAbsModal() {
@@ -2653,6 +2914,8 @@ function toggleEditMode() {
   if (isEditMode) {
     // Passage en mode édition
     btn.textContent = "✕ Annuler";
+    editModeSnapshot = {};// Capture de l'état AVANT édition, pour l'historique
+    allData.forEach(r => { editModeSnapshot[r.id] = { ...r }; });
     btn.classList.replace('btn-ghost', 'btn-danger');
     save.style.display = 'inline';
     brushCont.style.display = 'flex';
@@ -2922,14 +3185,19 @@ function populateSemainierDocs() {
           
 }
 
-// 2. Mise à jour de switchTab pour gérer le nouvel onglet
+// 2. Mise à jour de switchTab pour gérer les onglets semainier + secrétariat
 const originalSwitchTab = switchTab;
 switchTab = function(tab) {
-  originalSwitchTab(tab); // Appelle l'ancienne logique
-  document.getElementById('semainier-wrap').style.display = (tab === 'semainier') ? 'block' : 'none';
+  originalSwitchTab(tab);
+  document.getElementById('semainier-wrap').style.display     = (tab === 'semainier')    ? 'block' : 'none';
+  document.getElementById('secretariat-wrap').style.display   = (tab === 'secretariat')  ? 'block' : 'none';
   if (tab === 'semainier') {
     if (document.getElementById('select-semainier-doc').options.length === 0) populateSemainierDocs();
     renderSemainier();
+  }
+  if (tab === 'secretariat') {
+    if (document.getElementById('select-secr-doc').options.length === 0) populateSecretariatDoc();
+    renderSecretariat();
   }
 };
 
@@ -2962,7 +3230,7 @@ currentFilteredRows.forEach(row => {
       tr.classList.add('new-day');
       lastDateSemainier = row.date;
     }
-    tr.classList.add(row.heure === '9h00' ? 'creno-matin' : 'creno-aprem');
+    tr.classList.add(row.heure === '09:00:00' ? 'creno-matin' : 'creno-aprem');
 	
     const getDocSummary = (doctor) => {
       if (!doctor) return "";
@@ -3007,7 +3275,7 @@ currentFilteredRows.forEach(row => {
 
     // On ajoute une classe spécifique 'col-doc2-data' pour pouvoir la masquer en JS
     tr.innerHTML = `
-      <td class="col-date">${formatDate(row.date)}</td>
+      <td class="col-date">${row.heure === '09:00:00' ? formatDate(row.date) : ''}</td>
       <td class="col-heure">${row.heure}</td>
       <td style="text-align:center; border-right: 1px solid var(--border); padding: 4px 8px;">${getDocSummary(doc1)}</td>
       <td class="col-doc2-data" style="text-align:center; padding: 4px 8px; ${hasDoc2 ? '' : 'display:none'}">${getDocSummary(doc2)}</td>
@@ -3015,6 +3283,1153 @@ currentFilteredRows.forEach(row => {
     tbody.appendChild(tr);
   });
 }
+
+
+
+
+// ══════════════════════════════════════════════════════════════════
+// ONGLET SECRÉTARIAT
+// ══════════════════════════════════════════════════════════════════
+
+// Constantes du pattern de rotation — à ajuster selon le service
+const SECR_ROTATION_EVERY_WEEKS  = 5;  // toutes les combien de semaines une période salle revient
+const SECR_ROTATION_DURATION_WEEKS = 5; // durée d'une période salle
+
+// Colonnes considérées comme "salle" (hors BOX et consultations externes)
+const SALLE_COLS = ['C_Periph','C_Cogn', 'UNV1','UNV2','USI1','USI2','HDJ1','HDJ2','HDJ3'];
+
+// Jours fériés français (à compléter chaque année)
+const JOURS_FERIES = new Set([
+  '2025-01-01','2025-04-21','2025-05-01','2025-05-08','2025-05-29',
+  '2025-06-09','2025-07-14','2025-08-15','2025-11-01','2025-11-11','2025-12-25',
+  '2026-01-01','2026-04-06','2026-05-01','2026-05-08','2026-05-14',
+  '2026-05-25','2026-07-14','2026-08-15','2026-11-01','2026-11-11','2026-12-25',
+]);
+
+const BOX_COLS = ['BOX1','BOX2','BOX3','BOX4','BOX5','BOX6','BOX7','BOX8','BOX9'];
+
+function populateSecretariatDoc() {
+  const sel = document.getElementById('select-secr-doc');
+  sel.innerHTML = '<option value="">-- Choisir --</option>';
+  listeMedecins
+    .filter(m => m.fonction !== 'interne')
+    .forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.initiales.toUpperCase();
+      opt.textContent = m.initiales;
+      sel.appendChild(opt);
+    });
+  if (currentUser?.initiales) {
+    sel.value = currentUser.initiales.toUpperCase();
+  }
+  // Injecter les headers BOX une seule fois
+  const hRow = document.getElementById('secr-box-headers');
+  hRow.innerHTML = BOX_COLS.map(k => `
+    <th data-col="${k}" style="
+      position:sticky; top:97px; z-index:14;
+      background:var(--navy-light); padding:6px 4px; text-align:center;
+      font-size:9px; font-weight:500; color:#94a3b8;
+      width:54px; min-width:54px;
+      border-left:2px solid #94a3b830; letter-spacing:.04em;">${k}</th>
+  `).join('');
+}
+
+function computeRiskWindow(doctor) {
+  // Cherche la dernière date où ce médecin est en salle dans allData
+  const init = doctor.trim().toUpperCase();
+  let lastSalleDate = null;
+
+  allData.forEach(row => {
+    SALLE_COLS.forEach(col => {
+      if ((row[col] || '').trim().toUpperCase() === init) {
+        const d = new Date(row.date + 'T00:00:00');
+        if (!lastSalleDate || d > lastSalleDate) lastSalleDate = d;
+      }
+    });
+  });
+
+  if (!lastSalleDate) return null;
+
+  // La prochaine période attendue commence ~SECR_ROTATION_EVERY_WEEKS semaines après
+  const start = new Date(lastSalleDate);
+  start.setDate(start.getDate() + SECR_ROTATION_EVERY_WEEKS * 7 + 3);  //+3 car sinon ça tombe sur un vendredi...
+
+  const end = new Date(start);
+  end.setDate(end.getDate() + SECR_ROTATION_DURATION_WEEKS * 7 - 1);
+
+  return { start, end, lastSalleDate };
+}
+
+function getDateStatus(dateStr, doctor, riskWindow) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const dow = d.getDay(); // 0=dim, 6=sam
+
+  if (dow === 0 || dow === 6) return 'weekend';
+  if (JOURS_FERIES.has(dateStr))  return 'ferie';
+
+  // Salle déjà confirmée dans le planning ?
+  const init = doctor.trim().toUpperCase();
+  const rows = allData.filter(r => r.date === dateStr);
+  for (const row of rows) {
+    for (const col of SALLE_COLS) {
+      if ((row[col] || '').trim().toUpperCase() === init) return 'salle';
+    }
+  }
+
+  // Dans la fenêtre de risque estimé ?
+  if (riskWindow && d >= riskWindow.start && d <= riskWindow.end) return 'risque';
+
+  return 'ok';
+}
+
+function renderSecretariat() {
+  const doctor  = document.getElementById('select-secr-doc').value;
+  const simOn   = document.getElementById('secr-sim-toggle').checked;
+  const tbody   = document.getElementById('secretariat-body');
+  const infoEl  = document.getElementById('secr-sim-info');
+  const legendEl = document.getElementById('secr-legend');
+
+  legendEl.style.display = simOn ? 'flex' : 'none';
+  document.getElementById('secr-header-doc').textContent = doctor || 'Médecin';
+
+  tbody.innerHTML = '';
+  if (!doctor) { infoEl.textContent = ''; return; }
+
+  const riskWindow = simOn ? computeRiskWindow(doctor) : null;
+
+  if (simOn) {
+    if (riskWindow) {
+      const fmtOpts = { day:'2-digit', month:'2-digit', year:'numeric' };
+      const s = riskWindow.start.toLocaleDateString('fr-FR', fmtOpts);
+      const e = riskWindow.end.toLocaleDateString('fr-FR', fmtOpts);
+      const last = riskWindow.lastSalleDate.toLocaleDateString('fr-FR', fmtOpts);
+      infoEl.textContent = `Dernière salle : ${last} → fenêtre risque estimée : ${s} – ${e}`;
+    } else {
+      infoEl.textContent = 'Aucune salle trouvée dans le planning chargé — simulation impossible.';
+    }
+  } else {
+    infoEl.textContent = '';
+  }
+
+  const absIdx = buildAbsenceIndex();
+  const init   = doctor.trim().toUpperCase();
+  let lastDate = null;
+
+  currentFilteredRows.forEach(row => {
+    const status = simOn ? getDateStatus(row.date, doctor, riskWindow) : 'ok';
+
+    // ── Cellule "Activité médecin" (style semainier) ──────────────────
+    let parts = [];
+    COLUMNS.forEach(col => {
+      if (!DOCTOR_COLS.includes(col.key)) return;
+      if (!visibleCols[col.key]) return;
+      const val = (row[col.key] || '').trim().toUpperCase();
+      if (val === init) parts.push(col.label);
+    });
+
+    const dateAbsences = absIdx.get(`${row.date}_${row.heure}`) || new Map();
+    const absType = dateAbsences.get(init)?.type;
+    const isSalleConfirmed = parts.some(p => SALLE_COLS.map(k => {
+      const c = COLUMNS.find(c => c.key === k); return c ? c.label : k;
+    }).includes(p));
+    const isConflict = parts.filter(p => {
+      const key = COLUMNS.find(c => c.label === p)?.key;
+      return key && !CONFLICT_IGNORE_COLS.includes(key);
+    }).length > 1;
+    const isAccepted = acceptedConflicts[row.id] === true;
+
+    let cellStyle = '';
+    if (isConflict)
+      cellStyle = isAccepted
+        ? 'background:var(--amber-dim);border-left:3px solid var(--amber);color:var(--amber);'
+        : 'background:var(--red-dim);border-left:3px solid var(--red);color:var(--red);';
+    else if (simOn && status === 'salle')
+      cellStyle = 'background:var(--red-dim);border-left:3px solid var(--red);color:var(--red);';
+    else if (simOn && status === 'risque')
+      cellStyle = 'background:var(--amber-dim);border-left:3px solid var(--amber);color:var(--amber);';
+    else if (simOn && status === 'weekend')
+      cellStyle = 'opacity:.35;';
+    else if (simOn && status === 'ferie')
+      cellStyle = 'background:var(--purple-dim);border-left:3px solid var(--purple);color:var(--purple);';
+
+    let actHtml = `<div style="display:flex;flex-direction:column;gap:3px;padding:3px 6px;border-radius:4px;min-height:28px;${cellStyle}">`;
+    if (parts.length > 0) actHtml += `<span style="font-weight:600;font-size:10px;">${parts.join(' + ')}</span>`;
+    if (absType)          actHtml += `<span class="abs-${absType}" style="padding:1px 5px;border-radius:3px;font-size:9px;width:fit-content;">${absType}</span>`;
+    if (simOn && status === 'risque' && parts.length === 0 && !absType)
+      actHtml += `<span style="font-size:9px;opacity:.7">⚠ risque salle</span>`;
+    if (simOn && status === 'salle' && parts.length === 0)
+      actHtml += `<span style="font-size:9px;">⛔ salle confirmée</span>`;
+    if (simOn && status === 'ferie' && parts.length === 0)
+      actHtml += `<span style="font-size:9px;">Jour férié</span>`;
+    if (parts.length === 0 && !absType && !['risque','salle','ferie'].includes(status))
+      actHtml += `<span style="color:var(--gray);opacity:.3;font-size:10px;">—</span>`;
+    actHtml += `</div>`;
+
+    // ── Cellules BOX (même logique que le planning) ───────────────────
+const boxTds = BOX_COLS.map(colKey => {
+      const val = (row[colKey] || '').trim();
+      const pending = pendingEdits[row.id]?.[colKey];
+      const displayVal = pending !== undefined ? pending : val;
+
+      const td = document.createElement('td');
+      td.dataset.col = colKey;
+      td.style.cssText = 'text-align:center; border-left:2px solid #94a3b815; font-size:10px;';
+
+      if (simOn) {
+        if (status === 'salle')        td.style.background = 'var(--red-dim)';
+        else if (status === 'risque')  td.style.background = 'var(--amber-dim)';
+        else if (status === 'weekend') td.style.opacity    = '0.3';
+        else if (status === 'ferie')   td.style.background = 'var(--purple-dim)';
+      }
+
+      if (pending !== undefined) td.style.borderColor = 'var(--amber)';
+
+      if (displayVal) {
+        if (displayVal.toUpperCase() === init) {
+          td.innerHTML = `<span style="color:var(--teal);font-weight:600;">${displayVal}</span>`;
+        } else {
+          td.textContent = displayVal;
+        }
+      }
+
+      // Édition : même logique que le planning principal
+      if (currentUser?.role === 'admin' && isEditMode && canEditCol(colKey)) {
+        td.classList.add('editable');
+        td.addEventListener('dblclick', () => openPlanningDropdown(td, row, colKey));
+        td.addEventListener('click', (e) => {
+          if (isBrushMode || e.altKey) applyBrushValue(row, colKey, td);
+        });
+      } else if (canEditCol(colKey)) {
+        td.classList.add('editable');
+        td.addEventListener('dblclick', () => openPlanningDropdownReadOnly(td, row, colKey));
+      }
+
+      return td;
+    });
+
+    // ── Ligne ─────────────────────────────────────────────────────────
+    const isNewDay = row.date !== lastDate;
+    lastDate = row.date;
+    const tr = document.createElement('tr');
+    tr.className = (row.heure === '09:00:00' ? 'creno-matin' : 'creno-aprem') + (isNewDay ? ' new-day' : '');
+    tr.innerHTML = `
+      <td class="col-date">${isNewDay ? formatDate(row.date) : ''}</td>
+      <td class="col-heure">${row.heure}</td>
+      <td style="padding:3px 6px; border-right:2px solid var(--teal)20; min-width:130px; max-width:160px;">${actHtml}</td>
+    `;
+      boxTds.forEach(td => tr.appendChild(td));
+
+    tbody.appendChild(tr);
+  });
+}
+
+
+// --- Fonctions sandbox ---
+
+async function checkSandboxState() {
+  const { data, error } = await _supabase
+    .from('sandbox_meta')
+    .select('*')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error) {
+    toast('Erreur lecture sandbox : ' + error.message, 'error');
+    return;
+  }
+
+  currentSandboxMeta = data || null;
+  renderSandboxState();
+
+  if (currentSandboxMeta) {
+    await loadSandboxData();
+  }
+}
+
+
+function renderSandboxState() {
+  const emptyState  = document.getElementById('sandbox-empty-state');
+  const activeState = document.getElementById('sandbox-active-state');
+
+  if (!currentSandboxMeta) {
+    emptyState.style.display  = 'block';
+    activeState.style.display = 'none';
+  } else {
+    emptyState.style.display  = 'none';
+    activeState.style.display = 'flex';
+
+    const periodEl  = document.getElementById('sandbox-info-period');
+    const creatorEl = document.getElementById('sandbox-info-creator');
+    periodEl.textContent  = `${formatDate(currentSandboxMeta.date_from)} → ${formatDate(currentSandboxMeta.date_to)}`;
+    creatorEl.textContent = `créée par ${currentSandboxMeta.created_by}`;
+  }
+}
+
+async function createSandbox() {
+  const dateFrom = document.getElementById('sandbox-create-from').value;
+  const dateTo   = document.getElementById('sandbox-create-to').value;
+  const note     = document.getElementById('sandbox-create-note').value.trim();
+
+  if (!dateFrom || !dateTo) {
+    toast('Sélectionne une période valide', 'warning');
+    return;
+  }
+  if (dateFrom > dateTo) {
+    toast('La date de début doit précéder la date de fin', 'warning');
+    return;
+  }
+
+  // Sécurité : une sandbox existe déjà ?
+  if (currentSandboxMeta) {
+    toast('Une sandbox existe déjà — supprime-la avant d\'en créer une nouvelle', 'warning');
+    return;
+  }
+
+  const btn = document.getElementById('btn-create-sandbox');
+  btn.disabled = true;
+  btn.textContent = '⏳ Copie en cours...';
+
+  try {
+    // 1. Récupérer les lignes du planning réel sur la période
+    const { data: rows, error: fetchError } = await _supabase
+      .from('planning')
+      .select('*')
+      .gte('date', dateFrom)
+      .lte('date', dateTo)
+      .order('date', { ascending: true })
+      .order('heure', { ascending: true });
+
+    if (fetchError) throw fetchError;
+
+    if (!rows || rows.length === 0) {
+      toast('Aucune ligne trouvée sur cette période', 'warning');
+      btn.disabled = false;
+      btn.textContent = '🧪 Créer la sandbox';
+      return;
+    }
+
+    // 2. Préparer les lignes pour insertion dans planning_sandbox
+    //    On retire l'id d'origine pour laisser la séquence sandbox générer
+    //    ses propres ids, mais on garde une trace de l'id source.
+    const sandboxRows = rows.map(row => {
+      const { id, ...rest } = row;
+      return { ...rest, source_id: id };
+    });
+
+    // 3. Insérer dans planning_sandbox
+    const { error: insertError } = await _supabase
+      .from('planning_sandbox')
+      .insert(sandboxRows);
+
+    if (insertError) throw insertError;
+
+    // 3bis. Insérer la même photo dans planning_sandbox_baseline (jamais modifiée ensuite)
+    const { error: baselineError } = await _supabase
+      .from('planning_sandbox_baseline')
+      .insert(sandboxRows);
+
+    if (baselineError) throw baselineError;
+    
+    // 4. Créer la ligne sandbox_meta
+    const { error: metaError } = await _supabase
+      .from('sandbox_meta')
+      .insert({
+        id: 1,
+        date_from: dateFrom,
+        date_to: dateTo,
+        created_by: currentUser.login,
+        note: note || null
+      });
+
+    if (metaError) throw metaError;
+
+    toast(`Sandbox créée ✓ (${rows.length} lignes copiées)`);
+    await checkSandboxState();
+    await loadSandboxData();
+
+  } catch (err) {
+    toast('Erreur création sandbox : ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🧪 Créer la sandbox';
+  }
+}
+
+
+
+async function loadSandboxData() {
+  const { data, error } = await _supabase
+    .from('planning_sandbox')
+    .select('*')
+    .order('date', { ascending: true })
+    .order('heure', { ascending: true });
+
+  if (error) {
+    toast('Erreur chargement sandbox : ' + error.message, 'error');
+    return;
+  }
+
+  sandboxData = data || [];
+
+  const { data: baselineData, error: baselineError } = await _supabase
+    .from('planning_sandbox_baseline')
+    .select('*');
+
+  if (baselineError) {
+    toast('Erreur chargement baseline : ' + baselineError.message, 'error');
+  } else {
+    sandboxBaseline = baselineData || [];
+  }
+
+  renderSandboxTable();
+}
+
+function getBaselineRow(sandboxRow) {
+  return sandboxBaseline.find(b => b.source_id === sandboxRow.source_id);
+}
+
+function toggleSandboxEditMode() {
+  isSandboxEditMode = !isSandboxEditMode;
+  const btn  = document.getElementById('btn-sandbox-edit');
+  const save = document.getElementById('btn-sandbox-save');
+
+  if (isSandboxEditMode) {
+    btn.textContent = "✕ Annuler";
+    btn.classList.replace('btn-ghost', 'btn-danger');
+    save.style.display = 'inline';
+  } else {
+    btn.textContent = "✏️ Modifier";
+    btn.classList.replace('btn-danger', 'btn-ghost');
+    save.style.display = 'none';
+    pendingEditsSandbox = {};
+    toast('Modifications sandbox annulées', 'info');
+    loadSandboxData();
+  }
+  renderSandboxTable();
+}
+
+
+function renderSandboxTable() {
+  const tbody = document.getElementById('sandbox-table-body');
+  const empty = document.getElementById('sandbox-empty-rows');
+  tbody.innerHTML = '';
+
+  if (sandboxData.length === 0) {
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  const absIdx = buildAbsenceIndex();
+  let lastDate = null;
+
+  sandboxData.forEach(row => {
+    const tr = document.createElement('tr');
+    if (row.date !== lastDate) {
+      tr.classList.add('new-day');
+      lastDate = row.date;
+    }
+    tr.classList.add(row.heure === '9h00' ? 'creno-matin' : 'creno-aprem');
+
+    // Détection conflits cliniques (médecin sur plusieurs colonnes de la ligne)
+    const doctorPos = {};
+    DOCTOR_COLS.forEach(col => {
+      if (CONFLICT_IGNORE_COLS.includes(col)) return;
+      const val = (row[col] || '').trim().toUpperCase();
+      if (val && val.length <= 6) {
+        if (!doctorPos[val]) doctorPos[val] = [];
+        doctorPos[val].push(col);
+      }
+    });
+    const conflicting = Object.entries(doctorPos).filter(([, cs]) => cs.length > 1).map(([d]) => d);
+
+    // Détection conflits non-cliniques (médecin posté alors qu'absent)
+    const dateAbsences = absIdx.get(`${row.date}_${row.heure}`) || new Map();
+    const nonCliConflicts = [];
+    DOCTOR_COLS.forEach(col => {
+      const val = (row[col] || '').trim().toUpperCase();
+      if (val && val.length <= 6 && dateAbsences.has(val)) {
+        nonCliConflicts.push({ doctor: val, col, type: dateAbsences.get(val).type });
+      }
+    });
+
+    if (conflicting.length) {
+      tr.classList.add('conflict');
+      tr.title = '⚠️ Conflit clinique : ' + conflicting.join(', ');
+    } else if (nonCliConflicts.length) {
+      tr.classList.add('conflict-noncli');
+      tr.title = '🌴 Conflit non-clinique : ' + nonCliConflicts.map(c => `${c.doctor} (${c.type})`).join(', ');
+    }
+
+COLUMNS.forEach(col => {
+      const td      = document.createElement('td');
+      const val     = row[col.key] || '';
+      const pending = pendingEditsSandbox[row.id]?.[col.key];
+      td.dataset.col = col.key;
+
+      if (col.key === 'date') {
+        td.className = 'col-date';
+        td.textContent = formatDate(val);
+      } else if (col.key === 'heure') {
+        td.className = 'col-heure';
+        td.textContent = val;
+      } else if (col.key === 'ReposGarde') {
+        td.className = 'editable';
+        td.style.color = 'var(--gray)';
+        td.textContent = val;
+} else {
+        td.className = 'editable';
+        td.textContent = pending !== undefined ? pending : val;
+
+        const baselineRow = getBaselineRow(row);
+        const baselineVal = (baselineRow?.[col.key] || '').trim();
+        const currentVal  = (pending !== undefined ? pending : val).trim();
+        const isModifiedInSandbox = currentVal !== baselineVal;
+        const hasRealConflict = sandboxConflicts[row.id]?.[col.key];
+
+        // Couleur de texte : rouge/violet (conflits cliniques) priment, sinon bleu si modifié en sandbox
+        if (conflicting.includes(val.trim().toUpperCase())) {
+          td.style.color = 'var(--red)';
+        } else if (nonCliConflicts.some(c => c.col === col.key)) {
+          td.style.color = 'var(--purple)';
+        } else if (isModifiedInSandbox) {
+          td.style.color = '#60a5fa'; // bleu
+        }
+
+        // Encadré orange : conflit avec le planning réel, indépendant de la couleur du texte
+        if (hasRealConflict) {
+          const isDrift = hasRealConflict.status === 'drift';
+          td.style.outline = `2px solid ${isDrift ? '#fb923c' : '#fb923c'}`; // même couleur, message différent
+          td.style.outlineOffset = '-2px';
+          td.title = isDrift
+            ? `🔶 Le planning réel a changé depuis la création de la sandbox : "${hasRealConflict.realValue || '(vide)'}" (était "${hasRealConflict.baselineValue || '(vide)'}"). Cette case n'a pas été éditée dans la sandbox.`
+            : `⚠️ Conflit : modifié à la fois dans la sandbox et sur le planning réel, avec des valeurs différentes ("${hasRealConflict.realValue || '(vide)'}" sur le réel, était "${hasRealConflict.baselineValue || '(vide)'}").`;
+        }
+
+        if (pending !== undefined) td.style.borderColor = 'var(--amber)';
+
+if (canEditCol(col.key)) {
+          td.addEventListener('dblclick', () => openSandboxDropdown(td, row, col.key));
+          td.addEventListener('click', (e) => {
+            if (isSandboxBrushMode || e.altKey) applySandboxBrushValue(row, col.key, td);
+          });
+        }
+	  }
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  });
+
+  applySandboxColVisibility();
+}
+
+
+
+function openSandboxDropdown(td, row, colKey) {
+  const dropdown = document.getElementById('edit-dropdown');
+  const rect = td.getBoundingClientRect();
+  dropdown.innerHTML = '';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'dd-search-input';
+  input.placeholder = 'Saisir ou choisir...';
+  input.value = (td.textContent === '[ Effacer ]') ? '' : td.textContent;
+  dropdown.appendChild(input);
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      confirmSandboxSelection(row, colKey, input.value.trim().toUpperCase(), td);
+    }
+  });
+
+  addDropdownItem(dropdown, '<span style="color:var(--red)">[ Effacer ]</span>', '', () => {
+    confirmSandboxSelection(row, colKey, '', td);
+  });
+
+  // Médecins déjà présents sur la ligne (hors colonne en cours et colonnes exemptées)
+  const alreadyOnRow = new Set();
+  DOCTOR_COLS.forEach(col => {
+    if (col === colKey) return;
+    if (CONFLICT_IGNORE_COLS.includes(col)) return;
+    const val = (row[col] || '').trim().toUpperCase();
+    if (val && val.length <= 6) alreadyOnRow.add(val);
+  });
+
+  const absIdx = buildAbsenceIndex();
+  const dateAbsences = absIdx.get(`${row.date}_${row.heure}`) || new Map();
+
+  const isEditingInterneCol = colKey.endsWith('_int') || colKey.endsWith('_int1') || colKey.endsWith('_int2');
+  const compteurs = {};
+  listeMedecins.forEach(m => compteurs[m.initiales.toUpperCase()] = 0);
+  sandboxData.forEach(r => {
+    DOCTOR_COLS.forEach(c => {
+      const val = (r[c] || '').trim().toUpperCase();
+      if (compteurs.hasOwnProperty(val)) compteurs[val]++;
+    });
+  });
+
+  const renderSuggestions = (filterText = "") => {
+    Array.from(dropdown.querySelectorAll('.dd-item:not(:first-of-type)')).forEach(el => el.remove());
+
+    const filteredMedecins = listeMedecins.filter(med => {
+      const medIsInterne = (med.fonction === 'interne');
+      return isEditingInterneCol ? medIsInterne : !medIsInterne;
+    }).filter(med => !alreadyOnRow.has(med.initiales.toUpperCase()));
+
+    const sortedMedecins = filteredMedecins.sort((a, b) =>
+      (compteurs[a.initiales.toUpperCase()] || 0) - (compteurs[b.initiales.toUpperCase()] || 0)
+    );
+
+    sortedMedecins.forEach(med => {
+      const init = med.initiales.toUpperCase();
+      if (filterText && !init.includes(filterText.toUpperCase())) return;
+
+      const isAbsent = dateAbsences.has(init);
+      const labelAbs = isAbsent ? ` <span style="color:var(--purple); font-size:9px;">(${dateAbsences.get(init).type})</span>` : '';
+      const colorStyle = med.fonction === 'interne' ? 'color:var(--purple);' : 'color:var(--white);';
+
+      addDropdownItem(dropdown,
+        `<span style="${colorStyle}">${init}${labelAbs}</span><span class="dd-count">${compteurs[init] || 0}</span>`,
+        init,
+        () => confirmSandboxSelection(row, colKey, init, td)
+      );
+    });
+  };
+
+  input.addEventListener('input', () => renderSuggestions(input.value));
+  renderSuggestions();
+  showDropdown(dropdown, rect);
+  setTimeout(() => input.focus(), 50);
+}
+
+
+async function compareSandboxWithReal() {
+  const btn = document.getElementById('btn-compare-sandbox');
+  btn.disabled = true;
+  btn.textContent = '⏳ Comparaison...';
+
+  try {
+    const sourceIds = sandboxData.map(r => r.source_id).filter(id => id != null);
+    if (sourceIds.length === 0) {
+      toast('Aucune ligne source à comparer', 'warning');
+      return;
+    }
+
+    const { data: realRows, error } = await _supabase
+      .from('planning')
+      .select('*')
+      .in('id', sourceIds);
+
+    if (error) throw error;
+
+    const realById = {};
+    realRows.forEach(r => { realById[r.id] = r; });
+
+    sandboxConflicts = {}; // garde les 'conflict' ET les 'drift', avec un champ status
+    let conflictCount = 0;
+    let driftCount = 0;
+
+    sandboxData.forEach(sbRow => {
+      const realRow = realById[sbRow.source_id];
+      if (!realRow) return;
+
+      const baselineRow = getBaselineRow(sbRow);
+      if (!baselineRow) return;
+
+      COLUMNS.forEach(col => {
+        if (col.group === 'meta') return;
+
+        const pending = pendingEditsSandbox[sbRow.id]?.[col.key];
+        const sandboxVal  = ((pending !== undefined ? pending : sbRow[col.key]) || '').trim();
+        const baselineVal = (baselineRow[col.key] || '').trim();
+        const realVal     = (realRow[col.key] || '').trim();
+
+        const realDrifted     = realVal !== baselineVal;
+        const sandboxModified = sandboxVal !== baselineVal;
+
+        if (realDrifted && sandboxModified && sandboxVal !== realVal) {
+          if (!sandboxConflicts[sbRow.id]) sandboxConflicts[sbRow.id] = {};
+          sandboxConflicts[sbRow.id][col.key] = {
+            status: 'conflict',
+            realValue: realVal,
+            baselineValue: baselineVal
+          };
+          conflictCount++;
+        } else if (realDrifted && !sandboxModified) {
+          if (!sandboxConflicts[sbRow.id]) sandboxConflicts[sbRow.id] = {};
+          sandboxConflicts[sbRow.id][col.key] = {
+            status: 'drift',
+            realValue: realVal,
+            baselineValue: baselineVal
+          };
+          driftCount++;
+        }
+      });
+    });
+
+    renderSandboxTable();
+
+    if (conflictCount > 0 || driftCount > 0) {
+      toast(`⚠️ ${conflictCount} conflit(s), 🔶 ${driftCount} changement(s) tiers détecté(s)`, 'warning');
+    } else {
+      toast('✓ Aucun écart — la sandbox est synchronisée');
+    }
+
+  } catch (err) {
+    toast('Erreur comparaison : ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Comparer avec le planning réel';
+  }
+}
+
+function confirmSandboxSelection(row, colKey, value, td) {
+  if (!pendingEditsSandbox[row.id]) pendingEditsSandbox[row.id] = {};
+  pendingEditsSandbox[row.id][colKey] = value;
+  td.textContent = value;
+  td.style.borderColor = 'var(--amber)';
+
+  const idx = sandboxData.findIndex(r => r.id === row.id);
+  if (idx !== -1) sandboxData[idx][colKey] = value;
+
+  closeDropdown();
+}
+
+async function saveSandboxPending() {
+  const btn = document.getElementById('btn-save-sandbox');
+  btn.disabled = true;
+  btn.textContent = '⏳ Sauvegarde...';
+
+  try {
+const sandboxResult = await applyPendingUpdates('planning_sandbox', pendingEditsSandbox);
+    pendingEditsSandbox = {};
+
+    if (sandboxResult.failedIds.length === 0) {
+      toast(`✓ ${sandboxResult.successIds.length} modification(s) sandbox sauvegardée(s)`);
+    } else {
+      console.warn('Échecs sandbox :', sandboxResult.failedDetails);
+      toast(`⚠️ ${sandboxResult.failedIds.length} modification(s) sandbox NON sauvegardée(s)`, 'error');
+    }
+
+    await loadSandboxData();
+  } catch (err) {
+    toast('Erreur sauvegarde sandbox : ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 Sauvegarder';
+  }
+}
+
+
+function applySandboxColVisibility() {
+  COLUMNS.forEach(col => {
+    if (col.group === 'meta') return;
+    const isInterneCol = col.key.endsWith('_int') || col.key.endsWith('_int1') || col.key.endsWith('_int2');
+    const shouldShow = visibleCols[col.key] && (!isInterneCol || showInternes);
+    const displayStyle = shouldShow ? '' : 'none';
+    document.querySelectorAll(`#sandbox-table [data-col="${col.key}"]`).forEach(cell => {
+      cell.style.display = displayStyle;
+    });
+  });
+
+  Object.keys(groupMap).forEach(group => {
+    const visibleCount = groupMap[group].filter(key => {
+      const isInterneCol = key.endsWith('_int') || key.endsWith('_int1') || key.endsWith('_int2');
+      return visibleCols[key] && (!isInterneCol || showInternes);
+    }).length;
+
+    const th = document.querySelector(`#sandbox-table-head .col-group[data-group="${group}"]`);
+    if (th) {
+      th.style.display = visibleCount > 0 ? '' : 'none';
+      if (visibleCount > 0) th.colSpan = visibleCount;
+    }
+  });
+}
+
+
+
+function applySandboxBrushValue(row, colKey, td) {
+  let val = document.getElementById('brush-value').value.trim();
+  const finalValue = (val.toLowerCase() === 'vide' || val === '') ? null : val.toUpperCase();
+
+  if (!pendingEditsSandbox[row.id]) pendingEditsSandbox[row.id] = {};
+  pendingEditsSandbox[row.id][colKey] = finalValue;
+  td.textContent = finalValue || '';
+  td.style.borderColor = 'var(--amber)';
+
+  const idx = sandboxData.findIndex(r => r.id === row.id);
+  if (idx !== -1) sandboxData[idx][colKey] = finalValue;
+}
+
+
+function openPushModal() {
+  if (!currentSandboxMeta) return;
+
+  document.getElementById('push-date-from').value = currentSandboxMeta.date_from;
+  document.getElementById('push-date-to').value   = currentSandboxMeta.date_to;
+
+  const grid = document.getElementById('push-group-grid');
+  grid.innerHTML = '';
+  Object.keys(groupMap).forEach(group => {
+    const chip = document.createElement('label');
+    chip.className = 'settings-group-chip active';
+    chip.style.color       = GROUP_COLORS[group] || 'var(--white)';
+    chip.style.borderColor = GROUP_COLORS[group] || 'var(--border)';
+    chip.dataset.group = group;
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.addEventListener('change', () => chip.classList.toggle('active', cb.checked));
+
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+
+    chip.appendChild(cb);
+    chip.appendChild(dot);
+    chip.appendChild(document.createTextNode(GROUP_LABELS[group] || group));
+    grid.appendChild(chip);
+  });
+
+  document.getElementById('push-step-select').style.display  = 'block';
+  document.getElementById('push-step-preview').style.display = 'none';
+  document.getElementById('push-modal').style.display = 'flex';
+}
+
+function closePushModal() {
+  document.getElementById('push-modal').style.display = 'none';
+}
+
+function backToPushSelect() {
+  document.getElementById('push-step-select').style.display  = 'block';
+  document.getElementById('push-step-preview').style.display = 'none';
+}
+
+
+async function prepareDiffPreview() {
+  const dateFrom = document.getElementById('push-date-from').value;
+  const dateTo   = document.getElementById('push-date-to').value;
+
+  const selectedGroups = [];
+  document.querySelectorAll('#push-group-grid .settings-group-chip input').forEach(cb => {
+    const group = cb.closest('label').dataset.group;
+    if (cb.checked && group) selectedGroups.push(group);
+  });
+
+  if (!dateFrom || !dateTo) {
+    toast('Sélectionne une période valide', 'warning');
+    return;
+  }
+  if (selectedGroups.length === 0) {
+    toast('Sélectionne au moins un groupe de colonnes', 'warning');
+    return;
+  }
+
+  // Comparaison fraîche (remplit sandboxConflicts à jour)
+  await compareSandboxWithReal();
+
+  const selectedCols = COLUMNS
+    .filter(c => selectedGroups.includes(c.group))
+    .map(c => c.key);
+
+  const rowsInPeriod = sandboxData.filter(r => r.date >= dateFrom && r.date <= dateTo);
+  const sourceIds = rowsInPeriod.map(r => r.source_id).filter(id => id != null);
+
+  if (sourceIds.length === 0) {
+    toast('Aucune ligne dans cette période', 'warning');
+    return;
+  }
+
+  const { data: realRows, error } = await _supabase
+    .from('planning')
+    .select('*')
+    .in('id', sourceIds);
+
+  if (error) {
+    toast('Erreur lecture planning réel : ' + error.message, 'error');
+    return;
+  }
+
+  const realById = {};
+  realRows.forEach(r => { realById[r.id] = r; });
+
+  pendingPushDiff = [];
+
+  rowsInPeriod.forEach(sbRow => {
+    const realRow = realById[sbRow.source_id];
+    if (!realRow) return;
+
+    const baselineRow = getBaselineRow(sbRow);
+
+    selectedCols.forEach(colKey => {
+      const pending = pendingEditsSandbox[sbRow.id]?.[colKey];
+      const sandboxVal  = ((pending !== undefined ? pending : sbRow[colKey]) || '').trim();
+      const realVal     = (realRow[colKey] || '').trim();
+      const baselineVal = (baselineRow?.[colKey] || '').trim();
+
+      // Rien à publier si la valeur sandbox finale == valeur réelle actuelle
+      if (sandboxVal === realVal) return;
+
+      const conflictEntry = sandboxConflicts[sbRow.id]?.[colKey] || null;
+      const status = conflictEntry ? conflictEntry.status : 'clean';
+
+      pendingPushDiff.push({
+        sandboxRowId: sbRow.id,
+        sourceId: sbRow.source_id,
+        date: sbRow.date,
+        heure: sbRow.heure,
+        colKey,
+        colLabel: COLUMNS.find(c => c.key === colKey)?.label || colKey,
+        sandboxVal,
+        realVal,
+        baselineVal,
+        status,
+        selected: status === 'clean'
+      });
+    });
+  });
+
+  renderDiffPreview();
+}
+function renderDiffPreview() {
+  document.getElementById('push-step-select').style.display  = 'none';
+  document.getElementById('push-step-preview').style.display = 'flex';
+
+  const summary    = document.getElementById('push-summary');
+  const warning     = document.getElementById('push-conflict-warning');
+  const list        = document.getElementById('push-diff-list');
+  const confirmBtn  = document.getElementById('btn-confirm-push');
+
+  list.innerHTML = '';
+
+  if (pendingPushDiff.length === 0) {
+    summary.textContent = 'Aucune différence détectée — rien à publier sur cette sélection.';
+    warning.style.display = 'none';
+    confirmBtn.disabled = true;
+    return;
+  }
+
+  const conflicts = pendingPushDiff.filter(d => d.status === 'conflict');
+  const drifts    = pendingPushDiff.filter(d => d.status === 'drift');
+  const clean     = pendingPushDiff.filter(d => d.status === 'clean');
+
+  updatePushSummary();
+
+  if (conflicts.length > 0 || drifts.length > 0) {
+    warning.style.display = 'block';
+    warning.innerHTML = `
+      ${conflicts.length > 0 ? `⚠️ <b>${conflicts.length} conflit(s)</b> : modifiés à la fois dans la sandbox et sur le planning réel, avec des valeurs différentes.<br>` : ''}
+      ${drifts.length > 0 ? `🔶 <b>${drifts.length} changement(s) tiers</b> : le planning réel a été modifié par quelqu'un d'autre depuis la création de la sandbox, sur une case que tu n'as pas éditée. Publier l'écraserait.<br>` : ''}
+      Coche manuellement chaque cellule que tu souhaites réellement publier.
+    `;
+  } else {
+    warning.style.display = 'none';
+  }
+
+  const statusOrder = { conflict: 0, drift: 1, clean: 2 };
+  const sorted = [...pendingPushDiff].sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
+
+  const statusStyles = {
+    conflict: { border: 'var(--red)',   bg: 'var(--red-dim)',    icon: '⚠️' },
+    drift:    { border: '#fb923c',      bg: '#fb923c20',         icon: '🔶' },
+    clean:    { border: 'var(--teal)',  bg: 'var(--navy)',       icon: '' }
+  };
+
+  sorted.forEach((d, idx) => {
+    const style = statusStyles[d.status];
+    const item = document.createElement('div');
+    item.style.cssText = `
+      display:flex; align-items:center; gap:10px; padding:8px 12px;
+      border-radius:6px; border-left:3px solid ${style.border};
+      background:${style.bg};
+      font-family:'DM Mono',monospace; font-size:11px;
+    `;
+
+    const dateStr = new Date(d.date + 'T00:00:00').toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
+
+let valueHtml;
+    if (d.status === 'clean') {
+      valueHtml = `
+        <span style="color:var(--gray)">${d.realVal || '(vide)'}</span>
+        <span style="color:var(--gray)"> → </span>
+        <span style="color:var(--teal)">${d.sandboxVal || '(vide)'}</span>
+      `;
+    } else {
+      // baseline (barré) → réel actuel → valeur qui sera réellement écrite si coché
+      valueHtml = `
+        <span style="color:var(--gray); text-decoration:line-through;">${d.baselineVal || '(vide)'}</span>
+        <span style="color:var(--gray)"> → </span>
+        <span style="color:${d.status === 'conflict' ? 'var(--red)' : '#fb923c'}; font-weight:600;">${d.realVal || '(vide)'}</span>
+        <span style="color:var(--gray)"> (réel) </span>
+        <span style="color:var(--gray)"> → </span>
+        <span style="color:var(--teal); font-weight:600;">${d.sandboxVal || '(vide)'}</span>
+        <span style="color:var(--gray)"> (si publié)</span>
+      `;
+    }
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = d.selected;
+    checkbox.style.cssText = 'width:16px; height:16px; cursor:pointer; flex-shrink:0;';
+    checkbox.addEventListener('change', () => {
+      d.selected = checkbox.checked;
+      updatePushSummary();
+    });
+
+    item.appendChild(checkbox);
+
+    const content = document.createElement('div');
+    content.style.cssText = 'flex:1; display:flex; align-items:center; gap:10px;';
+    content.innerHTML = `
+      <span style="color:var(--white); min-width:140px;">${dateStr} ${d.heure}</span>
+      <span style="color:var(--amber); min-width:70px;">${d.colLabel}</span>
+      <span style="flex:1;">${valueHtml}</span>
+      ${style.icon ? `<span>${style.icon}</span>` : ''}
+    `;
+    item.appendChild(content);
+
+    list.appendChild(item);
+  });
+}
+
+function updatePushSummary() {
+  const summary   = document.getElementById('push-summary');
+  const confirmBtn = document.getElementById('btn-confirm-push');
+  const selectedCount = pendingPushDiff.filter(d => d.selected).length;
+  summary.textContent = `${selectedCount} / ${pendingPushDiff.length} cellule(s) sélectionnée(s) pour publication.`;
+  confirmBtn.disabled = selectedCount === 0;
+}
+
+
+async function confirmPush() {
+  const toPush = pendingPushDiff.filter(d => d.selected);
+
+  if (toPush.length === 0) {
+    toast('Aucune cellule sélectionnée', 'warning');
+    return;
+  }
+
+  const finalConfirm = confirm(
+    `Publier ${toPush.length} modification(s) vers le planning réel ?\n\nCette action est irréversible.`
+  );
+  if (!finalConfirm) return;
+
+  const btn = document.getElementById('btn-confirm-push');
+  btn.disabled = true;
+  btn.textContent = '⏳ Publication...';
+
+  try {
+const byRow = {};
+    toPush.forEach(d => {
+      if (!byRow[d.sourceId]) byRow[d.sourceId] = {};
+      byRow[d.sourceId][d.colKey] = d.sandboxVal;
+    });
+
+    const pushResult = await applyPendingUpdates('planning', byRow);
+    if (pushResult.failedIds.length > 0) {
+      console.warn('Échecs publication :', pushResult.failedDetails);
+      toast(`⚠️ ${pushResult.failedIds.length} ligne(s) NON publiée(s) — vérifiez vos droits`, 'error');
+    }
+
+    const historyEntries = toPush
+      .filter(d => pushResult.successIds.includes(String(d.sourceId)))
+      .map(d => ({
+      modified_by : currentUser.login,
+      row_date    : d.date,
+      row_heure   : d.heure,
+      col_key     : d.colKey,
+      old_value   : d.realVal,
+      new_value   : d.sandboxVal
+    }));
+
+    const { error: historyError } = await _supabase
+      .from('planning_history')
+      .insert(historyEntries);
+
+    if (historyError) console.warn('Historique non enregistré :', historyError.message);
+
+    const sandboxRowsById = {};
+    sandboxData.forEach(r => { sandboxRowsById[r.id] = r; });
+
+    for (const d of toPush) {
+      const sbRow = sandboxRowsById[d.sandboxRowId];
+      if (!sbRow) continue;
+      const baselineRow = getBaselineRow(sbRow);
+      if (!baselineRow) continue;
+
+      await _supabase
+        .from('planning_sandbox_baseline')
+        .update({ [d.colKey]: d.sandboxVal })
+        .eq('id', baselineRow.id);
+    }
+
+    toast(`✓ ${toPush.length} modification(s) publiée(s) avec succès`);
+    closePushModal();
+    pendingPushDiff = [];
+
+    await loadData();
+    await loadSandboxData();
+
+
+  } catch (err) {
+    toast('Erreur publication : ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✅ Confirmer la publication';
+  }
+}
+async function deleteSandbox() {
+  if (!currentSandboxMeta) return;
+
+  const confirmDelete = confirm(
+    `Supprimer la sandbox active (${formatDate(currentSandboxMeta.date_from)} → ${formatDate(currentSandboxMeta.date_to)}) ?\n\nToutes les modifications non publiées seront perdues définitivement.`
+  );
+  if (!confirmDelete) return;
+
+  try {
+    // 1. Vider planning_sandbox
+    const { error: errSandbox } = await _supabase
+      .from('planning_sandbox')
+      .delete()
+      .gte('id', 0); // delete all rows (id is always >= 0)
+
+    if (errSandbox) throw errSandbox;
+
+    // 2. Vider planning_sandbox_baseline
+    const { error: errBaseline } = await _supabase
+      .from('planning_sandbox_baseline')
+      .delete()
+      .gte('id', 0);
+
+    if (errBaseline) throw errBaseline;
+
+    // 3. Supprimer la ligne sandbox_meta
+    const { error: errMeta } = await _supabase
+      .from('sandbox_meta')
+      .delete()
+      .eq('id', 1);
+
+    if (errMeta) throw errMeta;
+
+    // 4. Reset de l'état local
+    currentSandboxMeta = null;
+    sandboxData = [];
+    sandboxBaseline = [];
+    sandboxConflicts = {};
+    pendingEditsSandbox = {};
+
+    toast('Sandbox supprimée ✓');
+    renderSandboxState();
+
+  } catch (err) {
+    toast('Erreur suppression sandbox : ' + err.message, 'error');
+  }
+}
+// ══════════════════════════════════════════════════════════════════
+
+
 
 // --- FONCTIONS UTILITAIRES ---
 
@@ -3045,7 +4460,6 @@ function showDropdown(dropdown, rect) {
 }
 
 function confirmPlanningSelection(row, colKey, value, td) {
-  const oldVal = (allData.find(r => r.id === row.id)?.[colKey] || '').trim();
 
   if (!pendingEdits[row.id]) pendingEdits[row.id] = {};
   pendingEdits[row.id][colKey] = value;
@@ -3056,22 +4470,10 @@ function confirmPlanningSelection(row, colKey, value, td) {
   closeDropdown();
   buildStats();
 
-  // Enregistrement dans l'historique si la valeur a changé
-  if (value !== oldVal) {
-    _supabase.from('planning_history').insert({
-      modified_by : currentUser.login,
-      row_date    : row.date,
-      row_heure   : row.heure,
-      col_key     : colKey,
-      old_value   : oldVal,
-      new_value   : value
-    }).then(({ error }) => {
-      if (error) console.warn('Historique non enregistré :', error.message);
-    });
-  }
   // Charger silencieusement la valeur dans le pinceau
   const brushInput = document.getElementById('brush-value');
   if (brushInput && value) brushInput.value = value;
+  if (currentTab === 'secretariat') renderSecretariat(); // à partir de toutes les colonnes (dont les BOX) : on la redessine pour qu'elle reflète immédiatement la modification.
 }
 
 async function confirmAbsenceSelection(row, colKey, value, td) {
@@ -3101,30 +4503,81 @@ function closeDropdown() {
   document.getElementById('edit-dropdown').style.display = 'none';
 }
 
+async function applyPendingUpdates(tableName, pendingEditsObj) {
+  const result = { successIds: [], failedIds: [], failedDetails: [] };
+
+  for (const rowId in pendingEditsObj) {
+    const updates = pendingEditsObj[rowId];
+    const { data, error } = await _supabase
+      .from(tableName)
+      .update(updates)
+      .eq('id', rowId)
+      .select();
+
+    if (error) {
+      result.failedIds.push(rowId);
+      result.failedDetails.push({ rowId, reason: error.message });
+    } else if (!data || data.length === 0) {
+      result.failedIds.push(rowId);
+      result.failedDetails.push({ rowId, reason: 'Aucune ligne modifiée (droits insuffisants ou ligne introuvable)' });
+    } else {
+      result.successIds.push(rowId);
+    }
+  }
+
+  return result;
+}
 async function saveAllPending() {
-  // Désactiver le bouton pendant l'envoi
   const saveBtn = document.getElementById('btn-save-all');
   saveBtn.disabled = true;
   saveBtn.textContent = "⏳ Sauvegarde...";
 
   try {
-    // 1. Sauvegarde Planning Clinique
-    for (const rowId in pendingEdits) {
-      const updates = pendingEdits[rowId];
-      const { error } = await _supabase.from('planning').update(updates).eq('id', rowId);
-      if (error) throw error;
+    // 1. Sauvegarde Planning Clinique (avec vérification)
+    const planningResult = await applyPendingUpdates('planning', pendingEdits);
+
+    // 2. Sauvegarde Absences (avec vérification)
+    const absencesResult = await applyPendingUpdates('absences', pendingEditsAbs);
+
+    // 3. Historisation — uniquement pour les lignes réellement sauvegardées
+    const historyEntries = [];
+    planningResult.successIds.forEach(rowId => {
+      const updates  = pendingEdits[rowId];
+      const original = editModeSnapshot[rowId] || {};
+      for (const colKey in updates) {
+        const newVal = (updates[colKey] || '').toString().trim();
+        const oldVal = (original[colKey] || '').toString().trim();
+        if (newVal !== oldVal) {
+          historyEntries.push({
+            modified_by : currentUser.login,
+            row_date    : original.date,
+            row_heure   : original.heure,
+            col_key     : colKey,
+            old_value   : oldVal,
+            new_value   : newVal
+          });
+        }
+      }
+    });
+    if (historyEntries.length > 0) {
+      const { error: histError } = await _supabase.from('planning_history').insert(historyEntries);
+      if (histError) console.warn('Historique non enregistré :', histError.message);
     }
-    // 2. Sauvegarde Absences
-    for (const rowId in pendingEditsAbs) {
-                 const updatesAbs = pendingEditsAbs[rowId];
-                 const { error } = await _supabase.from('absences').update(updatesAbs).eq('id', rowId);
-                 if (error) throw error;
-           }
+
+    // 4. Toast honnête
+    const totalOK     = planningResult.successIds.length + absencesResult.successIds.length;
+    const totalFailed = planningResult.failedIds.length  + absencesResult.failedIds.length;
+
+    if (totalFailed === 0) {
+      toast(`✓ ${totalOK} modification(s) sauvegardée(s)`);
+    } else {
+      console.warn('Échecs de sauvegarde :', planningResult.failedDetails, absencesResult.failedDetails);
+      toast(`⚠️ ${totalFailed} modification(s) NON sauvegardée(s) sur ${totalOK + totalFailed} — vos droits ont peut-être changé, reconnectez-vous`, 'error');
+    }
 
     pendingEdits = {};
     pendingEditsAbs = {};
-    toast('Modifications sauvegardées ✓');
-    
+
     // On quitte le mode édition proprement
     isEditMode = false;
     document.body.classList.remove('edit-mode');
@@ -3132,26 +4585,28 @@ async function saveAllPending() {
     document.getElementById('btn-toggle-edit').classList.replace('btn-danger', 'btn-ghost');
     saveBtn.style.display = 'none';
 
+    isBrushMode = false;
+    const btnBrush = document.getElementById('btn-brush');
+    if (btnBrush) {
+      btnBrush.style.background = 'transparent';
+      btnBrush.style.borderColor = 'var(--border)';
+    }
+    document.getElementById('brush-container').style.display = 'none';
+    document.getElementById('brush-picker-wrapper').style.display = 'none';
 
-           isBrushMode = false; // Désactive la logique du pinceau
-           const btnBrush = document.getElementById('btn-brush');
-           if (btnBrush) {
-               btnBrush.style.background = 'transparent';
-               btnBrush.style.borderColor = 'var(--border)';
-            }
-           document.getElementById('brush-container').style.display = 'none';
-           document.getElementById('brush-picker-wrapper').style.display = 'none';
-
-
+    // 5. Rechargement systématique depuis Supabase — révèle tout échec silencieux
     await loadData();
+    await loadAbsences();
+
   } catch (err) {
+    console.error(err);
     toast('Erreur sauvegarde : ' + err.message, 'error');
   } finally {
     saveBtn.disabled = false;
     saveBtn.textContent = "💾 Sauvegarder";
   }
 }
-
+	
 function buildStats() {
   const list = document.getElementById('stats-list');
   if (!list) return;
@@ -3276,6 +4731,8 @@ async function setNewPassword() {
   toast('Mot de passe enregistré ✓');
   await applySession(window._pendingSession);
 }
+
+
 function printPlanning() {
   const dateFrom = document.getElementById('filter-date-from').value;
   const dateTo   = document.getElementById('filter-date-to').value;
@@ -3349,7 +4806,7 @@ function printPlanning() {
                       : '';
     const rowBg = isConflict  ? 'background:#fff5f5;'
                 : isAccepted  ? 'background:#fffbeb;'
-                : (row.heure === '9h00') ? 'background:#fff;' : 'background:#f9fafb;';
+                : (row.heure === '09:00:00') ? 'background:#fff;' : 'background:#f9fafb;';
 
     const newDayBorder = row.date !== lastDate
       ? 'border-top:1.5px solid #8fa3b5;' : '';
@@ -3479,7 +4936,7 @@ function printPlanning() {
   </div>
 
   <div class="page-footer">
-    <span>Planning Neurologie v1.10 · Impression automatique</span>
+    <span>Planning Neurologie v1.20 · Impression automatique</span>
     <span>${fmt(dateFrom)} – ${fmt(dateTo)}</span>
   </div>
 
