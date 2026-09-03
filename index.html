@@ -2220,7 +2220,12 @@ function buildColToggles() {
       label.classList.toggle('active', cb.checked);
       applyColVisibility();
     });
-    
+	  
+    label.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      isolateColumnGroup(group);
+    });
+	  
     const dot = document.createElement('span'); 
     dot.className = 'dot';
     
@@ -2271,6 +2276,23 @@ function applyColVisibility() {
 
 const ABS_TYPE_COLORS = { CA:'#93c5fd', CF:'#c084fc', Ens:'#6ee7b7', Rech:'#fbbf24', Autre:'#f87171' };
 
+function isolateColumnGroup(targetGroup) { //permet au double clic d'isoler un toggle
+  Object.keys(groupMap).forEach(group => {
+    const isVisible = group === targetGroup;
+    groupMap[group].forEach(key => { visibleCols[key] = isVisible; });
+  });
+
+  document.querySelectorAll('#col-toggles .group-toggle').forEach(label => {
+    const group = label.dataset.group;
+    const isActive = group === targetGroup;
+    label.classList.toggle('active', isActive);
+    const cb = label.querySelector('input[type="checkbox"]');
+    if (cb) cb.checked = isActive;
+  });
+
+  applyColVisibility();
+}
+	
 function buildAbsTypeToggles() {
   const container = document.getElementById('abs-type-toggles');
   ABS_TYPES.forEach(type => {
@@ -2445,14 +2467,26 @@ function clearFilters() {
   doctorFilter = null;
   document.querySelectorAll('.stat-row').forEach(r => r.classList.remove('active-filter'));
      // RÉINITIALISER LES TOGGLES DE GROUPES
-  COLUMNS.forEach(col => { visibleCols[col.key] = true; });
-  showInternes = false;
+  const prefs = window._userPrefs || {};
+  const preferredGroups = Array.isArray(prefs.visible_groups)
+    ? prefs.visible_groups
+    : Object.keys(groupMap); // si aucune préférence enregistrée, tout visible (comportement actuel)
+
+  Object.keys(groupMap).forEach(group => {
+    const isVisible = preferredGroups.includes(group);
+    groupMap[group].forEach(key => { visibleCols[key] = isVisible; });
+  });
+
+  showInternes = typeof prefs.show_internes === 'boolean' ? prefs.show_internes : false;
      const chkInternes = document.getElementById('chk-show-internes');
-     if (chkInternes) chkInternes.checked = false;
+     if (chkInternes) chkInternes.checked = showInternes;
+
   document.querySelectorAll('#col-toggles .group-toggle').forEach(label => {
-        label.classList.add('active');
+        const group = label.dataset.group;
+        const isActive = preferredGroups.includes(group);
+        label.classList.toggle('active', isActive);
         const cb = label.querySelector('input[type="checkbox"]');
-        if (cb) cb.checked = true;
+        if (cb) cb.checked = isActive;
      });
   applyFilters();
   applyColVisibility();
@@ -3000,10 +3034,14 @@ function openPlanningDropdown(td, row, colKey) {
   });
 
   // 3. CALCUL DES COMPTEURS POUR LES SUGGESTIONS
+  const colGroup   = (COLUMNS.find(c => c.key === colKey) || {}).group;
+  const groupCols  = groupMap[colGroup] || [colKey]; // sécurité si jamais le groupe n'est pas trouvé
+  const groupColor = GROUP_COLORS[colGroup] || 'var(--white)';
+
   const compteurs = {};
   listeMedecins.forEach(m => compteurs[m.initiales.toUpperCase()] = 0);
   currentFilteredRows.forEach(r => {
-    DOCTOR_COLS.forEach(c => {
+    groupCols.forEach(c => {
       const val = (r[c] || '').trim().toUpperCase();
       if (compteurs.hasOwnProperty(val)) compteurs[val]++;
     });
@@ -3061,7 +3099,7 @@ const renderSuggestions = (filterText = "") => {
       const colorStyle = med.fonction === 'interne' ? 'color:var(--purple);' : 'color:var(--white);';
 
       addDropdownItem(dropdown, 
-        `<span style="${colorStyle}">${init}${labelAbs}</span><span class="dd-count">${compteurs[init] || 0}</span>`, 
+        `<span style="${colorStyle}">${init}${labelAbs}</span><span class="dd-count" style="color:${groupColor}">${compteurs[init] || 0}</span>`, 
         init, 
         () => confirmPlanningSelection(row, colKey, init, td)
       );
@@ -3082,10 +3120,14 @@ function openPlanningDropdownReadOnly(td, row, colKey) {
   dropdown.innerHTML = '';
 
   // Compteurs par colonne (comme dans openPlanningDropdown)
+  const colGroup   = (COLUMNS.find(c => c.key === colKey) || {}).group;
+  const groupCols  = groupMap[colGroup] || [colKey]; // sécurité si jamais le groupe n'est pas trouvé
+  const groupColor = GROUP_COLORS[colGroup] || 'var(--white)';
+
   const compteurs = {};
   listeMedecins.forEach(m => compteurs[m.initiales.toUpperCase()] = 0);
   currentFilteredRows.forEach(r => {
-    DOCTOR_COLS.forEach(c => {
+    groupCols.forEach(c => {
       const val = (r[c] || '').trim().toUpperCase();
       if (compteurs.hasOwnProperty(val)) compteurs[val]++;
     });
@@ -3128,7 +3170,7 @@ function openPlanningDropdownReadOnly(td, row, colKey) {
     item.className = 'dd-item';
     item.style.cursor = 'default';
     item.innerHTML = `<span style="${colorStyle}">${init}${labelAbs}</span>
-                      <span class="dd-count">${compteurs[init] || 0}</span>`;
+                      <span class="dd-count" style="color:${groupColor}">${compteurs[init] || 0}</span>`;
     dropdown.appendChild(item);
   });
 
