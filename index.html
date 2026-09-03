@@ -3004,7 +3004,7 @@ function openPlanningDropdown(td, row, colKey) {
   listeMedecins.forEach(m => compteurs[m.initiales.toUpperCase()] = 0);
   currentFilteredRows.forEach(r => {
     //DOCTOR_COLS.forEach(c => {
-      const val = (r[c] || '').trim().toUpperCase();
+      const val = (r[colKey] || '').trim().toUpperCase();
       if (compteurs.hasOwnProperty(val)) compteurs[val]++;
     //});
   });
