@@ -1,3 +1,44 @@
+1.21
+change of schema in supabase for better organization: commun and neuroplanning.
+MAIN SQL code was: -- Création des schémas
+CREATE SCHEMA commun;
+CREATE SCHEMA neuroplanning;
+
+-- Déplacement des tables partagées
+ALTER TABLE public.profiles     SET SCHEMA commun;
+ALTER TABLE public.neurologues  SET SCHEMA commun;
+ALTER TABLE public.annonces     SET SCHEMA commun;
+ALTER FUNCTION public.get_email_from_hospital_id(text) SET SCHEMA commun;
+
+-- Déplacement des tables spécifiques à Neuroplanning
+ALTER TABLE public.planning                   SET SCHEMA neuroplanning;
+ALTER TABLE public.absences                   SET SCHEMA neuroplanning;
+ALTER TABLE public.conflict_acceptances       SET SCHEMA neuroplanning;
+ALTER TABLE public.planning_history           SET SCHEMA neuroplanning;
+ALTER TABLE public.planning_sandbox           SET SCHEMA neuroplanning;
+ALTER TABLE public.planning_sandbox_baseline  SET SCHEMA neuroplanning;
+ALTER TABLE public.sandbox_meta               SET SCHEMA neuroplanning;
+
+-- Droits d'accès (indispensable, sinon le client JS ne pourra rien lire)
+GRANT USAGE ON SCHEMA commun TO anon, authenticated;
+GRANT USAGE ON SCHEMA neuroplanning TO anon, authenticated;
+
+GRANT ALL ON ALL TABLES IN SCHEMA commun TO anon, authenticated;
+GRANT ALL ON ALL TABLES IN SCHEMA neuroplanning TO anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION commun.get_email_from_hospital_id(text) TO anon, authenticated;
+
+then weird but needed to correct here:
+CREATE OR REPLACE FUNCTION commun.get_email_from_hospital_id(h_id text)
+ RETURNS text
+ LANGUAGE sql
+ SECURITY DEFINER
+AS $function$
+  SELECT email FROM commun.profiles WHERE hospital_id = h_id LIMIT 1;
+$function$;
+
+AND MOST IMPORTANTLY: dont forget to go in settings > data api > exposed schemas and expose all new schema
+
 1.20
 -ajouts cosmétiques (lignes verticales et horizontales)
 -même les viewers peuvent double cliquer pour vérifier quel médecin est dispo sur un poste (dans le planning)
