@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audit & Optimization d'attribution des Box - NeuroPlanning</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Supabase JS Client v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- PapaParse for local CSV processing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen p-4 sm:p-6 lg:p-8">
+
+  <div class="max-w-7xl mx-auto space-y-6">
+    
+    <!-- En-tête principal -->
+    <header class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="p-2 bg-indigo-100 text-indigo-700 rounded-lg text-lg">
+            <i class="fa-solid fa-hospital-user"></i>
+          </span>
+          <h1 class="text-2xl font-bold text-slate-900">Audit & Optimization d'Attribution des Boxs</h1>
+        </div>
+        <p class="text-sm text-slate-500 mt-1">
+          Contrôle d'adéquation entre le planning prévisionnel (Supabase) et les rendez-vous effectifs (CSV).
+        </p>
+      </div>
+      
+      <!-- Connecteur Supabase Status Indicator -->
+      <div id="connectionStatus" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+        <span class="w-2 h-2 rounded-full bg-slate-400"></span> Supabase : Prêt
+      </div>
+    </header>
+
+    <!-- Panneau de chargement et d'action -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-500">Sources de Données</h2>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Supabase Database Info (Automatique) -->
+        <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold uppercase text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">Base Supabase</span>
+              <i class="fa-solid fa-database text-slate-400"></i>
+            </div>
+            <p class="text-xs text-slate-600"><strong>Planning :</strong> <code class="text-slate-800">neuroplanning.planning</code></p>
+            <p class="text-xs text-slate-600 mt-1"><strong>Neurologues :</strong> <code class="text-slate-800">commun.neurologues</code></p>
+          </div>
+          <span class="text-[11px] text-emerald-600 font-medium mt-3 flex items-center gap-1">
+            <i class="fa-solid fa-check-circle"></i> Connexion automatique configurée
+          </span>
+        </div>
+
+<!-- Zone de glisser-déposer (Drag & Drop) -->
+<div id="dropZone" class="border-2 border-dashed border-indigo-200 rounded-xl bg-indigo-50/50 p-6 text-center hover:bg-indigo-50 hover:border-indigo-400 transition cursor-pointer relative">
+  <input type="file" id="csvRdv" accept=".csv" class="hidden" />
+  
+  <div class="flex flex-col items-center justify-center space-y-2 pointer-events-none">
+    <svg class="w-10 h-10 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 0115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+    </svg>
+    <p class="text-sm font-semibold text-slate-700">
+      Glissez-déposez le fichier <span class="text-indigo-600">ListeRdVParRessource.csv</span> ici
+    </p>
+    <p class="text-xs text-slate-500">ou cliquez pour parcourir vos fichiers</p>
+    <p id="fileNameDisplay" class="text-xs font-bold text-emerald-600 mt-2 hidden"></p>
+  </div>
+</div>
+
+        <!-- CSV Upload pour la liste des RDV
+        <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold uppercase text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">Fichier RDV Local</span>
+              <i class="fa-solid fa-file-csv text-slate-400"></i>
+            </div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Liste des RDV par Ressource (CSV)</label>
+            <input type="file" id="csvRdv" accept=".csv" class="block w-full text-xs text-slate-500 file:mr-2 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition cursor-pointer"/>
+          </div>
+          <span class="text-[11px] text-slate-500 mt-2">Format attendu : colonnes Date, Heure, Ressource</span>
+        </div>
+      </div> -->
+
+      <!-- Bouton d'analyse principal -->
+      <button id="btnAnalyse" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center gap-2">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <span>Charger les données & Lancer l'Analyse</span>
+      </button>
+    </div>
+
+    <!-- Cartouches KPI dynamiques avec filtres -->
+    <div id="kpiContainer" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      
+      <!-- GREEN (Vert / Justifiés) -->
+      <label class="cursor-pointer bg-emerald-50 p-4 rounded-xl border border-emerald-200 shadow-sm flex justify-between items-center hover:bg-emerald-100/70 transition">
+        <div class="space-y-1">
+          <span class="text-[11px] font-bold text-emerald-800 uppercase tracking-wider block">Boxs Justifiés (≥ 1 Pt)</span>
+          <div id="kpiOk" class="text-3xl font-extrabold text-emerald-900">0</div>
+        </div>
+        <div class="flex flex-col items-end gap-2">
+          <input type="checkbox" id="filterOk" checked class="w-5 h-5 text-emerald-600 rounded border-emerald-300 focus:ring-emerald-500 cursor-pointer">
+          <span class="text-[10px] text-emerald-700 font-medium">Filtrer</span>
+        </div>
+      </label>
+
+      <!-- RED (Rouge / Inutilisés) -->
+      <label class="cursor-pointer bg-rose-50 p-4 rounded-xl border border-rose-200 shadow-sm flex justify-between items-center hover:bg-rose-100/70 transition">
+        <div class="space-y-1">
+          <span class="text-[11px] font-bold text-rose-800 uppercase tracking-wider block">Boxs Inutilisés (0 Pt)</span>
+          <div id="kpiAlert" class="text-3xl font-extrabold text-rose-900">0</div>
+        </div>
+        <div class="flex flex-col items-end gap-2">
+          <input type="checkbox" id="filterAlert" checked class="w-5 h-5 text-rose-600 rounded border-rose-300 focus:ring-rose-500 cursor-pointer">
+          <span class="text-[10px] text-rose-700 font-medium">Filtrer</span>
+        </div>
+      </label>
+
+      <!-- PURPLE (Violet / Patient sans Box) -->
+      <label class="cursor-pointer bg-purple-50 p-4 rounded-xl border border-purple-200 shadow-sm flex justify-between items-center hover:bg-purple-100/70 transition">
+        <div class="space-y-1">
+          <span class="text-[11px] font-bold text-purple-800 uppercase tracking-wider block">Patients Sans Box Défini</span>
+          <div id="kpiNoBox" class="text-3xl font-extrabold text-purple-900">0</div>
+        </div>
+        <div class="flex flex-col items-end gap-2">
+          <input type="checkbox" id="filterNoBox" checked class="w-5 h-5 text-purple-600 rounded border-purple-300 focus:ring-purple-500 cursor-pointer">
+          <span class="text-[10px] text-purple-700 font-medium">Filtrer</span>
+        </div>
+      </label>
+
+      <!-- YELLOW (Jaune / Médecins Inconnus) -->
+      <label class="cursor-pointer bg-amber-50 p-4 rounded-xl border border-amber-200 shadow-sm flex justify-between items-center hover:bg-amber-100/70 transition">
+        <div class="space-y-1">
+          <span class="text-[11px] font-bold text-amber-800 uppercase tracking-wider block">Inconnus / Hors Répertoire</span>
+          <div id="kpiUnknown" class="text-3xl font-extrabold text-amber-900">0</div>
+        </div>
+        <div class="flex flex-col items-end gap-2">
+          <input type="checkbox" id="filterUnknown" checked class="w-5 h-5 text-amber-600 rounded border-amber-300 focus:ring-amber-500 cursor-pointer">
+          <span class="text-[10px] text-amber-700 font-medium">Filtrer</span>
+        </div>
+      </label>
+    </div>
+
+    <!-- Tableau de Résultats Chronologiques -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
+        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+          <i class="fa-solid fa-list-check text-slate-500"></i>
+          Détail de l'Analyse Chronologique
+        </h3>
+        <span id="resultCounter" class="text-xs text-slate-500 font-medium">0 élément(s) affiché(s)</span>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-100 text-slate-600 border-b border-slate-200 font-semibold text-xs uppercase tracking-wider">
+            <tr>
+              <th class="py-3 px-4">Date</th>
+              <th class="py-3 px-4">Créneau</th>
+              <th class="py-3 px-4">Box Planning</th>
+              <th class="py-3 px-4">Initiales</th>
+              <th class="py-3 px-4">Médecin / Ressource</th>
+              <th class="py-3 px-4 text-center">Patients RDV</th>
+              <th class="py-3 px-4">Statut d'Occupation</th>
+            </tr>
+          </thead>
+          <tbody id="resultBody" class="divide-y divide-slate-100">
+            <tr>
+              <td colspan="7" class="py-12 text-center text-slate-400">
+                <i class="fa-solid fa-arrow-up-from-bracket text-3xl mb-2 text-slate-300 block"></i>
+                Veuillez sélectionner le fichier CSV des RDV et cliquer sur "Lancer l'Analyse".
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Configuration Client Supabase
+    const SUPABASE_URL = 'https://yseaujinbdwxpcelsywr.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_7uC727-tO92zxGsAwCqBnA_E9oX_Xw8';
+    
+    // Initialisation du client Supabase avec le schéma neuroplanning
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      db: { schema: 'neuroplanning' }
+    });
+
+    let allResults = []; // Stockage global pour le filtrage interactif
+
+    // Utilitaires de nettoyage et normalisation de texte
+    function cleanText(str) {
+      if (!str) return '';
+      return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .toUpperCase()
+                .replace(/[^A-Z0-9]/g, '');
+    }
+
+    // Extrait le nom de famille de la chaîne Ressource (ex: "026NEU2PLAV-PLANTE BORDENEUVE" -> "PLANTE BORDENEUVE")
+    function extractNameFromRessource(ressourceStr) {
+      if (!ressourceStr) return '';
+      const parts = ressourceStr.split('-');
+      let rawName = parts.length > 1 ? parts.slice(1).join('-') : parts[0];
+      rawName = rawName.replace(/^(DR|MME|MR)\s+/i, '').replace(/\(.*\)/g, '').trim();
+      return cleanText(rawName);
+    }
+
+    // Normalisation de l'heure vers la demi-journée (Matin / Apres-midi)
+    function getSlotFromTime(timeStr) {
+      if (!timeStr) return '09:00:00';
+      const hour = parseInt(timeStr.split(':')[0], 10);
+      return hour >= 13 ? '13:30:00' : '09:00:00';
+    }
+
+    // Parsage de fichier CSV local via PapaParse
+    function parseCSV(file) {
+      return new Promise((resolve) => {
+        Papa.parse(file, {
+          header: true,
+          skipEmptyLines: true,
+          delimitersToGuess: [',', ';', '\t'],
+          complete: (results) => resolve(results)
+        });
+      });
+    }
+
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('csvRdv');
+const fileNameDisplay = document.getElementById('fileNameDisplay');
+
+// Clic sur la zone -> déclenche le sélecteur de fichier classique
+dropZone.addEventListener('click', () => fileInput.click());
+
+// Changement via le sélecteur de fichier manuel
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length > 0) {
+    updateFileName(fileInput.files[0].name);
+  }
+});
+
+// Événements de survol (Drag)
+['dragenter', 'dragover'].forEach(eventName => {
+  dropZone.addEventListener(eventName, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.add('border-indigo-600', 'bg-indigo-100/70');
+  }, false);
+});
+
+['dragleave', 'drop'].forEach(eventName => {
+  dropZone.addEventListener(eventName, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.remove('border-indigo-600', 'bg-indigo-100/70');
+  }, false);
+});
+
+// Déposer le fichier (Drop)
+dropZone.addEventListener('drop', (e) => {
+  const dt = e.dataTransfer;
+  const files = dt.files;
+
+  if (files.length > 0) {
+    fileInput.files = files; // Assigne le fichier déposé au FileInput
+    updateFileName(files[0].name);
+  }
+});
+
+// Afficher le nom du fichier sélectionné
+function updateFileName(name) {
+  fileNameDisplay.innerText = `📄 Fichier chargé : ${name}`;
+  fileNameDisplay.classList.remove('hidden');
+}
+
+
+    document.getElementById('btnAnalyse').addEventListener('click', async () => {
+      const fileRdv = document.getElementById('csvRdv').files[0];
+      const statusEl = document.getElementById('connectionStatus');
+
+      if (!fileRdv) {
+        alert("Veuillez d'abord sélectionner le fichier CSV de la liste des RDV par Ressource.");
+        return;
+      }
+
+      // Mise à jour de l'UI
+      statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span> Chargement Supabase...`;
+      statusEl.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200";
+
+      try {
+        // 1. Récupération parallèle depuis Supabase et du CSV local
+        const [planningRes, neuroRes, dataRdv] = await Promise.all([
+          supabaseClient.from('planning').select('*'),
+          supabaseClient.schema('commun').from('neurologues').select('*'),
+          parseCSV(fileRdv)
+        ]);
+
+        if (planningRes.error) throw new Error("Erreur Planning: " + planningRes.error.message);
+        if (neuroRes.error) throw new Error("Erreur Neurologues: " + neuroRes.error.message);
+
+        const dataPlanning = planningRes.data || [];
+        const dataNeuro = neuroRes.data || [];
+
+        statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Supabase : Connecté`;
+        statusEl.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200";
+
+        // 2. Traitement des Neurologues : Dictionnaires de recherche
+        const neurologuesMap = {};
+        const cleanNameToInit = {};
+
+        dataNeuro.forEach(row => {
+          const init = (row.initiales || '').trim();
+          const fullName = (row.nom_complet || row.nom || '').trim();
+          if (init && fullName) {
+            const cleanFull = cleanText(fullName);
+            neurologuesMap[init] = { nomComplet: fullName, cleanNomComplet: cleanFull };
+            cleanNameToInit[cleanFull] = init;
+          }
+        });
+
+        // Fonction d'appariement Ressource -> Initiales
+        function getInitFromRessource(ressourceStr) {
+          const cleanRes = extractNameFromRessource(ressourceStr);
+          if (!cleanRes) return null;
+          for (const [cleanFull, init] of Object.entries(cleanNameToInit)) {
+            if (cleanFull.includes(cleanRes)) return init;
+          }
+          return null;
+        }
+
+        // 3. Traitement du Planning Supabase
+        const allocatedBoxes = {}; // Key: "YYYY-MM-DD_09:00:00_INIT" -> [ "BOX1", "BOX2" ]
+        dataPlanning.forEach(row => {
+          const dateVal = (row.date || '').trim();
+          const timeVal = (row.heure || row.creneau || '09:00:00').trim();
+          if (!dateVal) return;
+
+          Object.keys(row).forEach(col => {
+            if (col.toUpperCase().startsWith('BOX')) {
+              const init = (row[col] || '').trim();
+              if (init && init.toUpperCase() !== 'NULL') {
+                const key = `${dateVal}_${timeVal}_${init}`;
+                if (!allocatedBoxes[key]) allocatedBoxes[key] = [];
+                allocatedBoxes[key].push(col.toUpperCase());
+              }
+            }
+          });
+        });
+
+
+        // 4. Indexation des RDV du fichier CSV
+        const rdvCounts = {}; // Key: "YYYY-MM-DD_09:00:00_KEY" -> Count
+        dataRdv.data.forEach(row => {
+          const rawDate = row.Date || row.date || row.Date_RDV;
+          const rawRessource = row.Ressource || row.ressource;
+          if (!rawDate || !rawRessource) return;
+
+          let dateKey = rawDate.trim();
+          if (dateKey.includes('/')) {
+            const p = dateKey.split('/');
+            dateKey = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+          }
+
+          const slotKey = getSlotFromTime(row.Heure || row.heure);
+          const init = getInitFromRessource(rawRessource);
+          const keyRef = init || `RAW_${extractNameFromRessource(rawRessource)}`;
+
+          const key = `${dateKey}_${slotKey}_${keyRef}`;
+          rdvCounts[key] = (rdvCounts[key] || 0) + 1;
+        });
+
+        // 4.5. Détermination de la fenêtre temporelle du fichier RDV
+	const rdvDates = Object.keys(rdvCounts).map(k => k.split('_')[0]).filter(Boolean).sort();
+	const minDate = rdvDates[0];
+	const maxDate = rdvDates[rdvDates.length - 1];
+
+	console.log(`Fenêtre temporelle détectée : du ${minDate} au ${maxDate}`);
+
+        // 5. Unification et catégorisation des données
+        allResults = [];
+        const processedKeys = new Set();
+
+        // A) Analyse des Boxs attribués dans le planning
+        Object.keys(allocatedBoxes).forEach(key => {
+          processedKeys.add(key);
+          const [dateVal, timeVal, init] = key.split('_');
+if (minDate && maxDate) {
+    if (dateVal < minDate || dateVal > maxDate) return;
+  }
+processedKeys.add(key);
+          const boxes = allocatedBoxes[key].join(', ');
+          const nbPatients = rdvCounts[key] || 0;
+          const neuroObj = neurologuesMap[init];
+
+          if (!neuroObj) {
+            // Médecin Inconnu ou non répertorié dans la table neurologues
+            allResults.push({
+              date: dateVal, time: timeVal, box: boxes, init: init,
+              nom: `Inconnu (${init})`, patients: nbPatients, category: 'YELLOW'
+            });
+          } else {
+            const nom = neuroObj.nomComplet;
+            if (nbPatients >= 1) {
+              allResults.push({
+                date: dateVal, time: timeVal, box: boxes, init: init,
+                nom: nom, patients: nbPatients, category: 'GREEN'
+              });
+            } else {
+              allResults.push({
+                date: dateVal, time: timeVal, box: boxes, init: init,
+                nom: nom, patients: 0, category: 'RED'
+              });
+            }
+          }
+        });
+
+        // B) Analyse des RDV de la liste sans Box au planning
+        Object.keys(rdvCounts).forEach(key => {
+          if (!processedKeys.has(key)) {
+            const [dateVal, timeVal, keyRef] = key.split('_');
+            const nbPatients = rdvCounts[key];
+
+            if (keyRef.startsWith('RAW_')) {
+              const rawName = keyRef.replace('RAW_', '');
+              allResults.push({
+                date: dateVal, time: timeVal, box: 'AUCUN', init: 'N/A',
+                nom: `Ressource: ${rawName}`, patients: nbPatients, category: 'YELLOW'
+              });
+            } else {
+              const neuroObj = neurologuesMap[keyRef];
+              allResults.push({
+                date: dateVal, time: timeVal, box: 'AUCUN', init: keyRef,
+                nom: neuroObj ? neuroObj.nomComplet : keyRef, patients: nbPatients, category: 'PURPLE'
+              });
+            }
+          }
+        });
+
+        // 6. TRI CHRONOLOGIQUE STRICT (Date -> Heure)
+        allResults.sort((a, b) => {
+          if (a.date !== b.date) return a.date.localeCompare(b.date);
+          return a.time.localeCompare(b.time);
+        });
+
+        // 7. Mise à jour des totaux KPI
+        const countGreen = allResults.filter(r => r.category === 'GREEN').length;
+        const countRed = allResults.filter(r => r.category === 'RED').length;
+        const countPurple = allResults.filter(r => r.category === 'PURPLE').length;
+        const countYellow = allResults.filter(r => r.category === 'YELLOW').length;
+
+        document.getElementById('kpiOk').innerText = countGreen;
+        document.getElementById('kpiAlert').innerText = countRed;
+        document.getElementById('kpiNoBox').innerText = countPurple;
+        document.getElementById('kpiUnknown').innerText = countYellow;
+        document.getElementById('kpiContainer').classList.remove('hidden');
+
+        // Rendu initial du tableau
+        renderTable();
+
+      } catch (err) {
+        console.error(err);
+        statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span> Erreur Supabase`;
+        statusEl.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200";
+        alert("Une erreur s'est produite lors de la connexion ou du traitement : " + err.message);
+      }
+    });
+
+    function renderTable() {
+      const showGreen = document.getElementById('filterOk').checked;
+      const showRed = document.getElementById('filterAlert').checked;
+      const showPurple = document.getElementById('filterNoBox').checked;
+      const showYellow = document.getElementById('filterUnknown').checked;
+
+      const tbody = document.getElementById('resultBody');
+      tbody.innerHTML = '';
+
+      const filtered = allResults.filter(r => {
+        if (r.category === 'GREEN' && !showGreen) return false;
+        if (r.category === 'RED' && !showRed) return false;
+        if (r.category === 'PURPLE' && !showPurple) return false;
+        if (r.category === 'YELLOW' && !showYellow) return false;
+        return true;
+      });
+
+      document.getElementById('resultCounter').innerText = `${filtered.length} élément(s) affiché(s)`;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400">Aucun résultat ne correspond aux filtres coché(s).</td></tr>`;
+        return;
+      }
+
+      filtered.forEach(item => {
+        const tr = document.createElement('tr');
+        let bgClass = '';
+        let badgeHtml = '';
+
+        switch (item.category) {
+          case 'GREEN':
+            bgClass = 'hover:bg-slate-50 transition';
+            badgeHtml = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                           <i class="fa-solid fa-circle-check"></i> Validé (${item.patients} pt${item.patients > 1 ? 's' : ''})
+                         </span>`;
+            break;
+          case 'RED':
+            bgClass = 'bg-rose-50/60 hover:bg-rose-100/60 transition';
+            badgeHtml = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-200">
+                           <i class="fa-solid fa-triangle-exclamation"></i> Inoccupé (0 patient)
+                         </span>`;
+            break;
+          case 'PURPLE':
+            bgClass = 'bg-purple-50/70 hover:bg-purple-100/70 border-l-4 border-purple-500 transition';
+            badgeHtml = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-200 text-purple-900 border border-purple-300">
+                           <i class="fa-solid fa-bolt"></i> Patients présents sans box
+                         </span>`;
+            break;
+          case 'YELLOW':
+            bgClass = 'bg-amber-50/70 hover:bg-amber-100/70 border-l-4 border-amber-400 transition';
+            badgeHtml = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-200 text-amber-900 border border-amber-300">
+                           <i class="fa-solid fa-circle-question"></i> Non répertorié
+                         </span>`;
+            break;
+        }
+
+        tr.className = bgClass;
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-medium text-slate-900">${item.date}</td>
+          <td class="py-3 px-4 text-slate-600">${item.time.startsWith('09') ? 'Matin (09h)' : 'Après-midi (13h30)'}</td>
+          <td class="py-3 px-4 font-mono text-xs font-bold ${item.category === 'PURPLE' ? 'text-purple-700' : 'text-slate-700'}">${item.box}</td>
+          <td class="py-3 px-4"><span class="px-2 py-0.5 bg-slate-200/80 text-slate-800 rounded font-mono text-xs">${item.init}</span></td>
+          <td class="py-3 px-4 font-semibold text-slate-800">${item.nom}</td>
+          <td class="py-3 px-4 text-center font-bold text-base">${item.patients}</td>
+          <td class="py-3 px-4">${badgeHtml}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Écouteurs de changement d'état des cases à cocher
+    ['filterOk', 'filterAlert', 'filterNoBox', 'filterUnknown'].forEach(id => {
+      document.getElementById(id).addEventListener('change', renderTable);
+    });
+  </script>
+</body>
+</html>
