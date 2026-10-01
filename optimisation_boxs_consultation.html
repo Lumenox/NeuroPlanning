@@ -96,6 +96,18 @@
         <i class="fa-solid fa-magnifying-glass"></i>
         <span>Charger les données & Lancer l'Analyse</span>
       </button>
+      <!-- NOUVEAU : options d'exclusion -->
+      <div class="flex flex-col justify-center gap-2 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200">
+        <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+          <input type="checkbox" id="excludeAnnule" class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
+          <span>Ignorer les RDV <strong>Annulés</strong> (colonne Statut)</span>
+        </label>
+        <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+          <input type="checkbox" id="excludeProtocole" class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
+          <span>Ignorer les <strong>Protocoles de recherche clinique</strong> (colonne RDV)</span>
+        </label>
+      </div>
+
     </div>
 
     <!-- Cartouches KPI dynamiques avec filtres -->
@@ -212,7 +224,10 @@
       if (!ressourceStr) return '';
       const parts = ressourceStr.split('-');
       let rawName = parts.length > 1 ? parts.slice(1).join('-') : parts[0];
-      rawName = rawName.replace(/^(DR|MME|MR)\s+/i, '').replace(/\(.*\)/g, '').trim();
+      rawName = rawName.trim()
+                   .replace(/^(DR|MME|MR|PROF)\.?\s+/i, '')
+                   .replace(/\(.*\)/g, '')
+                   .trim();
       return cleanText(rawName);
     }
 
@@ -320,7 +335,7 @@ function updateFileName(name) {
         const cleanNameToInit = {};
 
         dataNeuro.forEach(row => {
-          const init = (row.initiales || '').trim();
+          const init = (row.initiales || '').trim().toUpperCase();
           const fullName = (row.nom_complet || row.nom || '').trim();
           if (init && fullName) {
             const cleanFull = cleanText(fullName);
@@ -348,7 +363,7 @@ function updateFileName(name) {
 
           Object.keys(row).forEach(col => {
             if (col.toUpperCase().startsWith('BOX')) {
-              const init = (row[col] || '').trim();
+              const init = (row[col] || '').trim().toUpperCase();
               if (init && init.toUpperCase() !== 'NULL') {
                 const key = `${dateVal}_${timeVal}_${init}`;
                 if (!allocatedBoxes[key]) allocatedBoxes[key] = [];
@@ -361,6 +376,9 @@ function updateFileName(name) {
 
         // 4. Indexation des RDV du fichier CSV
         const rdvCounts = {}; // Key: "YYYY-MM-DD_09:00:00_KEY" -> Count
+        const excludeAnnule = document.getElementById('excludeAnnule').checked;
+const excludeProtocole = document.getElementById('excludeProtocole').checked;
+const allRdvDates = [];
         dataRdv.data.forEach(row => {
           const rawDate = row.Date || row.date || row.Date_RDV;
           const rawRessource = row.Ressource || row.ressource;
@@ -371,17 +389,22 @@ function updateFileName(name) {
             const p = dateKey.split('/');
             dateKey = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
           }
+          allRdvDates.push(dateKey);
 
+if (excludeAnnule && cleanText(row.Statut || row.statut) === 'Annulé') return;
+if (excludeProtocole && cleanText(row.RDV || row.rdv) === 'PROTOCOLERECHERCHECLINIQUE') return;
           const slotKey = getSlotFromTime(row.Heure || row.heure);
           const init = getInitFromRessource(rawRessource);
-          const keyRef = init || `RAW_${extractNameFromRessource(rawRessource)}`;
+          // Si les initiales ne sont pas trouvées, on utilise le nom nettoyé de la ressource comme référence
+          const cleanName = extractNameFromRessource(row.Ressource) || 'Ressource non spécifiée';
+          const keyRef = init || `UNMAPPED_${cleanName}`;
 
           const key = `${dateKey}_${slotKey}_${keyRef}`;
           rdvCounts[key] = (rdvCounts[key] || 0) + 1;
         });
 
         // 4.5. Détermination de la fenêtre temporelle du fichier RDV
-	const rdvDates = Object.keys(rdvCounts).map(k => k.split('_')[0]).filter(Boolean).sort();
+	const rdvDates = [...allRdvDates].sort();
 	const minDate = rdvDates[0];
 	const maxDate = rdvDates[rdvDates.length - 1];
 
@@ -426,13 +449,14 @@ processedKeys.add(key);
         });
 
         // B) Analyse des RDV de la liste sans Box au planning
-        Object.keys(rdvCounts).forEach(key => {
+Object.keys(rdvCounts).forEach(key => {
           if (!processedKeys.has(key)) {
-            const [dateVal, timeVal, keyRef] = key.split('_');
+            const [dateVal, timeVal, ...rest] = key.split('_');
+ 	    const keyRef = rest.join('_');
             const nbPatients = rdvCounts[key];
 
-            if (keyRef.startsWith('RAW_')) {
-              const rawName = keyRef.replace('RAW_', '');
+            if (keyRef.startsWith('UNMAPPED_')) {
+              const rawName = keyRef.replace('UNMAPPED_', '');
               allResults.push({
                 date: dateVal, time: timeVal, box: 'AUCUN', init: 'N/A',
                 nom: `Ressource: ${rawName}`, patients: nbPatients, category: 'YELLOW'
@@ -441,7 +465,8 @@ processedKeys.add(key);
               const neuroObj = neurologuesMap[keyRef];
               allResults.push({
                 date: dateVal, time: timeVal, box: 'AUCUN', init: keyRef,
-                nom: neuroObj ? neuroObj.nomComplet : keyRef, patients: nbPatients, category: 'PURPLE'
+                nom: neuroObj ? neuroObj.nomComplet : keyRef, // <-- Correction ici (neuroObj.nomComplet au lieu de rawName)
+                patients: nbPatients, category: 'PURPLE'
               });
             }
           }
