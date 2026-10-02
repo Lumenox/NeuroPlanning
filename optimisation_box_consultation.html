@@ -298,6 +298,24 @@ dropZone.addEventListener('drop', (e) => {
   }
 });
 
+
+async function fetchAllRows(table, orderCols) {
+  const pageSize = 1000;
+  let all = [];
+  let from = 0;
+  while (true) {
+    let query = supabaseClient.from(table).select('*').range(from, from + pageSize - 1);
+    orderCols.forEach(col => { query = query.order(col, { ascending: true }); });
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    all = all.concat(data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+	  
 // Afficher le nom du fichier sélectionné
 function updateFileName(name) {
   fileNameDisplay.innerText = `📄 Fichier chargé : ${name}`;
@@ -321,7 +339,7 @@ function updateFileName(name) {
       try {
         // 1. Récupération parallèle depuis Supabase et du CSV local
         const [planningRes, neuroRes, dataRdv] = await Promise.all([
-          supabaseClient.from('planning').select('*'),
+          fetchAllRows('planning', ['id']).then(data => ({ data, error: null })),
           supabaseClient.schema('commun').from('neurologues').select('*'),
           parseCSV(fileRdv)
         ]);
