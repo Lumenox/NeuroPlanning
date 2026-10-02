@@ -96,7 +96,7 @@
         <i class="fa-solid fa-magnifying-glass"></i>
         <span>Charger les données & Lancer l'Analyse</span>
       </button>
-      <!-- NOUVEAU : options d'exclusion -->
+      <!-- options d'exclusion -->
       <div class="flex flex-col justify-center gap-2 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200">
         <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
           <input type="checkbox" id="excludeAnnule" checked class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
@@ -108,7 +108,11 @@
         </label>
 		<label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
           <input type="checkbox" id="excludeNeuropsy" checked class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
-          <span>Ignorer les RDV de <strong>Neuropsy</strong> (colonne RDV contient « neuropsy »)</span>
+          <span>Ignorer les RDV de <strong>Neuropsy</strong> (colonne RDV)</span>
+        </label>
+		<label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+          <input type="checkbox" id="excludeNeuro" checked class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
+          <span>Ignorer les RDV de <strong id="excludeNeuroList"></strong>  (colonne Ressource)</span>
         </label>
       </div>
 
@@ -124,7 +128,7 @@
           <div id="kpiOk" class="text-3xl font-extrabold text-emerald-900">0</div>
         </div>
         <div class="flex flex-col items-end gap-2">
-          <input type="checkbox" id="filterOk" checked class="w-5 h-5 text-emerald-600 rounded border-emerald-300 focus:ring-emerald-500 cursor-pointer">
+          <input type="checkbox" id="filterOk" class="w-5 h-5 text-emerald-600 rounded border-emerald-300 focus:ring-emerald-500 cursor-pointer">
           <span class="text-[10px] text-emerald-700 font-medium">Filtrer</span>
         </div>
       </label>
@@ -219,7 +223,9 @@
     });
 
     let allResults = []; // Stockage global pour le filtrage interactif
-
+	// Ressources qui ne consultent pas en box (comparaison sans accents, casse ni espaces)
+	const RESSOURCES_HORS_BOX = ['CREANGE', 'YOUSSOV'];
+	document.getElementById('excludeNeuroList').textContent = RESSOURCES_HORS_BOX.join(', ');
     // Utilitaires de nettoyage et normalisation de texte
     function cleanText(str) {
       if (!str) return '';
@@ -407,6 +413,8 @@ function updateFileName(name) {
         const excludeAnnule = document.getElementById('excludeAnnule').checked;
 		const excludeProtocole = document.getElementById('excludeProtocole').checked;
 		const excludeNeuropsy = document.getElementById('excludeNeuropsy').checked;
+		const excludeNeuro = document.getElementById('excludeNeuro').checked;
+		const ressourcesExclues = RESSOURCES_HORS_BOX.map(cleanText);
 		const allRdvDates = [];
         dataRdv.data.forEach(row => {
           const rawDate = row.Date || row.date || row.Date_RDV;
@@ -423,6 +431,10 @@ function updateFileName(name) {
 		if (excludeAnnule && cleanText(row.Statut || row.statut) === 'Annulé') return;
 		if (excludeProtocole && cleanText(row.RDV || row.rdv) === 'PROTOCOLERECHERCHECLINIQUE') return;
 		if (excludeNeuropsy && cleanText(row.RDV || row.rdv).includes('NEUROPSY')) return;
+		if (excludeNeuro) {
+			  const resClean = cleanText(row.Ressource || row.ressource);
+			  if (ressourcesExclues.some(nom => resClean.includes(nom))) return;
+			};
           const slotKey = getSlotFromTime(row.Heure || row.heure);
           const init = getInitFromRessource(rawRessource);
           // Si les initiales ne sont pas trouvées, on utilise le nom nettoyé de la ressource comme référence
