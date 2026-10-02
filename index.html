@@ -79,6 +79,30 @@ body.light-mode {
     .btn-ghost   { background: transparent;  color: var(--gray);  border: 1px solid var(--border); }
     .btn-danger  { background: var(--red);    color: var(--navy); }
     .btn-save    { background: var(--amber);  color: var(--navy); }
+
+    /* Bouton campagne de gardes */
+	.btn-campagne {
+	  background: var(--purple-dim);
+	  color: var(--purple);
+	  border: 1px solid var(--purple);
+	  padding: 4px 10px;
+	  border-radius: 6px;
+	  font-family: 'DM Mono', monospace;
+	  font-size: 11px;
+	  text-decoration: none;
+	  font-weight: 500;
+	  display: inline-flex;
+	  align-items: center;
+	  gap: 6px;
+	  margin-left: 12px;
+	  transition: all .2s ease;
+	}
+	.btn-campagne:hover {
+	  background: var(--purple);
+	  color: var(--navy);
+	  opacity: 1;
+	}
+	  
     .sep { width: 1px; height: 24px; background: var(--border); }
 
     #tabs-bar { display: flex; align-items: flex-end; padding: 0 24px; background: var(--navy-mid); border-bottom: 2px solid var(--border); flex-shrink: 0; gap: 2px; }
@@ -492,7 +516,7 @@ tr.new-day td { box-shadow: inset 0 3px 0 -2px var(--gray); }
 <div id="auth-overlay">
   <div class="auth-box">
     <h2>Neurologie · Planning</h2>
-    <p> version 1.21</p>
+    <p> version 1.22</p>
     <p>Entrez vos identifiants pour accéder au planning.</p>
     <input type="text" id="auth-login" placeholder="Email aphp ou APH" autocomplete="off" />
     <input type="password" id="auth-pass"  placeholder="Mot de passe" />
@@ -524,7 +548,8 @@ tr.new-day td { box-shadow: inset 0 3px 0 -2px var(--gray); }
 
 
 <div id="topbar">
-  <span class="brand">🧠 Planning Neurologie v.1.21</span>
+  <span class="brand">🧠 Planning Neurologie v.1.22</span>
+  <div id="campagne-btn-container"></div>
   <div class="controls">
     <div id="status-dot"></div>
     <span id="user-id-badge"></span>
@@ -702,6 +727,15 @@ tr.new-day td { box-shadow: inset 0 3px 0 -2px var(--gray); }
 
     <div style="width:1px; height:20px; background:var(--border);"></div>
     <span id="secr-sim-info" style="font-family:'DM Mono'; font-size:10px; color:var(--amber);"></span>
+    <div style="width:1px; height:20px; background:var(--border);"></div>
+    <span id="secr-sim-info" style="font-family:'DM Mono'; font-size:10px; color:var(--amber);"></span>
+
+    <!-- NOUVEAU : lien vers l'audit des box -->
+    <button class="btn-ghost" onclick="openAuditBox()"
+      style="margin-left:auto; font-size:11px; border-color:var(--amber); color:var(--amber);"
+      title="Ouvrir l'audit d'occupation des box dans un nouvel onglet">
+      🔎 Audit box
+    </button>
   </div>
 
   <!-- Légende -->
@@ -1295,6 +1329,38 @@ function countUnreadAnnonces() {
   return allAnnonces.filter(a => !read.includes(a.id)).length;
 }
 
+	
+const CAMPAGNE_URL = 'https://lumenox.github.io/CongesPrevisionnels/';
+async function checkCampagneOuverte() {
+  try {
+    // Interroge la table gardes.campagne_config sur le schéma "gardes"
+    const { data, error } = await _supabase
+      .schema('gardes')
+      .from('campagne_config')
+      .select('ouverte')
+      .eq('ouverte', true)
+      .limit(1);
+
+    if (error) {
+      console.error('Erreur lors de la vérification de la campagne :', error.message);
+      return;
+    }
+
+    // Si au moins une ligne renvoie ouverte = TRUE
+    if (data && data.length > 0) {
+      const container = document.getElementById('campagne-btn-container');
+      if (container) {
+        container.innerHTML = `
+          <a href="${CAMPAGNE_URL}" target="_blank" class="btn-campagne">
+            📅 Campagne ouverte ↗
+          </a>
+        `;
+      }
+    }
+  } catch (err) {
+    console.error('Erreur réseau ou Supabase :', err);
+  }
+}
 // ── Affiche la popup pour les annonces urgentes non lues ──
 function showUrgentAnnonces() {
   const read = getReadAnnonces();
@@ -1666,13 +1732,14 @@ function switchTab(tab) {
 
 async function init() {
   const today = new Date();
-     const future = new Date();
+	const future = new Date();
      future.setDate(today.getDate() + 100);
      const formatDateISO = (d) => d.toISOString().split('T')[0];  
-  document.getElementById('filter-date-from').value = formatDateISO(today);
+ 	 document.getElementById('filter-date-from').value = formatDateISO(today);
      document.getElementById('filter-date-to').value = formatDateISO(future);
 
   await loadEquipe();
+  checkCampagneOuverte();
     // Remplissage dynamique des colonnes à ignorer pour les conflits
   COLUMNS.forEach(col => {
           if (col.key.endsWith('_int') || col.key.endsWith('_int1') || col.key.endsWith('_int2')) {
@@ -3357,6 +3424,13 @@ const JOURS_FERIES = new Set([
 
 const BOX_COLS = ['BOX1','BOX2','BOX3','BOX4','BOX5','BOX6','BOX7','BOX8','BOX9'];
 
+// Nom du fichier d'audit, dans le même dossier que ce fichier
+const AUDIT_BOX_URL = 'optimisation_box_consultation.html';
+
+function openAuditBox() {
+  window.open(AUDIT_BOX_URL, '_blank', 'noopener');
+}
+	
 function populateSecretariatDoc() {
   const sel = document.getElementById('select-secr-doc');
   sel.innerHTML = '<option value="">-- Choisir --</option>';
@@ -4985,7 +5059,7 @@ function printPlanning() {
   </div>
 
   <div class="page-footer">
-    <span>Planning Neurologie v1.21 · Impression automatique</span>
+    <span>Planning Neurologie v1.22 · Impression automatique</span>
     <span>${fmt(dateFrom)} – ${fmt(dateTo)}</span>
   </div>
 
