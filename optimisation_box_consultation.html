@@ -106,6 +106,10 @@
           <input type="checkbox" id="excludeProtocole" class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
           <span>Ignorer les <strong>Protocoles de recherche clinique</strong> (colonne RDV)</span>
         </label>
+		<label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+          <input type="checkbox" id="excludeNeuropsy" class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
+          <span>Ignorer les RDV de <strong>Neuropsy</strong> (colonne RDV contient « neuropsy »)</span>
+        </label>
       </div>
 
     </div>
@@ -401,8 +405,9 @@ function updateFileName(name) {
         // 4. Indexation des RDV du fichier CSV
         const rdvCounts = {}; // Key: "YYYY-MM-DD_09:00:00_KEY" -> Count
         const excludeAnnule = document.getElementById('excludeAnnule').checked;
-const excludeProtocole = document.getElementById('excludeProtocole').checked;
-const allRdvDates = [];
+		const excludeProtocole = document.getElementById('excludeProtocole').checked;
+		const excludeNeuropsy = document.getElementById('excludeNeuropsy').checked;
+		const allRdvDates = [];
         dataRdv.data.forEach(row => {
           const rawDate = row.Date || row.date || row.Date_RDV;
           const rawRessource = row.Ressource || row.ressource;
@@ -415,8 +420,9 @@ const allRdvDates = [];
           }
           allRdvDates.push(dateKey);
 
-if (excludeAnnule && cleanText(row.Statut || row.statut) === 'Annulé') return;
-if (excludeProtocole && cleanText(row.RDV || row.rdv) === 'PROTOCOLERECHERCHECLINIQUE') return;
+		if (excludeAnnule && cleanText(row.Statut || row.statut) === 'Annulé') return;
+		if (excludeProtocole && cleanText(row.RDV || row.rdv) === 'PROTOCOLERECHERCHECLINIQUE') return;
+		if (excludeNeuropsy && cleanText(row.RDV || row.rdv).includes('NEUROPSY')) return;
           const slotKey = getSlotFromTime(row.Heure || row.heure);
           const init = getInitFromRessource(rawRessource);
           // Si les initiales ne sont pas trouvées, on utilise le nom nettoyé de la ressource comme référence
