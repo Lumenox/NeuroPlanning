@@ -330,6 +330,7 @@ function updateFileName(name) {
         if (neuroRes.error) throw new Error("Erreur Neurologues: " + neuroRes.error.message);
 
         const dataPlanning = planningRes.data || [];
+		console.log('planning reçu:', dataPlanning.length);
         const dataNeuro = neuroRes.data || [];
 
         statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Supabase : Connecté`;
