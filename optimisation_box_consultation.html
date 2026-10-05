@@ -428,7 +428,7 @@ function updateFileName(name) {
           }
           allRdvDates.push(dateKey);
 
-		if (excludeAnnule && cleanText(row.Statut || row.statut) === 'Annulé') return;
+		if (excludeAnnule && cleanText(row.Statut || row.statut) === 'ANNULE') return;
 		if (excludeProtocole && cleanText(row.RDV || row.rdv) === 'PROTOCOLERECHERCHECLINIQUE') return;
 		if (excludeNeuropsy && cleanText(row.RDV || row.rdv).includes('NEUROPSY')) return;
 		if (excludeNeuro) {
