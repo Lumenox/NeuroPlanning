@@ -410,7 +410,8 @@ function updateFileName(name) {
 
         // 4. Indexation des RDV du fichier CSV
         const rdvCounts = {}; // Key: "YYYY-MM-DD_09:00:00_KEY" -> Count
-        const excludeAnnule = document.getElementById('excludeAnnule').checked;
+        const rawStatut = row.Statut || row.statut || row.STATUT || '';
+		if (excludeAnnule && cleanText(rawStatut).includes('ANNUL')) return;
 		const excludeProtocole = document.getElementById('excludeProtocole').checked;
 		const excludeNeuropsy = document.getElementById('excludeNeuropsy').checked;
 		const excludeNeuro = document.getElementById('excludeNeuro').checked;
