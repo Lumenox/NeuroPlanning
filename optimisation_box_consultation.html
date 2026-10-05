@@ -410,8 +410,7 @@ function updateFileName(name) {
 
         // 4. Indexation des RDV du fichier CSV
         const rdvCounts = {}; // Key: "YYYY-MM-DD_09:00:00_KEY" -> Count
-        const rawStatut = row.Statut || row.statut || row.STATUT || '';
-		if (excludeAnnule && cleanText(rawStatut).includes('ANNUL')) return;
+        const excludeAnnule = document.getElementById('excludeAnnule').checked;
 		const excludeProtocole = document.getElementById('excludeProtocole').checked;
 		const excludeNeuropsy = document.getElementById('excludeNeuropsy').checked;
 		const excludeNeuro = document.getElementById('excludeNeuro').checked;
@@ -429,7 +428,8 @@ function updateFileName(name) {
           }
           allRdvDates.push(dateKey);
 
-		if (excludeAnnule && cleanText(row.Statut || row.statut) === 'ANNULE') return;
+		const rawStatut = row.Statut || row.statut || row.STATUT || '';
+                if (excludeAnnule && cleanText(rawStatut).includes('ANNUL')) return;
 		if (excludeProtocole && cleanText(row.RDV || row.rdv) === 'PROTOCOLERECHERCHECLINIQUE') return;
 		if (excludeNeuropsy && cleanText(row.RDV || row.rdv).includes('NEUROPSY')) return;
 		if (excludeNeuro) {
