@@ -97,7 +97,7 @@
         <span>Charger les données & Lancer l'Analyse</span>
       </button>
       <!-- options d'exclusion -->
-      <div class="flex flex-col justify-center gap-2 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200">
         <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
           <input type="checkbox" id="excludeAnnule" checked class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
           <span>Ignorer les RDV <strong>Annulés</strong> (colonne Statut)</span>
@@ -114,6 +114,10 @@
           <input type="checkbox" id="excludeNeuro" checked class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
           <span>Ignorer les RDV de <strong id="excludeNeuroList"></strong>  (colonne Ressource)</span>
         </label>
+		<label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+		  <input type="checkbox" id="excludeTlc" checked class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
+		  <span>Ignorer les <strong>téléconsultations</strong> (colonne Commentaire)</span>
+		</label>
       </div>
 
     </div>
@@ -236,6 +240,8 @@
     let allResults = []; // Stockage global pour le filtrage interactif
 	// Ressources qui ne consultent pas en box (comparaison sans accents, casse ni espaces)
 	const RESSOURCES_HORS_BOX = ['CREANGE', 'YOUSSOV'];
+	// Marqueur de téléconsultation dans la colonne Commentaire (pas de box nécessaire)
+	const MARQUEUR_TLC = 'TLC_ORTIF';
 	document.getElementById('excludeNeuroList').textContent = RESSOURCES_HORS_BOX.join(', ');
     // Utilitaires de nettoyage et normalisation de texte
     function cleanText(str) {
@@ -425,6 +431,7 @@ function updateFileName(name) {
 		const excludeProtocole = document.getElementById('excludeProtocole').checked;
 		const excludeNeuropsy = document.getElementById('excludeNeuropsy').checked;
 		const excludeNeuro = document.getElementById('excludeNeuro').checked;
+	    const excludeTlc = document.getElementById('excludeTlc').checked;
 		const ressourcesExclues = RESSOURCES_HORS_BOX.map(cleanText);
 		const allRdvDates = [];
         dataRdv.data.forEach(row => {
@@ -443,6 +450,7 @@ function updateFileName(name) {
                 if (excludeAnnule && cleanText(rawStatut).includes('ANNUL')) return;
 		if (excludeProtocole && cleanText(row.RDV || row.rdv) === 'PROTOCOLERECHERCHECLINIQUE') return;
 		if (excludeNeuropsy && cleanText(row.RDV || row.rdv).includes('NEUROPSY')) return;
+		if (excludeTlc && String(row.Commentaire || row.commentaire || '').toUpperCase().includes(MARQUEUR_TLC)) return;
 		if (excludeNeuro) {
 			  const resClean = cleanText(row.Ressource || row.ressource);
 			  if (ressourcesExclues.some(nom => resClean.includes(nom))) return;
