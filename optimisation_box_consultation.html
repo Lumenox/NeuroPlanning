@@ -254,16 +254,16 @@
     }
 
     // Parsage de fichier CSV local via PapaParse
-    function parseCSV(file) {
-      return new Promise((resolve) => {
-        Papa.parse(file, {
-          header: true,
-          skipEmptyLines: true,
-          delimitersToGuess: [',', ';', '\t'],
-          complete: (results) => resolve(results)
-        });
-      });
-    }
+	async function parseCSV(file) {
+	  const buf = await file.arrayBuffer();
+	  let text;
+	  try {
+	    text = new TextDecoder('utf-8', { fatal: true }).decode(buf);
+	  } catch {
+	    text = new TextDecoder('windows-1252').decode(buf);
+	  }
+	  return Papa.parse(text, { header: true, skipEmptyLines: true, delimitersToGuess: [',', ';', '\t'] });
+	}
 
 
 const dropZone = document.getElementById('dropZone');
@@ -365,29 +365,28 @@ function updateFileName(name) {
         statusEl.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200";
 
         // 2. Traitement des Neurologues : Dictionnaires de recherche
-        const neurologuesMap = {};
-        const cleanNameToInit = {};
+		const neurologuesMap = {};
+		const ressourceToInit = {};   // remplace cleanNameToInit
+		
+		dataNeuro.forEach(row => {
+		  const init = (row.initiales || '').trim().toUpperCase();
+		  const fullName = (row.nom_complet || row.nom || '').trim();
+		  if (!init || !fullName) return;
+		  neurologuesMap[init] = { nomComplet: fullName };
+		
+		  String(row.ressource ?? row.Ressource ?? '').split('|').forEach(r => {
+		    const k = cleanText(r);
+		    if (!k) return;
+		    if (ressourceToInit[k] && ressourceToInit[k] !== init) {
+		      console.warn(`Ressource en double : ${r.trim()} (${ressourceToInit[k]} et ${init})`);
+		    }
+		    ressourceToInit[k] = init;
+		  });
+		});
 
-        dataNeuro.forEach(row => {
-          const init = (row.initiales || '').trim().toUpperCase();
-          const fullName = (row.nom_complet || row.nom || '').trim();
-          if (init && fullName) {
-            const cleanFull = cleanText(fullName);
-            neurologuesMap[init] = { nomComplet: fullName, cleanNomComplet: cleanFull };
-            cleanNameToInit[cleanFull] = init;
-          }
-        });
-
-        // Fonction d'appariement Ressource -> Initiales
-        function getInitFromRessource(ressourceStr) {
-          const cleanRes = extractNameFromRessource(ressourceStr);
-          if (!cleanRes) return null;
-          for (const [cleanFull, init] of Object.entries(cleanNameToInit)) {
-            if (cleanFull.includes(cleanRes)) return init;
-          }
-          return null;
-        }
-
+		function getInitFromRessource(ressourceStr) {
+		  return ressourceToInit[cleanText(ressourceStr)] || null;
+		}
         // 3. Traitement du Planning Supabase
         const allocatedBoxes = {}; // Key: "YYYY-MM-DD_09:00:00_INIT" -> [ "BOX1", "BOX2" ]
         dataPlanning.forEach(row => {
@@ -410,6 +409,7 @@ function updateFileName(name) {
 
         // 4. Indexation des RDV du fichier CSV
         const rdvCounts = {}; // Key: "YYYY-MM-DD_09:00:00_KEY" -> Count
+		const unmappedLabels = {};   // clé nettoyée -> libellé brut de la ressource
         const excludeAnnule = document.getElementById('excludeAnnule').checked;
 		const excludeProtocole = document.getElementById('excludeProtocole').checked;
 		const excludeNeuropsy = document.getElementById('excludeNeuropsy').checked;
@@ -437,10 +437,13 @@ function updateFileName(name) {
 			  if (ressourcesExclues.some(nom => resClean.includes(nom))) return;
 			};
           const slotKey = getSlotFromTime(row.Heure || row.heure);
-          const init = getInitFromRessource(rawRessource);
-          // Si les initiales ne sont pas trouvées, on utilise le nom nettoyé de la ressource comme référence
-          const cleanName = extractNameFromRessource(row.Ressource) || 'Ressource non spécifiée';
-          const keyRef = init || `UNMAPPED_${cleanName}`;
+			const init = getInitFromRessource(rawRessource);
+			let keyRef = init;
+			if (!init) {
+			  const resKey = cleanText(rawRessource) || 'RESSOURCENONSPECIFIEE';
+			  unmappedLabels[resKey] = rawRessource.trim();
+			  keyRef = `UNMAPPED_${resKey}`;
+			}
 
           const key = `${dateKey}_${slotKey}_${keyRef}`;
           rdvCounts[key] = (rdvCounts[key] || 0) + 1;
@@ -502,7 +505,7 @@ Object.keys(rdvCounts).forEach(key => {
               const rawName = keyRef.replace('UNMAPPED_', '');
               allResults.push({
                 date: dateVal, time: timeVal, box: 'AUCUN', init: 'N/A',
-                nom: `Ressource: ${rawName}`, patients: nbPatients, category: 'YELLOW'
+                nom: `Ressource: ${unmappedLabels[rawName] || rawName}`, patients: nbPatients, category: 'YELLOW'
               });
             } else {
               const neuroObj = neurologuesMap[keyRef];
