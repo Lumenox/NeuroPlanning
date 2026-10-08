@@ -1394,14 +1394,14 @@ function showUrgentAnnonces() {
 }
 
 // ── Fermer la popup urgente et marquer ces annonces comme lues ──
-function closeAnnoncesModal() {
-  const read = getReadAnnonces();
-  allAnnonces
-    .filter(a => a.priorite === 'urgent' && !read.includes(a.id))
-    .forEach(a => markAnnonceRead(a.id));
-  document.getElementById('annonces-modal').classList.remove('open');
-  updateBellBadge();
-}
+//function closeAnnoncesModal() {
+//  const read = getReadAnnonces();
+//allAnnonces
+  //  .filter(a => a.priorite === 'urgent' && !read.includes(a.id))
+    //.forEach(a => markAnnonceRead(a.id));
+  //document.getElementById('annonces-modal').classList.remove('open');
+  //updateBellBadge();
+//}
 function closeAnnoncesModal() {
   document.getElementById('annonces-modal').classList.remove('open');
 }
@@ -3314,7 +3314,7 @@ switchTab = function(tab) {
   document.getElementById('semainier-wrap').style.display     = (tab === 'semainier')    ? 'block' : 'none';
   document.getElementById('secretariat-wrap').style.display   = (tab === 'secretariat')  ? 'block' : 'none';
   if (tab === 'semainier') {
-    if (document.getElementById('select-semainier-doc').options.length === 0) populateSemainierDocs();
+    if (document.getElementById('select-semainier-doc-1').options.length === 0) populateSemainierDocs();
     renderSemainier();
   }
   if (tab === 'secretariat') {
@@ -3858,7 +3858,7 @@ function renderSandboxTable() {
       tr.classList.add('new-day');
       lastDate = row.date;
     }
-    tr.classList.add(row.heure === '9h00' ? 'creno-matin' : 'creno-aprem');
+    tr.classList.add(row.heure === '09:00:00' ? 'creno-matin' : 'creno-aprem');
 
     // Détection conflits cliniques (médecin sur plusieurs colonnes de la ligne)
     const doctorPos = {};
@@ -4583,7 +4583,7 @@ window.addEventListener('message', async (e) => {
     
     // Filtrer les données de la Sandbox et les absences sur la période
     const rows = sandboxData; // Lignes actuellement chargées dans la Sandbox
-    const absences = currentFilteredAbs; // Absences filtrées ou globales
+    const absences = absencesData;
     const medecins = listeMedecins.map(m => m.initiales);
 
     // Envoi des données vers rotations_usi_unv.html
