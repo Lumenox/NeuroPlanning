@@ -17,6 +17,36 @@
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen p-4 sm:p-6 lg:p-8">
 
+<!-- OVERLAY D'AUTHENTIFICATION -->
+<div id="auth-overlay" class="fixed inset-0 bg-slate-900/95 flex items-center justify-center z-50">
+  <div class="bg-white p-8 rounded-2xl shadow-xl border border-slate-200 w-80 space-y-4">
+    <div class="text-center space-y-1">
+      <h2 class="text-lg font-bold text-slate-900 flex items-center justify-center gap-2">
+        <i class="fa-solid fa-lock text-indigo-600"></i> Accès Restreint
+      </h2>
+      <p class="text-xs text-slate-500">Connexion requise (Administrateurs Box)</p>
+    </div>
+    
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1">Identifiant / Email APH</label>
+        <input type="text" id="auth-login" placeholder="Email ou APH" class="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-700 mb-1">Mot de passe</label>
+        <input type="password" id="auth-pass" placeholder="••••••••" class="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+      </div>
+    </div>
+
+    <div id="auth-error" class="text-xs text-rose-600 bg-rose-50 border border-rose-200 p-2 rounded-lg hidden font-medium text-center"></div>
+
+    <button id="btn-login" onclick="doLogin()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl shadow transition text-xs flex items-center justify-center gap-2">
+      <span>Connexion</span>
+    </button>
+  </div>
+</div>
+  
+<!-- vraie page -->
   <div class="max-w-7xl mx-auto space-y-6">
     
     <!-- En-tête -->
@@ -33,8 +63,17 @@
         </p>
       </div>
       
-      <div id="connectionStatus" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-        <span class="w-2 h-2 rounded-full bg-slate-400"></span> Supabase : Prêt
+      <div class="flex items-center gap-3">
+        <!-- Badge Utilisateur -->
+        <span id="user-badge" class="hidden text-xs font-mono font-semibold px-3 py-1.5 bg-slate-100 text-slate-700 rounded-full border border-slate-200"></span>
+        <!-- Statut Connexion Supabase -->
+        <div id="connectionStatus" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+          <span class="w-2 h-2 rounded-full bg-slate-400"></span> Supabase : Prêt
+        </div>
+        <!-- Bouton Déconnexion -->
+        <button id="btn-logout" onclick="logout()" class="hidden px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-full text-xs font-semibold transition">
+          <i class="fa-solid fa-right-from-bracket"></i>
+        </button>
       </div>
     </header>
 
@@ -212,7 +251,141 @@
 
     let currentTemplate = [];
     let pendingUpdates = []; // Stocke uniquement les modifications Vertes
+    let currentUser = null; // Variable globale pour stocker l'utilisateur connecté
 
+// Vérification d'une session déjà active lors du chargement
+  checkExistingSession();
+});
+
+// 1. Connexion Supabase + Lookup Email si APH
+async function doLogin() {
+  const input = document.getElementById('auth-login').value.trim();
+  const pass = document.getElementById('auth-pass').value;
+  const errEl = document.getElementById('auth-error');
+  const btnLogin = document.getElementById('btn-login');
+
+  errEl.classList.add('hidden');
+
+  if (!input || !pass) {
+    errEl.innerText = "Veuillez remplir tous les champs.";
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  btnLogin.disabled = true;
+  btnLogin.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Connexion...`;
+
+  try {
+    let email = input;
+
+    // Si l'identifiant n'est pas un email, on résout via la RPC commun.get_email_from_hospital_id
+    if (!input.includes('@')) {
+      const { data: foundEmail, error: lookupError } = await supabaseClient
+        .schema('commun')
+        .rpc('get_email_from_hospital_id', { h_id: input });
+
+      if (lookupError || !foundEmail) {
+        throw new Error("Identifiant hôpital inconnu.");
+      }
+      email = foundEmail;
+    }
+
+    // Authentification Supabase Auth
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email: email,
+      password: pass
+    });
+
+    if (error) throw new Error("Mot de passe ou identifiant incorrect.");
+
+    // Vérification du profil et des rôles Admin / Box
+    await applySession(data.session);
+
+  } catch (err) {
+    errEl.innerText = err.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    btnLogin.disabled = false;
+    btnLogin.innerHTML = `<span>Connexion</span>`;
+  }
+}
+
+// 2. Vérification des permissions et du rôle admin
+async function applySession(session) {
+  if (!session) return;
+
+  // Récupération du profil depuis commun.profiles
+  const { data: profile, error } = await supabaseClient
+    .schema('commun')
+    .from('profiles')
+    .select('*')
+    .eq('id', session.user.id)
+    .single();
+
+  if (error || !profile) {
+    alert("Profil utilisateur introuvable.");
+    await supabaseClient.auth.signOut();
+    return;
+  }
+
+// Extrait des permissions
+  const perms = profile.permissions || {};
+  const editableGroups = Array.isArray(perms.editable_groups) ? perms.editable_groups : [];
+
+  // Conditions d'accès :
+  // 1. Rôle 'admin'
+  // 2. Permission d'éditer le planning
+  // 3. Présence du groupe "box" (ou du joker "*") dans editable_groups
+  const isAdmin = profile.role === 'admin';
+  const canEditPlanning = perms.can_edit_planning === true;
+  const hasBoxPermission = editableGroups.includes('box') || editableGroups.includes('*');
+
+  if (!isAdmin || !canEditPlanning || !hasBoxPermission) {
+    alert("Accès refusé : Seuls les administrateurs disposant des droits sur les Boxs (groupe 'box') peuvent accéder à cet outil.");
+    await supabaseClient.auth.signOut();
+    return;
+  }
+
+  // Si OK, enregistrement de l'utilisateur
+  currentUser = {
+    id: profile.id,
+    login: profile.hospital_id,
+    email: profile.email,
+    role: profile.role,
+    permissions: profile.permissions
+  };
+
+  // Masquer l'overlay d'authentification
+  document.getElementById('auth-overlay').classList.add('hidden');
+
+  // Mettre à jour les badges
+  const userBadge = document.getElementById('user-badge');
+  userBadge.innerText = `👤 ${profile.hospital_id} (ADMIN)`;
+  userBadge.classList.remove('hidden');
+  document.getElementById('btn-logout').classList.remove('hidden');
+}
+
+// 3. Maintien de session au rafraîchissement de la page
+async function checkExistingSession() {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (session) {
+    await applySession(session);
+  }
+}
+
+// 4. Déconnexion
+async function logout() {
+  await supabaseClient.auth.signOut();
+  currentUser = null;
+  
+  // Recharger/Réafficher l'overlay
+  document.getElementById('user-badge').classList.add('hidden');
+  document.getElementById('btn-logout').classList.add('hidden');
+  document.getElementById('auth-login').value = '';
+  document.getElementById('auth-pass').value = '';
+  document.getElementById('auth-overlay').classList.remove('hidden');
+}
+    
     function loadTemplate() {
       const saved = localStorage.getItem('neuroplanning_template');
       if (saved) {
@@ -316,7 +489,14 @@
         }
       });
     });
-
+    // Écouteur pour la touche Entrée sur le champ mot de passe
+    document.addEventListener('DOMContentLoaded', () => {
+      const passInput = document.getElementById('auth-pass');
+      if (passInput) {
+        passInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') doLogin();
+        });
+      }
     // -------------------------------------------------------------
     // Simulation du Pré-remplissage avec Code Couleur
     // -------------------------------------------------------------
