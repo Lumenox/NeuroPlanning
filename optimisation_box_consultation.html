@@ -247,7 +247,7 @@
 	// Ressources qui ne consultent pas en box (comparaison sans accents, casse ni espaces)
 	const RESSOURCES_HORS_BOX = ['CREANGE', 'YOUSSOV'];
 	// Marqueur de téléconsultation dans la colonne Commentaire (pas de box nécessaire)
-	const MARQUEUR_TLC = 'TLC_ORTIF';
+	const MARQUEUR_TLC = ['TLC_ORTIF', 'PAR TEL'];
 	document.getElementById('excludeNeuroList').textContent = RESSOURCES_HORS_BOX.join(', ');
     // Utilitaires de nettoyage et normalisation de texte
     function cleanText(str) {
@@ -456,7 +456,10 @@ function updateFileName(name) {
                 if (excludeAnnule && cleanText(rawStatut).includes('ANNUL')) return;
 		if (excludeProtocole && cleanText(row.RDV || row.rdv) === 'PROTOCOLERECHERCHECLINIQUE') return;
 		if (excludeNeuropsy && cleanText(row.RDV || row.rdv).includes('NEUROPSY')) return;
-		if (excludeTlc && String(row.Commentaire || row.commentaire || '').toUpperCase().includes(MARQUEUR_TLC)) return;
+		if (excludeTlc) {
+			  const comm = String(row.Commentaire || row.commentaire || '').toUpperCase();
+			  if (MARQUEURS_TLC.some(m => comm.includes(m))) return;
+			}
 		if (excludeNeuro) {
 			  const resClean = cleanText(row.Ressource || row.ressource);
 			  if (ressourcesExclues.some(nom => resClean.includes(nom))) return;
