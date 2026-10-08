@@ -731,10 +731,10 @@ tr.new-day td { box-shadow: inset 0 3px 0 -2px var(--gray); }
     <span id="secr-sim-info" style="font-family:'DM Mono'; font-size:10px; color:var(--amber);"></span>
 
     <!-- NOUVEAU : lien vers l'audit des box -->
-    <button class="btn-ghost" onclick="openAuditBox()"
+    <button class="btn-ghost" onclick="openToolBox()"
       style="margin-left:auto; font-size:11px; border-color:var(--amber); color:var(--amber);"
       title="Ouvrir l'audit d'occupation des box dans un nouvel onglet">
-      🔎 Audit box
+      🛠️ Tool box
     </button>
   </div>
 
@@ -3425,10 +3425,10 @@ const JOURS_FERIES = new Set([
 const BOX_COLS = ['BOX1','BOX2','BOX3','BOX4','BOX5','BOX6','BOX7','BOX8','BOX9'];
 
 // Nom du fichier d'audit, dans le même dossier que ce fichier
-const AUDIT_BOX_URL = 'tools/optimisation_box_consultation.html';
+const TOOL_BOX_URL = 'tools/index_tools.html';
 
-function openAuditBox() {
-  window.open(AUDIT_BOX_URL, '_blank', 'noopener');
+function openToolBox() {
+  window.open(TOOL_BOX_URL, '_blank', 'noopener');
 }
 	
 function populateSecretariatDoc() {
