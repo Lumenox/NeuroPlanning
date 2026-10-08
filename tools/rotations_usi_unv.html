@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rotations USI / UNV</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#1d2733;--mut:#667385;--line:#d9dee5;--acc:#1f6f78;--red:#c0392b;--amb:#b9770e;--grn:#2e7d4f;--usi:#f6c6dd;--unv:#f3e2ad}
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+h1{font-size:18px;margin:0 0 12px}h2{font-size:15px;margin:0 0 8px}
+section{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin-bottom:12px}
+.row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+label{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:3px}
+input,select,button{font:inherit;color:inherit}
+input[type=number],input[type=text],select{border:1px solid var(--line);border-radius:4px;padding:4px 6px;background:#fff}
+input[type=number]{width:80px}
+button{border:1px solid var(--acc);background:var(--acc);color:#fff;border-radius:4px;padding:6px 12px;cursor:pointer}
+button.ghost{background:#fff;color:var(--acc)}button:disabled{opacity:.4;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{background:#e8eef2;border-radius:12px;padding:2px 4px 2px 10px;display:inline-flex;gap:4px;align-items:center}
+.chip button{all:unset;cursor:pointer;padding:0 6px;color:var(--mut)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;font-size:13px}
+th,td{border:1px solid var(--line);padding:3px 7px;text-align:center;white-space:nowrap}
+th{background:#eef1f4;font-weight:600}td.l{text-align:left}
+td.USI{background:var(--usi)}td.UNV{background:var(--unv)}
+.ok{color:var(--grn);font-weight:600}.bad{color:var(--red);font-weight:600}
+.w{padding:3px 8px;margin:2px 0;border-left:3px solid;background:#fafbfc}
+.w.r{border-color:var(--red)}.w.o{border-color:var(--amb)}
+.note{background:#fff7e0;border:1px solid #e8d38a;border-radius:4px;padding:8px 10px;margin-bottom:12px}
+.mut{color:var(--mut)}#msg{min-height:18px;color:var(--red);font-size:12px}
+</style>
+</head>
+<body>
+<h1>Répartition des postes USI / UNV</h1>
+<div class="note">Vérifie à la main les repos de garde pas encore saisis et les consultations résiduelles avant de valider.</div>
+<div id="src" class="mut" style="margin-bottom:10px"></div>
+
+<section>
+  <h2>Paramètres</h2>
+  <div class="row">
+    <label>Semaines par bloc<input type="number" id="p-chunk" min="1" max="8"></label>
+    <label>Seuil de vacance (%)<input type="number" id="p-seuil" min="50" max="100"></label>
+    <label>Postes USI<input type="number" id="p-usi" min="0" max="2"></label>
+    <label>Postes UNV<input type="number" id="p-unv" min="0" max="2"></label>
+    <button class="ghost" id="b-reset">Valeurs par défaut</button>
+  </div>
+  <div style="margin-top:10px"><h2>Médecins en rotation</h2><div class="chips" id="c-part"></div></div>
+  <div style="margin-top:10px"><h2>Vasculaires (remplaçants possibles)</h2><div class="chips" id="c-vasc"></div></div>
+  <datalist id="dl"></datalist>
+  <div id="msg"></div>
+</section>
+
+<section>
+  <h2>Quotas et récurrences</h2>
+  <div class="mut" style="margin-bottom:6px">BOX : présent en box à ce créneau, jamais posté en salle (hors seuil). Salle : couvre le médecin en BOX, dans la même salle.</div>
+  <div class="scroll" id="rules"></div>
+</section>
+
+<section>
+  <div class="row"><button id="b-sim">Simuler</button><button id="b-send" disabled>Envoyer vers la sandbox</button><span id="sum" class="mut"></span></div>
+</section>
+<div id="out"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const norm=s=>s==null?'':String(s).trim().toUpperCase();
+const JOURS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];
+const CRENEAUX=JOURS.flatMap(j=>[j+'_matin',j+'_aprem']);
+const BOX_COLS=['BOX1','BOX2','BOX3','BOX4','BOX5','BOX6','BOX7','BOX8','BOX9'];
+const USI_C=['USI1','USI2','USI_int1','USI_int2'],UNV_C=['UNV1','UNV2','UNV_int1','UNV_int2'];
+const ROOMS={USI:['USI1','USI2'],UNV:['UNV1','UNV2']};
+const POST=['C_Periph','C_Cogn','C_sup','C_int1','C_int2','HDJ1','HDJ2','HDJ3','HDJ_int1','HDJ_int2',...UNV_C,...USI_C,'BIPv','BIPng','BIP_int','SAU','Garde','Garde_int','Astr','Astr_int',...BOX_COLS];
+const SEUIL_SEMAINE=6; // cellules USI (ou UNV) dans la semaine pour la considérer déjà pourvue
+
+// ---- Valeurs par défaut (à modifier ici si besoin) ----
+const DEFAULTS={chunk:3,seuil:90,nbUsi:2,nbUnv:2,
+  participants:['AYW','AND','NB','HL','FF','AT','BL','IP'],
+  vasc:['AYW','AND','NB','HL','FF','AT'],
+  quotas:{},
+  rules:{Mardi_matin:{FF:'BOX',AT:'Salle'}}};
+const LS='rotations_params_v1';
+let P=loadP(), D={rows:[],absences:[],cols:[],medecins:[]}, RES=null;
+function loadP(){try{const s=JSON.parse(localStorage.getItem(LS));if(s)return{...structuredClone(DEFAULTS),...s};}catch(e){}return structuredClone(DEFAULTS);}
+function saveP(){try{localStorage.setItem(LS,JSON.stringify(P));}catch(e){}}
+
+// ---- Dates ----
+const parse=d=>{const [y,m,j]=d.split('-').map(Number);return new Date(y,m-1,j);};
+const fmt=t=>`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+const wd=d=>(parse(d).getDay()+6)%7;
+const monday=d=>{const t=parse(d);t.setDate(t.getDate()-wd(d));return fmt(t);};
+const nextDay=d=>{const t=parse(d);t.setDate(t.getDate()+1);return fmt(t);};
+
+// ---- Algorithme ----
+function simulate(P,D){
+  const W=[],warn=(l,m)=>W.push({l,m});
+  const need=P.nbUsi+P.nbUnv,q=m=>Number(P.quotas[m]??1);
+  const slots=D.rows.filter(r=>r.date&&wd(r.date)<5)
+    .sort((a,b)=>(a.date+a.heure).localeCompare(b.date+b.heure))
+    .map(r=>({r,key:r.date+'_'+r.heure,cr:JOURS[wd(r.date)]+(r.heure==='09:00:00'?'_matin':'_aprem')}));
+  if(!slots.length){warn('r','Aucune ligne de planning reçue : ouvre ce générateur depuis une sandbox qui couvre la période.');return{W};}
+  const absent=new Map();
+  D.absences.forEach(a=>D.cols.forEach(c=>{if(a[c]&&String(a[c]).trim()){const k=a.date+'_'+a.heure;if(!absent.has(k))absent.set(k,new Set());absent.get(k).add(norm(c));}}));
+  const repos=new Map();
+  D.rows.forEach(r=>{const g=norm(r.Garde);if(!g)return;const k=nextDay(r.date)+'_'+r.heure;if(!repos.has(k))repos.set(k,new Set());repos.get(k).add(g);});
+  // semaines (ISO, lundi-vendredi)
+  const wk=new Map();slots.forEach((s,i)=>{const m=monday(s.r.date);if(!wk.has(m))wk.set(m,[]);wk.get(m).push(i);});
+  const weeks=[...wk.entries()].map(([mon,ix])=>({mon,ix}));
+  const cnt={},hist={};P.participants.forEach(m=>{cnt[m]={USI:0,UNV:0};hist[m]={};});
+  const cells=(ix,cols,m)=>{let n=0;ix.forEach(i=>cols.forEach(c=>{if(norm(slots[i].r[c])===m)n++;}));return n;};
+  const lab=weeks.map(w=>{const o={};P.participants.forEach(m=>{o[m]=cells(w.ix,USI_C,m)>=SEUIL_SEMAINE?'USI':cells(w.ix,UNV_C,m)>=SEUIL_SEMAINE?'UNV':null;});return o;});
+  const start=lab.findIndex(o=>!Object.values(o).some(Boolean));
+  if(start<0){warn('o','Toutes les semaines ont déjà du personnel en USI/UNV : rien à répartir.');return{W};}
+  lab.forEach((o,i)=>P.participants.forEach(m=>{if(o[m]){cnt[m][o[m]]++;if(i<start)hist[m][0]=o[m];}}));
+
+  const ev=ix=>{ // disponibilité d'un médecin sur un ensemble de créneaux
+    const tx={},ok=[];
+    P.participants.forEach(m=>{let occ=0;
+      ix.forEach(i=>{const s=slots[i];
+        POST.forEach(c=>{if(norm(s.r[c])===m){if(BOX_COLS.includes(c)&&P.rules[s.cr]?.[m]==='BOX')return;occ++;}});
+        if(absent.get(s.key)?.has(m))occ++;});
+      tx[m]=(ix.length-occ)/ix.length;
+      if(tx[m]>=P.seuil/100&&q(m)>0)ok.push(m);});
+    return{tx,ok};};
+  const edits={},ov=(i,c)=>edits[i]?.[c]??slots[i].r[c];
+  const posted=(i,m)=>POST.some(c=>norm(ov(i,c))===m);
+  const free=(i,m)=>!absent.get(slots[i].key)?.has(m)&&!repos.get(slots[i].key)?.has(m)&&!posted(i,m);
+  const put=(i,R,m)=>{const c=ROOMS[R].find(c=>norm(ov(i,c))==='');if(!c)return false;(edits[i]??={})[c]=m;return true;};
+  const load=m=>(cnt[m].USI+cnt[m].UNV)/(q(m)||Infinity);
+
+  const dist=[];let p=start,c=0;
+  while(p<weeks.length){
+    c++;const maxS=Math.min(P.chunk,weeks.length-p);let best=null;
+    for(let s=maxS;s>=1;s--){
+      const ix=weeks.slice(p,p+s).flatMap(w=>w.ix),e=ev(ix);
+      const cand=e.ok.filter(m=>!hist[m][c-1]);
+      best={s,ix,e,cand};
+      if(cand.length>=need)break;}
+    const {s,ix,e,cand}=best,name=`Bloc ${c}`,span=`${weeks[p].mon} → ${weeks[p+s-1].mon}`;
+    if(s<maxS)warn('o',`${name} (${span}) : réduit de ${maxS} à ${s} semaine(s), faute de 4 médecins disponibles sur la durée prévue.`);
+    if(cand.length<need)warn('r',`${name} (${span}) : seulement ${cand.length} médecin(s) disponible(s), même à 1 semaine.`);
+    cand.sort((a,b)=>load(a)-load(b)||cnt[a].USI/q(a)-cnt[b].USI/q(b));
+    const sel=cand.slice(0,need),libres=[...Array(P.nbUsi).fill('USI'),...Array(P.nbUnv).fill('UNV')],att={};
+    sel.forEach(m=>{const h=hist[m][c-2],want=h==='USI'?'UNV':h==='UNV'?'USI':null;
+      if(want&&libres.includes(want)){att[m]=want;libres.splice(libres.indexOf(want),1);}});
+    sel.forEach(m=>{if(att[m])return;
+      const pick=(cnt[m].USI<=cnt[m].UNV&&libres.includes('USI'))?'USI':libres.includes('UNV')?'UNV':libres[0];
+      att[m]=pick;libres.splice(libres.indexOf(pick),1);});
+    sel.forEach(m=>{hist[m][c]=att[m];cnt[m][att[m]]++;});
+    const selSet=new Set(sel);
+    ix.forEach(i=>{const s0=slots[i],lbl=`${name} · ${s0.r.date} ${s0.r.heure.slice(0,5)}`;
+      sel.forEach(m=>{const R=att[m];
+        if(ROOMS[R].some(cc=>norm(ov(i,cc))===m))return;
+        if(absent.get(s0.key)?.has(m)){warn('r',`${lbl} · ${R} : ${m} absent, case laissée vide.`);return;}
+        if(repos.get(s0.key)?.has(m)){
+          const rep=P.vasc.filter(v=>!selSet.has(v)&&free(i,v)&&q(v)>0).sort((a,b)=>load(a)-load(b))[0];
+          if(rep&&put(i,R,rep))warn('o',`${lbl} · ${R} : ${m} en repos de garde, remplaçant proposé ${rep}.`);
+          else warn('r',`${lbl} · ${R} : ${m} en repos de garde, aucun remplaçant disponible.`);return;}
+        if(P.rules[s0.cr]?.[m]==='BOX'){
+          const cov=Object.keys(P.rules[s0.cr]).filter(x=>P.rules[s0.cr][x]==='Salle'&&free(i,x))[0];
+          if(!(cov&&put(i,R,cov)))warn('r',`${lbl} · ${R} : BOX de ${m} non couvert.`);return;}
+        if(!put(i,R,m))warn('r',`${lbl} · ${R} : plus de place pour ${m} (cases déjà remplies).`);
+      });});
+    dist.push({name,span,size:s,reduit:s<maxS,att,tx:e.tx});
+    p+=s;
+  }
+  const bilan=P.participants.map(m=>({m,usi:cnt[m].USI,unv:cnt[m].UNV,tot:cnt[m].USI+cnt[m].UNV,q:q(m),r:q(m)>0?(cnt[m].USI+cnt[m].UNV)/q(m):null}));
+  const rs=bilan.filter(b=>b.r!=null).map(b=>b.r),mean=rs.reduce((a,b)=>a+b,0)/(rs.length||1),sd=Math.sqrt(rs.reduce((a,b)=>a+(b-mean)**2,0)/(rs.length||1));
+  const list=[];Object.entries(edits).forEach(([i,o])=>Object.entries(o).forEach(([col,value])=>{const r=slots[i].r;list.push({id:r.id,date:r.date,heure:r.heure,col,value});}));
+  return{W,dist,bilan,mean,sd,edits:list,start:weeks[start].mon};
+}
+
+// ---- Interface ----
+function chips(sel,key,onChange){
+  const box=$(sel);box.innerHTML='';
+  P[key].forEach(m=>{const s=document.createElement('span');s.className='chip';s.textContent=m;
+    const b=document.createElement('button');b.textContent='×';b.setAttribute('aria-label','Retirer '+m);
+    b.onclick=()=>{P[key]=P[key].filter(x=>x!==m);saveP();chips(sel,key,onChange);onChange&&onChange();};s.append(b);box.append(s);});
+  const i=document.createElement('input');i.type='text';i.setAttribute('list','dl');i.placeholder='Ajouter…';i.size=8;
+  i.onkeydown=e=>{if(e.key!=='Enter')return;const v=norm(i.value);if(!v)return;
+    if(D.medecins.length&&!D.medecins.includes(v)){$('#msg').textContent=`« ${v} » ne figure pas dans la liste des neurologues.`;return;}
+    $('#msg').textContent='';if(!P[key].includes(v))P[key].push(v);saveP();chips(sel,key,onChange);onChange&&onChange();};
+  box.append(i);
+}
+function renderRules(){
+  const t=['<table><tr><th></th>'+P.participants.map(m=>`<th>${m}</th>`).join('')+'</tr>'];
+  t.push('<tr><td class="l">quota_salle</td>'+P.participants.map(m=>`<td><input type="number" step="0.25" min="0" style="width:64px" data-q="${m}" value="${P.quotas[m]??1}"></td>`).join('')+'</tr>');
+  CRENEAUX.forEach(cr=>t.push(`<tr><td class="l">${cr}</td>`+P.participants.map(m=>{const v=P.rules[cr]?.[m]||'';
+    return `<td><select data-cr="${cr}" data-m="${m}"><option value=""></option><option${v==='BOX'?' selected':''}>BOX</option><option${v==='Salle'?' selected':''}>Salle</option></select></td>`;}).join('')+'</tr>'));
+  $('#rules').innerHTML=t.join('')+'</table>';
+  $('#rules').querySelectorAll('[data-q]').forEach(e=>e.onchange=()=>{P.quotas[e.dataset.q]=Number(e.value);saveP();});
+  $('#rules').querySelectorAll('[data-cr]').forEach(e=>e.onchange=()=>{const o=P.rules[e.dataset.cr]??={};if(e.value)o[e.dataset.m]=e.value;else delete o[e.dataset.m];saveP();});
+}
+function renderParams(){
+  $('#p-chunk').value=P.chunk;$('#p-seuil').value=P.seuil;$('#p-usi').value=P.nbUsi;$('#p-unv').value=P.nbUnv;
+  chips('#c-part','participants',renderRules);chips('#c-vasc','vasc');renderRules();
+  $('#dl').innerHTML=D.medecins.map(m=>`<option value="${m}">`).join('');
+}
+[['#p-chunk','chunk'],['#p-seuil','seuil'],['#p-usi','nbUsi'],['#p-unv','nbUnv']].forEach(([s,k])=>$(s).onchange=e=>{P[k]=Number(e.target.value);saveP();});
+$('#b-reset').onclick=()=>{P=structuredClone(DEFAULTS);saveP();renderParams();};
+
+function renderResult(){
+  const R=RES;if(!R||!R.dist){$('#out').innerHTML=R?`<section>${R.W.map(w=>`<div class="w ${w.l}">${w.m}</div>`).join('')}</section>`:'';return;}
+  const head='<tr><th>Bloc</th><th>Semaines</th><th>Durée</th>'+P.participants.map(m=>`<th>${m}</th>`).join('')+'</tr>';
+  const rows=R.dist.map(d=>`<tr><td class="l">${d.name}</td><td class="l">${d.span}</td><td${d.reduit?' class="bad"':''}>${d.size} sem.</td>`+
+    P.participants.map(m=>d.att[m]?`<td class="${d.att[m]}">${d.att[m]}</td>`:`<td class="mut">${Math.round((d.tx[m]??0)*100)}%</td>`).join('')+'</tr>').join('');
+  const b=R.bilan.map(x=>{const ok=x.r==null||Math.abs(x.r-R.mean)<=R.sd+1e-9;
+    return `<tr><td class="l">${x.m}</td><td>${x.usi}</td><td>${x.unv}</td><td>${x.tot}</td><td>${x.q}</td><td class="${ok?'ok':'bad'}">${x.r==null?'–':x.r.toFixed(2)}</td></tr>`;}).join('');
+  const reds=R.W.filter(w=>w.l==='r'),ambs=R.W.filter(w=>w.l==='o');
+  const wl=a=>a.slice(0,300).map(w=>`<div class="w ${w.l}">${w.m}</div>`).join('')+(a.length>300?`<div class="mut">… ${a.length-300} autres</div>`:'');
+  $('#out').innerHTML=`<section><h2>Répartition (à partir de la semaine du ${R.start})</h2><div class="scroll"><table>${head}${rows}</table></div>
+    <div class="mut" style="margin-top:4px">Les pourcentages indiquent la disponibilité des médecins non retenus sur le bloc.</div></section>
+    <section><h2>Bilan d'équilibrage (historique inclus)</h2><div class="scroll"><table><tr><th>Médecin</th><th>USI</th><th>UNV</th><th>Total</th><th>Quota</th><th>Total / quota</th></tr>${b}</table></div>
+    <div class="mut" style="margin-top:4px">Vert : dans la moyenne ± 1 écart-type (${R.mean.toFixed(2)} ± ${R.sd.toFixed(2)}).</div></section>
+    <section><h2>À arbitrer (${reds.length})</h2>${wl(reds)||'<div class="mut">Aucun échec de postage.</div>'}</section>
+    <section><h2>Ajustements automatiques (${ambs.length})</h2>${wl(ambs)||'<div class="mut">Aucun.</div>'}</section>`;
+}
+$('#b-sim').onclick=()=>{
+  if(!D.rows.length){RES={W:[{l:'r',m:'Aucune donnée reçue : ouvre ce générateur depuis l\'onglet sandbox de Neuroplanning.'}]};renderResult();return;}
+  if(P.participants.length<P.nbUsi+P.nbUnv){RES={W:[{l:'r',m:'Pas assez de médecins en rotation pour pourvoir tous les postes.'}]};renderResult();return;}
+  RES=simulate(P,D);renderResult();
+  $('#sum').textContent=RES.edits?`${RES.edits.length} case(s) à remplir`:'';
+  $('#b-send').disabled=!(RES.edits&&RES.edits.length&&host());
+};
+$('#b-send').onclick=()=>{host()?.postMessage({type:'rotations:edits',edits:RES.edits},location.origin);$('#sum').textContent=`${RES.edits.length} case(s) envoyée(s) vers la sandbox (en attente de sauvegarde).`;};
+
+// ---- Échange avec index ----
+const host=()=>window.opener||(window.parent!==window?window.parent:null);
+window.addEventListener('message',e=>{
+  if(e.origin!==location.origin||e.data?.type!=='rotations:init')return;
+  const d=e.data;D={rows:d.rows||[],absences:d.absences||[],cols:d.medecins||[],medecins:(d.medecins||[]).map(norm)};
+  $('#src').textContent=`${D.rows.length} lignes de sandbox, ${D.absences.length} lignes d'absences, ${D.cols.length} neurologues.`;
+  renderParams();
+});
+renderParams();
+host()?.postMessage({type:'rotations:ready'},location.origin);
+</script>
+</body>
+</html>
