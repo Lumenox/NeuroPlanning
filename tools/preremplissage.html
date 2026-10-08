@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pré-remplissage des Box - NeuroPlanning</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Supabase JS Client v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen p-4 sm:p-6 lg:p-8">
+
+  <div class="max-w-7xl mx-auto space-y-6">
+    
+    <!-- En-tête -->
+    <header class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="p-2 bg-indigo-100 text-indigo-700 rounded-lg text-lg">
+            <i class="fa-solid fa-calendar-plus"></i>
+          </span>
+          <h1 class="text-2xl font-bold text-slate-900">Analyse & Pré-remplissage des Boxs</h1>
+        </div>
+        <p class="text-sm text-slate-500 mt-1">
+          Détection des boxs disponibles et application du template hebdomadaire.
+        </p>
+      </div>
+      
+      <div id="connectionStatus" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+        <span class="w-2 h-2 rounded-full bg-slate-400"></span> Supabase : Prêt
+      </div>
+    </header>
+
+    <!-- SECTION 1 : Édition du Template Hard-codé -->
+    <details class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden group">
+      <summary class="p-6 cursor-pointer font-bold text-slate-800 text-base flex justify-between items-center bg-slate-50/50 hover:bg-slate-100/50 transition">
+        <span class="flex items-center gap-2 text-indigo-700">
+          <i class="fa-solid fa-table-cells"></i> 1. Template Hebdomadaire des Boxs (Modifiable)
+        </span>
+        <span class="text-xs bg-indigo-50 text-indigo-600 font-semibold px-3 py-1 rounded-full group-open:rotate-180 transition-transform">
+          <i class="fa-solid fa-chevron-down"></i>
+        </span>
+      </summary>
+      <div class="p-6 space-y-4 border-t border-slate-200">
+        <p class="text-xs text-slate-500">
+          Ce template définit l'affectation par défaut appliquée uniquement aux créneaux libres de la période sélectionnée.
+        </p>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="bg-slate-100 text-slate-700 border-b border-slate-200">
+                <th class="p-2 border border-slate-200">Jour</th>
+                <th class="p-2 border border-slate-200">Heure</th>
+                <th class="p-2 border border-slate-200">BOX 1</th>
+                <th class="p-2 border border-slate-200">BOX 2</th>
+                <th class="p-2 border border-slate-200">BOX 3</th>
+                <th class="p-2 border border-slate-200">BOX 4</th>
+                <th class="p-2 border border-slate-200">BOX 5</th>
+                <th class="p-2 border border-slate-200">BOX 6</th>
+                <th class="p-2 border border-slate-200">BOX 7</th>
+                <th class="p-2 border border-slate-200">BOX 8</th>
+                <th class="p-2 border border-slate-200">BOX 9</th>
+              </tr>
+            </thead>
+            <tbody id="templateTableBody">
+              <!-- Rempli dynamiquement -->
+            </tbody>
+          </table>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button id="btnResetTemplate" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-semibold text-xs transition">
+            Réinitialiser au template Excel initial
+          </button>
+          <button id="btnSaveTemplate" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-xs transition flex items-center gap-1">
+            <i class="fa-solid fa-floppy-disk"></i> Enregistrer les modifications du Template
+          </button>
+        </div>
+      </div>
+    </details>
+
+    <!-- SECTION 2 : Panneau de Filtres de Période -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+        <i class="fa-solid fa-filter text-indigo-500"></i> 2. Période d'Analyse & Pré-remplissage
+      </h2>
+      
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Date de début</label>
+          <input type="date" id="dateDebut" class="w-full text-sm p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Date de fin</label>
+          <input type="date" id="dateFin" class="w-full text-sm p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+        </div>
+        <div class="flex items-end">
+          <button id="btnAnalyse" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-4 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-sm">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <span>Simuler le Pré-remplissage (Avant / Après)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Synthèse & Métriques -->
+    <div id="kpiContainer" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-200 shadow-sm">
+        <span class="text-[11px] font-bold text-emerald-800 uppercase tracking-wider block">Valeurs Vertes (À pré-remplir)</span>
+        <div id="kpiModifications" class="text-3xl font-extrabold text-emerald-900 mt-1">0</div>
+      </div>
+      <div class="bg-rose-50 p-4 rounded-xl border border-rose-200 shadow-sm">
+        <span class="text-[11px] font-bold text-rose-800 uppercase tracking-wider block">Valeurs Rouges (Conflits / Différents)</span>
+        <div id="kpiRed" class="text-3xl font-extrabold text-rose-900 mt-1">0</div>
+      </div>
+      <div class="bg-amber-50 p-4 rounded-xl border border-amber-200 shadow-sm">
+        <span class="text-[11px] font-bold text-amber-800 uppercase tracking-wider block">Valeurs Oranges (Identiques)</span>
+        <div id="kpiOrange" class="text-3xl font-extrabold text-amber-900 mt-1">0</div>
+      </div>
+    </div>
+
+    <!-- SECTION 3 : Résultats avant/après sous forme de Tableau Template & Validation -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50/50">
+        <div>
+          <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+            <i class="fa-solid fa-code-compare text-indigo-500"></i>
+            3. Visualisation "Avant / Après" du Planning
+          </h3>
+          <!-- Légende interactive -->
+          <div class="flex flex-wrap items-center gap-3 mt-2 text-xs">
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-medium">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Vert : Pré-remplissage appliqué (Case vide)
+            </span>
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-medium">
+              <span class="w-2 h-2 rounded-full bg-rose-500"></span> Rouge : Déjà occupé (Valeur ≠ Template)
+            </span>
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-medium">
+              <span class="w-2 h-2 rounded-full bg-amber-500"></span> Orange : Déjà occupé (Valeur = Template)
+            </span>
+          </div>
+        </div>
+        <button id="btnValidateApply" disabled class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 px-4 rounded-xl shadow transition text-xs flex items-center gap-2 shrink-0">
+          <i class="fa-solid fa-check-circle"></i>
+          <span>Valider uniquement les cases Vertes</span>
+        </button>
+      </div>
+
+      <div class="overflow-x-auto p-4">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-slate-100 text-slate-700 border-b border-slate-200">
+              <th class="p-2.5 border border-slate-200 font-bold">Date</th>
+              <th class="p-2.5 border border-slate-200 font-bold">Créneau</th>
+              <th class="p-2.5 border border-slate-200 font-bold text-center">BOX 1</th>
+              <th class="p-2.5 border border-slate-200 font-bold text-center">BOX 2</th>
+              <th class="p-2.5 border border-slate-200 font-bold text-center">BOX 3</th>
+              <th class="p-2.5 border border-slate-200 font-bold text-center">BOX 4</th>
+              <th class="p-2.5 border border-slate-200 font-bold text-center">BOX 5</th>
+              <th class="p-2.5 border border-slate-200 font-bold text-center">BOX 6</th>
+              <th class="p-2.5 border border-slate-200 font-bold text-center">BOX 7</th>
+              <th class="p-2.5 border border-slate-200 font-bold text-center">BOX 8</th>
+              <th class="p-2.5 border border-slate-200 font-bold text-center">BOX 9</th>
+            </tr>
+          </thead>
+          <tbody id="resultBody" class="divide-y divide-slate-100">
+            <tr>
+              <td colspan="11" class="py-12 text-center text-slate-400">
+                <i class="fa-solid fa-calendar-days text-3xl mb-2 text-slate-300 block"></i>
+                Sélectionnez une période et cliquez sur "Simuler le Pré-remplissage".
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // -------------------------------------------------------------
+    // Configuration Client Supabase
+    // -------------------------------------------------------------
+    const SUPABASE_URL = 'https://yseaujinbdwxpcelsywr.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_7uC727-tO92zxGsAwCqBnA_E9oX_Xw8';
+    
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      db: { schema: 'neuroplanning' }
+    });
+
+    // -------------------------------------------------------------
+    // Template Excel "Hard-codé" par défaut (Classeur1.xlsx)
+    // -------------------------------------------------------------
+    const INITIAL_TEMPLATE = [
+      { dayIndex: 1, dayLabel: 'Lundi', heure: '09:00:00', boxes: { BOX1: 'AyW', BOX2: '', BOX3: 'HS', BOX4: 'VPB', BOX5: '', BOX6: 'AP', BOX7: '', BOX8: '', BOX9: '' } },
+      { dayIndex: 1, dayLabel: 'Lundi', heure: '13:30:00', boxes: { BOX1: 'AnD', BOX2: '', BOX3: 'Abdel', BOX4: 'MZ', BOX5: '', BOX6: '', BOX7: 'Joannet', BOX8: '', BOX9: '' } },
+      { dayIndex: 2, dayLabel: 'Mardi', heure: '09:00:00', boxes: { BOX1: '', BOX2: '', BOX3: 'AZ', BOX4: 'PhR', BOX5: '', BOX6: '', BOX7: '', BOX8: '', BOX9: '' } },
+      { dayIndex: 2, dayLabel: 'Mardi', heure: '13:30:00', boxes: { BOX1: 'AP', BOX2: 'TG', BOX3: 'HS', BOX4: 'PhR', BOX5: '', BOX6: '', BOX7: '', BOX8: '', BOX9: '' } },
+      { dayIndex: 3, dayLabel: 'Mercredi', heure: '09:00:00', boxes: { BOX1: '', BOX2: 'EE', BOX3: '', BOX4: 'TOXINE', BOX5: '', BOX6: '', BOX7: '', BOX8: '', BOX9: '' } },
+      { dayIndex: 3, dayLabel: 'Mercredi', heure: '13:30:00', boxes: { BOX1: '', BOX2: 'RN', BOX3: 'HS', BOX4: 'AP', BOX5: '', BOX6: 'SC', BOX7: '', BOX8: '', BOX9: '' } },
+      { dayIndex: 4, dayLabel: 'Jeudi', heure: '09:00:00', boxes: { BOX1: '', BOX2: 'VP', BOX3: 'LCL', BOX4: 'IPA Cog', BOX5: '', BOX6: 'AZ', BOX7: '', BOX8: '', BOX9: '' } },
+      { dayIndex: 4, dayLabel: 'Jeudi', heure: '13:30:00', boxes: { BOX1: '', BOX2: 'MB', BOX3: 'Ayache', BOX4: 'VPB', BOX5: '', BOX6: 'SC', BOX7: '', BOX8: '', BOX9: '' } },
+      { dayIndex: 5, dayLabel: 'Vendredi', heure: '09:00:00', boxes: { BOX1: '', BOX2: '', BOX3: '', BOX4: 'VPB', BOX5: '', BOX6: '', BOX7: '', BOX8: '', BOX9: '' } },
+      { dayIndex: 5, dayLabel: 'Vendredi', heure: '13:30:00', boxes: { BOX1: '', BOX2: '', BOX3: 'Abdel', BOX4: 'AP', BOX5: '', BOX6: 'IPA Cog', BOX7: '', BOX8: '', BOX9: '' } }
+    ];
+
+    let currentTemplate = [];
+    let pendingUpdates = []; // Stocke uniquement les modifications Vertes
+
+    function loadTemplate() {
+      const saved = localStorage.getItem('neuroplanning_template');
+      if (saved) {
+        try {
+          currentTemplate = JSON.parse(saved);
+        } catch (e) {
+          currentTemplate = JSON.parse(JSON.stringify(INITIAL_TEMPLATE));
+        }
+      } else {
+        currentTemplate = JSON.parse(JSON.stringify(INITIAL_TEMPLATE));
+      }
+      renderTemplateTable();
+    }
+
+    function renderTemplateTable() {
+      const tbody = document.getElementById('templateTableBody');
+      tbody.innerHTML = '';
+      const boxKeys = ['BOX1', 'BOX2', 'BOX3', 'BOX4', 'BOX5', 'BOX6', 'BOX7', 'BOX8', 'BOX9'];
+
+      currentTemplate.forEach((row, rowIndex) => {
+        const tr = document.createElement('tr');
+        tr.className = rowIndex % 2 === 0 ? 'bg-white' : 'bg-slate-50/50';
+
+        let boxesInputsHtml = '';
+        boxKeys.forEach(boxKey => {
+          const val = row.boxes[boxKey] || '';
+          boxesInputsHtml += `
+            <td class="p-1 border border-slate-200">
+              <input type="text" value="${val}" data-row="${rowIndex}" data-box="${boxKey}" class="template-input w-full p-1 text-xs rounded border border-slate-200 focus:border-indigo-500 focus:outline-none">
+            </td>
+          `;
+        });
+
+        tr.innerHTML = `
+          <td class="p-2 border border-slate-200 font-semibold text-slate-700">${row.dayLabel}</td>
+          <td class="p-2 border border-slate-200 text-slate-500 font-mono">${row.heure.substring(0, 5)}</td>
+          ${boxesInputsHtml}
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.querySelectorAll('.template-input').forEach(input => {
+        input.addEventListener('change', (e) => {
+          const rIndex = e.target.dataset.row;
+          const bKey = e.target.dataset.box;
+          currentTemplate[rIndex].boxes[bKey] = e.target.value.trim();
+        });
+      });
+    }
+
+    async function fetchAllPlanningRows() {
+      const pageSize = 1000;
+      let all = [];
+      let from = 0;
+      while (true) {
+        let { data, error } = await supabaseClient
+          .from('planning')
+          .select('*')
+          .range(from, from + pageSize - 1)
+          .order('date', { ascending: true })
+          .order('heure', { ascending: true });
+
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        all = all.concat(data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      return all;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadTemplate();
+
+      const dateDebutEl = document.getElementById('dateDebut');
+      const dateFinEl = document.getElementById('dateFin');
+      const today = new Date();
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+      dateDebutEl.value = firstDay.toISOString().split('T')[0];
+      dateFinEl.value = lastDay.toISOString().split('T')[0];
+
+      dateDebutEl.addEventListener('change', (e) => {
+        if (e.target.value) {
+          dateFinEl.value = e.target.value;
+          dateFinEl.min = e.target.value;
+        }
+      });
+
+      document.getElementById('btnSaveTemplate').addEventListener('click', () => {
+        localStorage.setItem('neuroplanning_template', JSON.stringify(currentTemplate));
+        alert('Template sauvegardé avec succès !');
+      });
+
+      document.getElementById('btnResetTemplate').addEventListener('click', () => {
+        if (confirm('Voulez-vous réinitialiser le template avec les valeurs par défaut du tableau Excel ?')) {
+          currentTemplate = JSON.parse(JSON.stringify(INITIAL_TEMPLATE));
+          localStorage.removeItem('neuroplanning_template');
+          renderTemplateTable();
+        }
+      });
+    });
+
+    // -------------------------------------------------------------
+    // Simulation du Pré-remplissage avec Code Couleur
+    // -------------------------------------------------------------
+    document.getElementById('btnAnalyse').addEventListener('click', async () => {
+      const dateDebut = document.getElementById('dateDebut').value;
+      const dateFin = document.getElementById('dateFin').value;
+      const statusEl = document.getElementById('connectionStatus');
+
+      if (!dateDebut || !dateFin || dateDebut > dateFin) {
+        alert("Veuillez sélectionner une plage de dates valide.");
+        return;
+      }
+
+      statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span> Simulation en cours...`;
+      statusEl.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200";
+
+      try {
+        const rawPlanning = await fetchAllPlanningRows();
+        statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Supabase : Connecté`;
+        statusEl.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200";
+
+        const filteredData = rawPlanning.filter(row => {
+          const d = (row.date || '').trim();
+          return d >= dateDebut && d <= dateFin;
+        });
+
+        pendingUpdates = [];
+        let countGreen = 0;
+        let countRed = 0;
+        let countOrange = 0;
+
+        const renderedRows = [];
+
+        filteredData.forEach(row => {
+          const rowDateObj = new Date(row.date);
+          let dayIndex = rowDateObj.getDay(); // 1 = Lundi, ..., 5 = Vendredi
+          const rowHeure = (row.heure || row.creneau || '09:00:00').trim().substring(0, 5);
+
+          const templateRow = currentTemplate.find(t => 
+            t.dayIndex === dayIndex && t.heure.startsWith(rowHeure)
+          );
+
+          const dbUpdatesForRow = { id: row.id, date: row.date, heure: row.heure, changes: {} };
+          const rowBoxesResult = {};
+
+          for (let i = 1; i <= 9; i++) {
+            const boxKey = `BOX${i}`;
+            const dbVal = row[boxKey] || row[boxKey.toLowerCase()] || '';
+            const isDbOccupied = dbVal && String(dbVal).trim() !== '' && String(dbVal).trim().toUpperCase() !== 'NULL';
+            const cleanDbVal = isDbOccupied ? String(dbVal).trim() : '';
+
+            const templateVal = templateRow && templateRow.boxes[boxKey] ? String(templateRow.boxes[boxKey]).trim() : '';
+
+            if (!isDbOccupied) {
+              if (templateVal !== '') {
+                // 1. VERT : Rempli du vide
+                countGreen++;
+                dbUpdatesForRow.changes[boxKey] = templateVal;
+                rowBoxesResult[boxKey] = {
+                  color: 'GREEN',
+                  displayText: templateVal,
+                  subText: 'Pré-rempli'
+                };
+              } else {
+                // Neutre libre
+                rowBoxesResult[boxKey] = { color: 'EMPTY', displayText: '—' };
+              }
+            } else {
+              if (templateVal !== '' && cleanDbVal.toUpperCase() !== templateVal.toUpperCase()) {
+                // 2. ROUGE : Valeur existante différente du template
+                countRed++;
+                rowBoxesResult[boxKey] = {
+                  color: 'RED',
+                  displayText: cleanDbVal,
+                  subText: `Template: ${templateVal}`
+                };
+              } else if (templateVal !== '' && cleanDbVal.toUpperCase() === templateVal.toUpperCase()) {
+                // 3. ORANGE : Valeur existante identique au template
+                countOrange++;
+                rowBoxesResult[boxKey] = {
+                  color: 'ORANGE',
+                  displayText: cleanDbVal,
+                  subText: 'Identique'
+                };
+              } else {
+                // Occupé mais pas de valeur dans le template
+                rowBoxesResult[boxKey] = { color: 'NORMAL_OCCUPIED', displayText: cleanDbVal };
+              }
+            }
+          }
+
+          if (Object.keys(dbUpdatesForRow.changes).length > 0) {
+            pendingUpdates.push(dbUpdatesForRow);
+          }
+
+          renderedRows.push({
+            date: row.date,
+            heure: row.heure,
+            boxes: rowBoxesResult
+          });
+        });
+
+        // Mettre à jour les KPI
+        document.getElementById('kpiModifications').innerText = countGreen;
+        document.getElementById('kpiRed').innerText = countRed;
+        document.getElementById('kpiOrange').innerText = countOrange;
+        document.getElementById('kpiContainer').classList.remove('hidden');
+
+        const btnVal = document.getElementById('btnValidateApply');
+        btnVal.disabled = pendingUpdates.length === 0;
+
+        renderGridTable(renderedRows);
+
+      } catch (err) {
+        console.error(err);
+        statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span> Erreur`;
+        alert("Erreur lors de la simulation : " + err.message);
+      }
+    });
+
+    function renderGridTable(rows) {
+      const tbody = document.getElementById('resultBody');
+      tbody.innerHTML = '';
+
+      if (rows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="11" class="py-8 text-center text-slate-400">Aucune donnée trouvée sur cette période.</td></tr>`;
+        return;
+      }
+
+      const boxKeys = ['BOX1', 'BOX2', 'BOX3', 'BOX4', 'BOX5', 'BOX6', 'BOX7', 'BOX8', 'BOX9'];
+
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition';
+
+        let boxesHtml = '';
+        boxKeys.forEach(boxKey => {
+          const cell = r.boxes[boxKey] || { color: 'EMPTY', displayText: '—' };
+
+          let colorClasses = 'bg-slate-50 text-slate-400';
+          if (cell.color === 'GREEN') {
+            colorClasses = 'bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold';
+          } else if (cell.color === 'RED') {
+            colorClasses = 'bg-rose-100 text-rose-900 border border-rose-300 font-bold';
+          } else if (cell.color === 'ORANGE') {
+            colorClasses = 'bg-amber-100 text-amber-900 border border-amber-300 font-bold';
+          } else if (cell.color === 'NORMAL_OCCUPIED') {
+            colorClasses = 'bg-slate-100 text-slate-700 font-medium';
+          }
+
+          const sub = cell.subText ? `<span class="block text-[10px] opacity-75 font-normal">${cell.subText}</span>` : '';
+
+          boxesHtml += `
+            <td class="p-2 border border-slate-200 text-center">
+              <div class="px-1.5 py-1 rounded text-xs ${colorClasses}">
+                ${cell.displayText}
+                ${sub}
+              </div>
+            </td>
+          `;
+        });
+
+        tr.innerHTML = `
+          <td class="p-2.5 border border-slate-200 font-semibold text-slate-800 whitespace-nowrap">${r.date}</td>
+          <td class="p-2.5 border border-slate-200 text-slate-600 font-mono text-xs whitespace-nowrap">${r.heure ? r.heure.substring(0,5) : ''}</td>
+          ${boxesHtml}
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // -------------------------------------------------------------
+    // Validation finale : Application EXCLUSIVE des valeurs VERTES
+    // -------------------------------------------------------------
+    document.getElementById('btnValidateApply').addEventListener('click', async () => {
+      if (pendingUpdates.length === 0) return;
+
+      const totalGreenChanges = pendingUpdates.reduce((acc, u) => acc + Object.keys(u.changes).length, 0);
+      const confirmMsg = `Confirmez-vous l'enregistrement de ${totalGreenChanges} pré-remplissage(s) (Valeurs Vertes uniquement) dans NeuroPlanning ?`;
+      
+      if (!confirm(confirmMsg)) return;
+
+      const btnVal = document.getElementById('btnValidateApply');
+      btnVal.disabled = true;
+      btnVal.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Mise à jour en cours...`;
+
+      try {
+        let successCount = 0;
+        for (const updateObj of pendingUpdates) {
+          const { error } = await supabaseClient
+            .from('planning')
+            .update(updateObj.changes)
+            .eq('id', updateObj.id);
+
+          if (error) {
+            console.error(`Erreur mise à jour ID ${updateObj.id}:`, error);
+          } else {
+            successCount++;
+          }
+        }
+
+        alert(`Enregistrement réussi ! ${successCount} créneau(x) mis à jour avec les valeurs vertes.`);
+        btnVal.innerHTML = `<i class="fa-solid fa-check"></i> Terminé !`;
+        
+        // Re-simuler pour mettre à jour l'affichage
+        document.getElementById('btnAnalyse').click();
+
+      } catch (err) {
+        console.error(err);
+        alert("Erreur lors de l'enregistrement : " + err.message);
+        btnVal.disabled = false;
+        btnVal.innerHTML = `<i class="fa-solid fa-check-circle"></i> Valider uniquement les cases Vertes`;
+      }
+    });
+  </script>
+</body>
+</html>
