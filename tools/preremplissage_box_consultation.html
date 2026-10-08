@@ -252,7 +252,14 @@
     let currentTemplate = [];
     let pendingUpdates = []; // Stocke uniquement les modifications Vertes
     let currentUser = null; // Variable globale pour stocker l'utilisateur connecté
-
+    // Écouteur pour la touche Entrée sur le champ mot de passe
+ document.addEventListener('DOMContentLoaded', () => {
+    const passInput = document.getElementById('auth-pass');
+      if (passInput) {
+        passInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') doLogin();
+        });
+      }
 // Vérification d'une session déjà active lors du chargement
   checkExistingSession();
 });
@@ -489,14 +496,7 @@ async function logout() {
         }
       });
     });
-    // Écouteur pour la touche Entrée sur le champ mot de passe
-    document.addEventListener('DOMContentLoaded', () => {
-      const passInput = document.getElementById('auth-pass');
-      if (passInput) {
-        passInput.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') doLogin();
-        });
-      }
+
     // -------------------------------------------------------------
     // Simulation du Pré-remplissage avec Code Couleur
     // -------------------------------------------------------------
