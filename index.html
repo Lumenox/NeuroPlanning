@@ -826,7 +826,11 @@ tr.new-day td { box-shadow: inset 0 3px 0 -2px var(--gray); }
       <span id="sandbox-info-period" style="color:var(--white);"></span>
       <span id="sandbox-info-creator" style="color:var(--gray);"></span>
       <div style="flex:1"></div>
+	 
       <button class="btn-ghost" id="btn-compare-sandbox" onclick="compareSandboxWithReal()" style="font-size:11px; border-color:var(--amber); color:var(--amber);">🔍 Comparer avec le planning réel</button>
+	  <button class="btn-ghost" onclick="openRotationsTool()" style="font-size:11px; border-color:var(--teal); color:var(--teal);">
+		  🔄 Générateur USI / UNV
+		</button>
       <button class="btn-save" id="btn-save-sandbox" onclick="saveSandboxPending()" style="font-size:11px;">💾 Sauvegarder</button>
       <button class="btn-ghost" onclick="openPushModal()" style="font-size:11px;">🚀 Publier vers le planning réel</button>
       <button class="btn-danger" onclick="deleteSandbox()" style="font-size:11px;">🗑️ Supprimer la sandbox</button>
@@ -1228,6 +1232,8 @@ let isSandboxEditMode   = false;
 let sandboxConflicts = {}; // { sandboxRowId: { colKey: { realValue, baselineValue } } }
 let isSandboxBrushMode = false;
 let pendingPushDiff = []; // [{ sandboxRow, realRow, colKey, sandboxVal, realVal, hasConflict, conflictInfo }]
+
+let rotationsWindow = null; // Variable globale dans la sandbox pour stocker la fenêtre ou iframe de l'outil
 
 
 
@@ -4550,6 +4556,69 @@ async function deleteSandbox() {
     toast('Erreur suppression sandbox : ' + err.message, 'error');
   }
 }
+	
+//logique JavaScript pour ouvrir l'outil et gérer postMessage
+function openRotationsTool() {
+  if (!currentSandboxMeta) {
+    toast('Veuillez activer une sandbox avant de lancer le générateur.', 'warning');
+    return;
+  }
+  // Ouverture dans un nouvel onglet/fenêtre
+  rotationsWindow = window.open('tools/rotations_usi_unv.html', 'rotations_tool');
+}
+
+// Écouteur de messages postMessage provenant de rotations_usi_unv.html
+window.addEventListener('message', async (e) => {
+  // Sécurité origine
+  if (e.origin !== location.origin) return;
+
+  const data = e.data;
+  if (!data || !data.type) return;
+
+  // 1. L'outil signale qu'il est prêt à recevoir les données
+  if (data.type === 'rotations:ready') {
+    if (!rotationsWindow && e.source) {
+      rotationsWindow = e.source;
+    }
+    
+    // Filtrer les données de la Sandbox et les absences sur la période
+    const rows = sandboxData; // Lignes actuellement chargées dans la Sandbox
+    const absences = currentFilteredAbs; // Absences filtrées ou globales
+    const medecins = listeMedecins.map(m => m.initiales);
+
+    // Envoi des données vers rotations_usi_unv.html
+    rotationsWindow.postMessage({
+      type: 'rotations:init',
+      rows: rows,
+      absences: absences,
+      medecins: medecins
+    }, location.origin);
+  }
+
+  // 2. L'outil renvoie les modifications générées
+  if (data.type === 'rotations:edits') {
+    const edits = data.edits || [];
+    if (!edits.length) return;
+
+    let updatedCount = 0;
+
+    edits.forEach(edit => {
+      // Trouver la ligne correspondante dans sandboxData
+      const row = sandboxData.find(r => r.id === edit.id || (r.date === edit.date && r.heure === edit.heure));
+      if (row) {
+        if (!pendingEditsSandbox[row.id]) pendingEditsSandbox[row.id] = {};
+        pendingEditsSandbox[row.id][edit.col] = edit.value;
+        row[edit.col] = edit.value;
+        updatedCount++;
+      }
+    });
+
+    // Rafraîchir le tableau de la Sandbox
+    renderSandboxTable();
+    toast(`✓ ${updatedCount} case(s) de rotation appliquées dans la Sandbox (pensez à sauvegarder).`, 'info');
+  }
+});
+
 // ══════════════════════════════════════════════════════════════════
 
 
