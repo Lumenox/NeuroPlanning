@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portail NeuroPlanning - Outils de Gestion des Boxs</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Supabase JS Client v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen p-4 sm:p-6 lg:p-8 flex flex-col justify-between">
+
+  <div class="max-w-6xl mx-auto w-full space-y-8">
+    
+    <!-- En-tête du Portail -->
+    <header class="bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <div class="flex items-center gap-3">
+          <span class="p-3 bg-indigo-100 text-indigo-700 rounded-2xl text-2xl shadow-sm">
+            <i class="fa-solid fa-brain"></i>
+          </span>
+          <div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Portail NeuroPlanning</h1>
+            <p class="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
+              Plateforme de gestion, d'optimisation et d'attribution des boxs de consultation.
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Indicateur Statut / Session -->
+      <div class="flex items-center gap-3">
+        <span id="user-badge" class="hidden text-xs font-mono font-semibold px-3.5 py-1.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200"></span>
+        <div id="connectionStatus" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Supabase : Prêt
+        </div>
+        <button id="btn-logout" onclick="logout()" title="Se déconnecter" class="hidden px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-full text-xs font-semibold transition">
+          <i class="fa-solid fa-right-from-bracket"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Grille des Outils disponibles -->
+    <main class="space-y-4">
+      <div class="flex items-center justify-between px-2">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+          <i class="fa-solid fa-cubes text-indigo-500"></i> Applications & Modules
+        </h2>
+        <span class="text-xs text-slate-400 font-medium">2 outils actifs</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+        
+        <!-- CARTE 1 : Pré-remplissage des Boxs -->
+        <a href="preremplissage_box_consultation.html" class="group bg-white rounded-3xl p-6 shadow-sm border border-slate-200 hover:border-indigo-500 hover:shadow-md transition-all duration-200 flex flex-col justify-between space-y-4 relative overflow-hidden">
+          <div class="absolute top-0 right-0 w-24 h-24 bg-indigo-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+          
+          <div class="space-y-3 relative z-10">
+            <div class="flex items-center justify-between">
+              <span class="p-3 bg-indigo-100 text-indigo-700 rounded-2xl text-xl font-bold group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                <i class="fa-solid fa-calendar-plus"></i>
+              </span>
+              <span class="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                <i class="fa-solid fa-lock text-[10px] mr-1"></i> Admin Box
+              </span>
+            </div>
+
+            <div>
+              <h3 class="text-lg font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                Pré-remplissage des Boxs
+              </h3>
+              <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                Applique le template hebdomadaire d'attribution sur les créneaux libres du planning Supabase. Permet l'édition du template et la validation "Avant / Après".
+              </p>
+            </div>
+          </div>
+
+          <div class="pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-indigo-600 group-hover:translate-x-1 transition-transform relative z-10">
+            <span>Ouvrir l'outil de pré-remplissage</span>
+            <i class="fa-solid fa-arrow-right"></i>
+          </div>
+        </a>
+
+        <!-- CARTE 2 : Audit & Optimisation -->
+        <a href="optimisation_box_consultation.html" class="group bg-white rounded-3xl p-6 shadow-sm border border-slate-200 hover:border-indigo-500 hover:shadow-md transition-all duration-200 flex flex-col justify-between space-y-4 relative overflow-hidden">
+          <div class="absolute top-0 right-0 w-24 h-24 bg-teal-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+
+          <div class="space-y-3 relative z-10">
+            <div class="flex items-center justify-between">
+              <span class="p-3 bg-teal-100 text-teal-700 rounded-2xl text-xl font-bold group-hover:bg-teal-600 group-hover:text-white transition-colors">
+                <i class="fa-solid fa-hospital-user"></i>
+              </span>
+              <span class="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                <i class="fa-solid fa-chart-line text-[10px] mr-1"></i> Analyse CSV
+              </span>
+            </div>
+
+            <div>
+              <h3 class="text-lg font-bold text-slate-900 group-hover:text-teal-600 transition-colors">
+                Audit & Optimisation des Boxs
+              </h3>
+              <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                Compare le planning prévisionnel Supabase avec les rendez-vous réels issus de l'export CSV. Détecte les boxs inutilisés et les patients sans box.
+              </p>
+            </div>
+          </div>
+
+          <div class="pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-teal-600 group-hover:translate-x-1 transition-transform relative z-10">
+            <span>Lancer l'audit d'occupation</span>
+            <i class="fa-solid fa-arrow-right"></i>
+          </div>
+        </a>
+
+        <!-- CARTE 3 (Exemple Futur Outil - Placeholder) -->
+        <div class="bg-slate-50 rounded-3xl p-6 border-2 border-dashed border-slate-200 flex flex-col justify-between space-y-4 opacity-60">
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="p-3 bg-slate-200 text-slate-500 rounded-2xl text-xl">
+                <i class="fa-solid fa-plus"></i>
+              </span>
+              <span class="text-[11px] font-semibold text-slate-500 bg-slate-200/60 px-2.5 py-0.5 rounded-full">Prochainement</span>
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-slate-600">Nouveau Module</h3>
+              <p class="text-xs text-slate-400 mt-1">
+                Espace réservé pour de futurs outils de statistiques ou de gestion de garde.
+              </p>
+            </div>
+          </div>
+          <span class="text-xs text-slate-400 font-medium">Emplacement libre</span>
+        </div>
+
+      </div>
+    </main>
+
+  </div>
+
+  <!-- Pied de page -->
+  <footer class="max-w-6xl mx-auto w-full text-center text-xs text-slate-400 py-6 border-t border-slate-200/60 mt-8">
+    <p>Service de Neurologie — NeuroPlanning &copy; 2026</p>
+  </footer>
+
+  <script>
+    // Config Supabase pour vérifier l'état de la session si nécessaire
+    const SUPABASE_URL = 'https://yseaujinbdwxpcelsywr.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_7uC727-tO92zxGsAwCqBnA_E9oX_Xw8';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Détecte si un utilisateur est déjà connecté
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) {
+        const { data: profile } = await supabaseClient
+          .schema('commun')
+          .from('profiles')
+          .select('hospital_id, role')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profile) {
+          const userBadge = document.getElementById('user-badge');
+          userBadge.innerText = `👤 ${profile.hospital_id}`;
+          userBadge.classList.remove('hidden');
+          document.getElementById('btn-logout').classList.remove('hidden');
+        }
+      }
+    });
+
+    async function logout() {
+      await supabaseClient.auth.signOut();
+      window.location.reload();
+    }
+  </script>
+</body>
+</html>
