@@ -113,7 +113,8 @@ function simulate(P,D){
   const lab=weeks.map(w=>{const o={};P.participants.forEach(m=>{o[m]=cells(w.ix,USI_C,m)>=SEUIL_SEMAINE?'USI':cells(w.ix,UNV_C,m)>=SEUIL_SEMAINE?'UNV':null;});return o;});
   const start=lab.findIndex(o=>!Object.values(o).some(Boolean));
   if(start<0){warn('o','Toutes les semaines ont déjà du personnel en USI/UNV : rien à répartir.');return{W};}
-  lab.forEach((o,i)=>P.participants.forEach(m=>{if(o[m]){cnt[m][o[m]]++;if(i<start)hist[m][0]=o[m];}}));
+  lab.forEach((o,i)=>P.participants.forEach(m=>{if(o[m]&&i<start){cnt[m][o[m]]++;hist[m][0]=o[m];}}));
+  const base=structuredClone(cnt);
 
   const ev=ix=>{ // disponibilité d'un médecin sur un ensemble de créneaux
     const tx={},ok=[];
@@ -124,13 +125,14 @@ function simulate(P,D){
       tx[m]=(ix.length-occ)/ix.length;
       if(tx[m]>=P.seuil/100&&q(m)>0)ok.push(m);});
     return{tx,ok};};
-  const edits={},ov=(i,c)=>edits[i]?.[c]??slots[i].r[c];
-  const posted=(i,m)=>POST.some(c=>norm(ov(i,c))===m);
-  const free=(i,m)=>!absent.get(slots[i].key)?.has(m)&&!repos.get(slots[i].key)?.has(m)&&!posted(i,m);
-  const put=(i,R,m)=>{const c=ROOMS[R].find(c=>norm(ov(i,c))==='');if(!c)return false;(edits[i]??={})[c]=m;return true;};
+  //const edits={},ov=(i,c)=>edits[i]?.[c]??slots[i].r[c];
+  //const posted=(i,m)=>POST.some(c=>norm(ov(i,c))===m);
+  //const free=(i,m)=>!absent.get(slots[i].key)?.has(m)&&!repos.get(slots[i].key)?.has(m)&&!posted(i,m);
+  //const put=(i,R,m)=>{const c=ROOMS[R].find(c=>norm(ov(i,c))==='');if(!c)return false;(edits[i]??={})[c]=m;return true;};
   const load=m=>(cnt[m].USI+cnt[m].UNV)/(q(m)||Infinity);
 
-  const dist=[];let p=start,c=0;
+  const plan=[];
+  let p=start,c=0;
   while(p<weeks.length){
     c++;const maxS=Math.min(P.chunk,weeks.length-p);let best=null;
     for(let s=maxS;s>=1;s--){
@@ -148,28 +150,66 @@ function simulate(P,D){
     sel.forEach(m=>{if(att[m])return;
       const pick=(cnt[m].USI<=cnt[m].UNV&&libres.includes('USI'))?'USI':libres.includes('UNV')?'UNV':libres[0];
       att[m]=pick;libres.splice(libres.indexOf(pick),1);});
-    sel.forEach(m=>{hist[m][c]=att[m];cnt[m][att[m]]++;});
-    const selSet=new Set(sel);
-    ix.forEach(i=>{const s0=slots[i],lbl=`${name} · ${s0.r.date} ${s0.r.heure.slice(0,5)}`;
-      sel.forEach(m=>{const R=att[m];
-        if(ROOMS[R].some(cc=>norm(ov(i,cc))===m))return;
-        if(absent.get(s0.key)?.has(m)){warn('r',`${lbl} · ${R} : ${m} absent, case laissée vide.`);return;}
-        if(repos.get(s0.key)?.has(m)){
-          const rep=P.vasc.filter(v=>!selSet.has(v)&&free(i,v)&&q(v)>0).sort((a,b)=>load(a)-load(b))[0];
-          if(rep&&put(i,R,rep))warn('o',`${lbl} · ${R} : ${m} en repos de garde, remplaçant proposé ${rep}.`);
-          else warn('r',`${lbl} · ${R} : ${m} en repos de garde, aucun remplaçant disponible.`);return;}
-        if(P.rules[s0.cr]?.[m]==='BOX'){
-          const cov=Object.keys(P.rules[s0.cr]).filter(x=>P.rules[s0.cr][x]==='Salle'&&free(i,x))[0];
-          if(!(cov&&put(i,R,cov)))warn('r',`${lbl} · ${R} : BOX de ${m} non couvert.`);return;}
-        if(!put(i,R,m))warn('r',`${lbl} · ${R} : plus de place pour ${m} (cases déjà remplies).`);
-      });});
-    dist.push({name,span,size:s,reduit:s<maxS,att,tx:e.tx});
+    
+    //const selSet=new Set(sel);
+    sel.forEach(m=>{hist[m][c]=att[m];cnt[m][att[m]]+=s;});   // += s : on compte des semaines
+    const seats={USI1:'',USI2:'',UNV1:'',UNV2:''};
+    sel.forEach(m=>{const k=ROOMS[att[m]].find(x=>!seats[x]);seats[k]=m;});
+    weeks.slice(p,p+s).forEach((w,j)=>plan.push({mon:w.mon,ix:w.ix,name,size:s,maxS,first:j===0,seats:{...seats}}));
+    
     p+=s;
   }
-  const bilan=P.participants.map(m=>({m,usi:cnt[m].USI,unv:cnt[m].UNV,tot:cnt[m].USI+cnt[m].UNV,q:q(m),r:q(m)>0?(cnt[m].USI+cnt[m].UNV)/q(m):null}));
-  const rs=bilan.filter(b=>b.r!=null).map(b=>b.r),mean=rs.reduce((a,b)=>a+b,0)/(rs.length||1),sd=Math.sqrt(rs.reduce((a,b)=>a+(b-mean)**2,0)/(rs.length||1));
-  const list=[];Object.entries(edits).forEach(([i,o])=>Object.entries(o).forEach(([col,value])=>{const r=slots[i].r;list.push({id:r.id,date:r.date,heure:r.heure,col,value});}));
-  return{W,dist,bilan,mean,sd,edits:list,start:weeks[start].mon};
+  return{W,plan,start:weeks[start].mon,ctx:{slots,absent,repos,base,W0:W}};
+  //const bilan=P.participants.map(m=>({m,usi:cnt[m].USI,unv:cnt[m].UNV,tot:cnt[m].USI+cnt[m].UNV,q:q(m),r:q(m)>0?(cnt[m].USI+cnt[m].UNV)/q(m):null}));
+  //const rs=bilan.filter(b=>b.r!=null).map(b=>b.r),mean=rs.reduce((a,b)=>a+b,0)/(rs.length||1),sd=Math.sqrt(rs.reduce((a,b)=>a+(b-mean)**2,0)/(rs.length||1));
+  //const list=[];Object.entries(edits).forEach(([i,o])=>Object.entries(o).forEach(([col,value])=>{const r=slots[i].r;list.push({id:r.id,date:r.date,heure:r.heure,col,value});}));
+  //return{W,dist,bilan,mean,sd,edits:list,start:weeks[start].mon};
+}
+
+function inject(plan,ctx){
+  const {slots,absent,repos}=ctx,W=[],edits={},q=m=>Number(P.quotas[m]??1);2>Ajuster à la main</h2><div class="scro
+  const ov=(i,c)=>edits[i]?.[c]??slots[i].r[c];
+  const posted=(i,m)=>POST.some(c=>norm(ov(i,c))===m);
+  const free=(i,m)=>!absent.get(slots[i].key)?.has(m)&&!repos.get(slots[i].key)?.has(m)&&!posted(i,m);
+  const put=(i,R,m,pref)=>{const c=[pref,...ROOMS[R]].find(x=>norm(ov(i,x))==='');if(!c)return false;(edits[i]??={})[c]=m;return true;};
+  const tot={};plan.forEach(w=>Object.values(w.seats).forEach(m=>{if(m)tot[m]=(tot[m]||0)+1;}));
+  const load=m=>(((ctx.base[m]?.USI||0)+(ctx.base[m]?.UNV||0)+(tot[m]||0))/(q(m)||Infinity));
+  plan.forEach(w=>{
+    const inWeek=new Set(Object.values(w.seats).filter(Boolean));
+    w.ix.forEach(i=>{const s0=slots[i],k=s0.key,lbl=`${w.name} · ${s0.r.date} ${s0.r.heure.slice(0,5)}`;
+      Object.entries(w.seats).forEach(([col,m])=>{
+        if(!m)return;const R=col.slice(0,3);
+        if(ROOMS[R].some(c=>norm(ov(i,c))===m))return;
+        if(absent.get(k)?.has(m)){W.push({l:'r',m:`${lbl} · ${R} : ${m} absent, case laissée vide.`});return;}
+        if(repos.get(k)?.has(m)){
+          const rep=P.vasc.filter(v=>!inWeek.has(v)&&free(i,v)&&q(v)>0).sort((a,b)=>load(a)-load(b))[0];
+          if(rep&&put(i,R,rep,col))W.push({l:'o',m:`${lbl} · ${R} : ${m} en repos de garde, remplaçant proposé ${rep}.`});
+          else W.push({l:'r',m:`${lbl} · ${R} : ${m} en repos de garde, aucun remplaçant disponible.`});return;}
+        if(P.rules[s0.cr]?.[m]==='BOX'){
+          const cov=Object.keys(P.rules[s0.cr]).filter(x=>P.rules[s0.cr][x]==='Salle'&&free(i,x))[0];
+          if(!(cov&&put(i,R,cov,col)))W.push({l:'r',m:`${lbl} · ${R} : BOX de ${m} non couvert.`});return;}
+        if(!put(i,R,m,col))W.push({l:'r',m:`${lbl} · ${R} : plus de place pour ${m} (cases déjà remplies).`});
+      });});});
+  const list=[];
+  Object.entries(edits).forEach(([i,o])=>Object.entries(o).forEach(([col,value])=>{const r=slots[i].r;list.push({id:r.id,date:r.date,heure:r.heure,col,value});}));
+  return{W,edits:list};
+}
+
+function finalize(){
+  const inj=inject(RES.plan,RES.ctx);
+  RES.edits=inj.edits;RES.W=[...RES.ctx.W0,...inj.W];
+  const cnt={};const add=(m,R)=>{if(!m)return;(cnt[m]??={USI:0,UNV:0})[R]++;};
+  P.participants.forEach(m=>cnt[m]={USI:RES.ctx.base[m]?.USI||0,UNV:RES.ctx.base[m]?.UNV||0});
+  RES.plan.forEach(w=>Object.entries(w.seats).forEach(([c,m])=>add(m,c.slice(0,3))));
+  const q=m=>Number(P.quotas[m]??1);
+  RES.bilan=Object.entries(cnt).map(([m,c])=>({m,usi:c.USI,unv:c.UNV,tot:c.USI+c.UNV,q:q(m),r:q(m)>0?(c.USI+c.UNV)/q(m):null}));
+  const rs=RES.bilan.filter(b=>b.r!=null).map(b=>b.r);
+  RES.mean=rs.reduce((a,b)=>a+b,0)/(rs.length||1);
+  RES.sd=Math.sqrt(rs.reduce((a,b)=>a+(b-RES.mean)**2,0)/(rs.length||1));
+}
+function updateSend(){
+  $('#sum').textContent=RES?.edits?`${RES.edits.length} case(s) à remplir`:'';
+  $('#b-send').disabled=!(RES?.edits&&RES.edits.length&&host());
 }
 
 // ---- Interface ----
@@ -200,18 +240,43 @@ function renderParams(){
 }
 [['#p-chunk','chunk'],['#p-seuil','seuil'],['#p-usi','nbUsi'],['#p-unv','nbUnv']].forEach(([s,k])=>$(s).onchange=e=>{P[k]=Number(e.target.value);saveP();});
 $('#b-reset').onclick=()=>{P=structuredClone(DEFAULTS);saveP();renderParams();};
-
+  
+function weekInfo(ctx,w,m){
+  const cat=c=>/^(USI|UNV)/.test(c)?'USI/UNV':/^C_/.test(c)?'C':/^HDJ/.test(c)?'HDJ':/^(BIP|SAU)/.test(c)?'BIP':/^BOX/.test(c)?'BOX':/^(Garde|Astr)/.test(c)?'Garde':'autre';
+  const cats={};let occ=0,abs=0;
+  w.ix.forEach(i=>{const s=ctx.slots[i];
+    POST.forEach(c=>{if(norm(s.r[c])===m){if(BOX_COLS.includes(c)&&P.rules[s.cr]?.[m]==='BOX')return;occ++;const k=cat(c);cats[k]=(cats[k]||0)+1;}});
+    if(ctx.absent.get(s.key)?.has(m)){occ++;abs++;}});
+  return{pct:(w.ix.length-occ)/w.ix.length,cats,abs};
+}
+  
 function renderResult(){
-  const R=RES;if(!R||!R.dist){$('#out').innerHTML=R?`<section>${R.W.map(w=>`<div class="w ${w.l}">${w.m}</div>`).join('')}</section>`:'';return;}
-  const head='<tr><th>Bloc</th><th>Semaines</th><th>Durée</th>'+P.participants.map(m=>`<th>${m}</th>`).join('')+'</tr>';
-  const rows=R.dist.map(d=>`<tr><td class="l">${d.name}</td><td class="l">${d.span}</td><td${d.reduit?' class="bad"':''}>${d.size} sem.</td>`+
-    P.participants.map(m=>d.att[m]?`<td class="${d.att[m]}">${d.att[m]}</td>`:`<td class="mut">${Math.round((d.tx[m]??0)*100)}%</td>`).join('')+'</tr>').join('');
+  const R=RES;if(!R||!R.plan){$('#out').innerHTML=R?`<section>${R.W.map(w=>`<div class="w ${w.l}">${w.m}</div>`).join('')}</section>`:'';return;}
+  const seatCols=['USI1','USI2','UNV1','UNV2'],opts=[...new Set([...P.participants,...P.vasc])];
+  const head='<tr><th>Bloc</th><th>Semaine du</th>'+P.participants.map(m=>`<th>${m}</th>`).join('')+'</tr>';
+  const rows=R.plan.map(w=>{const room={};Object.entries(w.seats).forEach(([c,m])=>{if(m)room[m]=c.slice(0,3);});
+    return `<tr>${w.first?`<td class="l" rowspan="${w.size}">${w.name}${w.size<w.maxS?` <span class="bad">(réduit ${w.size}/${w.maxS})</span>`:''}</td>`:''}<td class="l">${w.mon}</td>`+
+    P.participants.map(m=>room[m]?`<td class="${room[m]}">${room[m]}</td>`:`<td class="mut">${Math.round(weekInfo(R.ctx,w,m).pct*100)}%</td>`).join('')+'</tr>';}).join('');
+  const grid=R.plan.map((w,j)=>{
+    const dup=Object.values(w.seats).filter(Boolean);
+    const info=Object.entries(w.seats).filter(([,m])=>m).map(([c,m])=>{const x=weekInfo(R.ctx,w,m),bad=x.pct<P.seuil/100||dup.filter(d=>d===m).length>1;
+      const det=Object.entries(x.cats).map(([k,n])=>`${k}×${n}`).concat(x.abs?[`abs×${x.abs}`]:[]).join(', ');
+      return `<div><span class="${bad?'bad':''}">${c} · ${m} ${Math.round(x.pct*100)} %</span> <span class="mut">(${det||'libre'})</span></div>`;}).join('');
+    return `<tr><td class="l">${w.mon}</td>`+seatCols.map(c=>`<td class="${c.slice(0,3)}"><select data-w="${j}" data-seat="${c}">${['',...new Set([...opts,w.seats[c]].filter(Boolean))].map(o=>`<option${o===w.seats[c]?' selected':''}>${o}</option>`).join('')}</select></td>`).join('')+`<td class="l">${info}</td></tr>`;}).join('');
+  //const head='<tr><th>Bloc</th><th>Semaines</th><th>Durée</th>'+P.participants.map(m=>`<th>${m}</th>`).join('')+'</tr>';
+  //const rows=R.dist.map(d=>`<tr><td class="l">${d.name}</td><td class="l">${d.span}</td><td${d.reduit?' class="bad"':''}>${d.size} sem.</td>`+
+  //  P.participants.map(m=>d.att[m]?`<td class="${d.att[m]}">${d.att[m]}</td>`:`<td class="mut">${Math.round((d.tx[m]??0)*100)}%</td>`).join('')+'</tr>').join('');
   const b=R.bilan.map(x=>{const ok=x.r==null||Math.abs(x.r-R.mean)<=R.sd+1e-9;
     return `<tr><td class="l">${x.m}</td><td>${x.usi}</td><td>${x.unv}</td><td>${x.tot}</td><td>${x.q}</td><td class="${ok?'ok':'bad'}">${x.r==null?'–':x.r.toFixed(2)}</td></tr>`;}).join('');
   const reds=R.W.filter(w=>w.l==='r'),ambs=R.W.filter(w=>w.l==='o');
   const wl=a=>a.slice(0,300).map(w=>`<div class="w ${w.l}">${w.m}</div>`).join('')+(a.length>300?`<div class="mut">… ${a.length-300} autres</div>`:'');
-  $('#out').innerHTML=`<section><h2>Répartition (à partir de la semaine du ${R.start})</h2><div class="scroll"><table>${head}${rows}</table></div>
-    <div class="mut" style="margin-top:4px">Les pourcentages indiquent la disponibilité des médecins non retenus sur le bloc.</div></section>
+  $('#out').innerHTML=`<section><h2>Répartition par semaine</h2><div class="scroll"><table>${head}${rows}</table></div>
+    <div class="mut" style="margin-top:4px">Les pourcentages indiquent la disponibilité des médecins non retenus sur le bloc.</div>
+    </section>
+    <section>
+    <h2>Ajuster à la main</h2><div class="scroll">
+    <table><tr><th>Semaine du</th><th>USI1</th><th>USI2</th><th>UNV1</th><th>UNV2</th><th>Disponibilité</th></tr>${grid}</table></div>
+    </section>
     <section><h2>Bilan d'équilibrage (historique inclus)</h2><div class="scroll"><table><tr><th>Médecin</th><th>USI</th><th>UNV</th><th>Total</th><th>Quota</th><th>Total / quota</th></tr>${b}</table></div>
     <div class="mut" style="margin-top:4px">Vert : dans la moyenne ± 1 écart-type (${R.mean.toFixed(2)} ± ${R.sd.toFixed(2)}).</div></section>
     <section><h2>À arbitrer (${reds.length})</h2>${wl(reds)||'<div class="mut">Aucun échec de postage.</div>'}</section>
@@ -220,11 +285,17 @@ function renderResult(){
 $('#b-sim').onclick=()=>{
   if(!D.rows.length){RES={W:[{l:'r',m:'Aucune donnée reçue : ouvre ce générateur depuis l\'onglet sandbox de Neuroplanning.'}]};renderResult();return;}
   if(P.participants.length<P.nbUsi+P.nbUnv){RES={W:[{l:'r',m:'Pas assez de médecins en rotation pour pourvoir tous les postes.'}]};renderResult();return;}
-  RES=simulate(P,D);renderResult();
-  $('#sum').textContent=RES.edits?`${RES.edits.length} case(s) à remplir`:'';
-  $('#b-send').disabled=!(RES.edits&&RES.edits.length&&host());
+  RES=simulate(P,D);
+  if(RES.plan)finalize();
+  renderResult();
+  updateSend();
+  //RES=simulate(P,D);renderResult();
+  //$('#sum').textContent=RES.edits?`${RES.edits.length} case(s) à remplir`:'';
+  //$('#b-send').disabled=!(RES.edits&&RES.edits.length&&host());
 };
 $('#b-send').onclick=()=>{host()?.postMessage({type:'rotations:edits',edits:RES.edits},location.origin);$('#sum').textContent=`${RES.edits.length} case(s) envoyée(s) vers la sandbox (en attente de sauvegarde).`;};
+$('#out').onchange=e=>{const s=e.target.closest('select[data-w]');if(!s)return;
+  RES.plan[+s.dataset.w].seats[s.dataset.seat]=s.value;finalize();renderResult();updateSend();};
 
 // ---- Échange avec index ----
 const host=()=>window.opener||(window.parent!==window?window.parent:null);
