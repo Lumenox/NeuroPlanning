@@ -424,7 +424,7 @@ function renderCandidates() {
       });
       if (hasNearbyGarde) return;
 
-      // Vérification du lendemain
+// Vérification du lendemain
       const nextDateObj = new Date(curDate);
       nextDateObj.setDate(nextDateObj.getDate() + 1);
       const nextDateStr = nextDateObj.toISOString().split('T')[0];
@@ -434,7 +434,11 @@ function renderCandidates() {
 
       nextDayRows.forEach(nr => {
         Object.keys(nr).forEach(k => {
-          const val = (nr[k] || '').trim().toUpperCase();
+          if (['id', 'date', 'heure', 'conflict_accepted', 'created_at'].includes(k)) return;
+          const rawV = nr[k];
+          if (rawV === null || rawV === undefined) return;
+          
+          const val = String(rawV).trim().toUpperCase();
           if (val === init) {
             if (avoidBoxLendemain && k.startsWith('BOX')) isNextDayConflict = true;
             if (avoidBipLendemain && (k.startsWith('BIP') || k === 'SAU')) isNextDayConflict = true;
