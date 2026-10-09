@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Simulateur & Échange de Gardes / Bips</title>
+  <title>Échange & Remplacement de postes</title>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -11,532 +11,867 @@
 
   <style>
     :root {
-      --navy:        #0d1b2a;
-      --navy-mid:    #1a2d42;
-      --navy-light:  #243d55;
-      --teal:        #2dd4bf;
-      --teal-dim:    #14b8a620;
-      --red:         #f87171;
-      --red-dim:     #f8717120;
-      --amber:       #fbbf24;
-      --amber-dim:   #fbbf2420;
-      --purple:      #c084fc;
-      --purple-dim:  #c084fc22;
-      --white:       #f0f4f8;
-      --gray:        #8fa3b5;
-      --border:      #1e3148;
+      --navy:#0d1b2a; --navy-mid:#1a2d42; --navy-light:#243d55;
+      --teal:#2dd4bf; --teal-dim:#14b8a620;
+      --red:#f87171; --red-dim:#f8717120;
+      --amber:#fbbf24; --amber-dim:#fbbf2420;
+      --purple:#c084fc; --purple-dim:#c084fc22;
+      --white:#f0f4f8; --gray:#8fa3b5; --border:#1e3148;
+    }
+    body.light-mode {
+      --navy:#F4F6F8; --navy-mid:#FFFFFF; --navy-light:#E8EDF2;
+      --teal:#0D9488; --teal-dim:#CCFBF1;
+      --red:#DC2626; --red-dim:#FEE2E2;
+      --amber:#D97706; --amber-dim:#FEF3C7;
+      --purple:#7C3AED; --purple-dim:#EDE9FE;
+      --white:#1E293B; --gray:#64748B; --border:#CBD5E1;
     }
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Sora', sans-serif; background: var(--navy); color: var(--white); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'Sora',sans-serif; background:var(--navy); color:var(--white); height:100vh; display:flex; flex-direction:column; overflow:hidden; }
 
-    /* TOPBAR & CONTROLS */
-    #topbar { display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 56px; background: var(--navy-mid); border-bottom: 1px solid var(--border); flex-shrink: 0; }
-    #topbar .brand { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; color: var(--teal); letter-spacing: .08em; }
-    
-    #controls { display: flex; align-items: center; gap: 16px; padding: 12px 24px; background: var(--navy-mid); border-bottom: 1px solid var(--border); font-family: 'DM Mono', monospace; font-size: 11px; flex-wrap: wrap; }
-    #controls label { color: var(--gray); }
-    #controls select, #controls input[type="date"], #controls input[type="number"] {
-      background: var(--navy); border: 1px solid var(--border); color: var(--white); padding: 5px 10px; border-radius: 6px; font-family: 'DM Mono', monospace; font-size: 11px;
+    #topbar { display:flex; align-items:center; justify-content:space-between; padding:0 24px; height:56px; background:var(--navy-mid); border-bottom:1px solid var(--border); flex-shrink:0; }
+    #topbar .brand { font-family:'DM Mono',monospace; font-size:14px; font-weight:500; color:var(--teal); letter-spacing:.08em; }
+    #topbar .right { display:flex; align-items:center; gap:16px; font-family:'DM Mono',monospace; font-size:11px; color:var(--gray); }
+    #topbar a { color:var(--gray); text-decoration:none; }
+
+    #controls { display:flex; align-items:center; gap:16px; padding:12px 24px; background:var(--navy-mid); border-bottom:1px solid var(--border); font-family:'DM Mono',monospace; font-size:11px; flex-wrap:wrap; }
+    #controls label { color:var(--gray); }
+    select, input[type="date"], input[type="number"] {
+      background:var(--navy); border:1px solid var(--border); color:var(--white); padding:5px 10px; border-radius:6px; font-family:'DM Mono',monospace; font-size:11px;
     }
-    #controls select:focus, #controls input:focus { border-color: var(--teal); outline: none; }
+    select:focus, input:focus { border-color:var(--teal); outline:none; }
+    select:disabled { opacity:.6; }
+    .sep { width:1px; height:20px; background:var(--border); }
 
-    /* LAYOUT PRINCIPAL */
-    #main-layout { display: flex; flex: 1; overflow: hidden; }
+    #main-layout { display:flex; flex:1; overflow:hidden; }
 
-    /* ZONE GAUCHE : TABLEAU TYPE SEMAINE */
-    #schedule-container { flex: 1; overflow: auto; padding: 16px 24px; }
-    table { border-collapse: collapse; width: 100%; font-family: 'DM Mono', monospace; font-size: 11px; }
-    thead th { position: sticky; top: 0; background: var(--navy-light); padding: 10px; text-align: center; color: var(--gray); border-bottom: 1px solid var(--border); z-index: 10; }
-    tbody td { border-bottom: 1px solid var(--border); padding: 8px; height: 44px; text-align: center; }
-    tr.creno-matin { background: var(--navy); }
-    tr.creno-aprem { background: #112235; }
-    tr.new-day td { border-top: 2px solid var(--border); }
+    /* Colonne 1 : mes postes */
+    #schedule-container { flex:1; overflow:auto; padding:16px 24px; min-width:260px; }
+    table { border-collapse:collapse; width:100%; font-family:'DM Mono',monospace; font-size:11px; }
+    thead th { position:sticky; top:0; background:var(--navy-light); padding:10px; text-align:left; color:var(--gray); border-bottom:1px solid var(--border); z-index:10; }
+    tbody td { border-bottom:1px solid var(--border); padding:6px 8px; vertical-align:middle; }
+    td.date-cell { font-weight:500; white-space:nowrap; width:110px; }
+    .pill-wrap { display:flex; gap:6px; flex-wrap:wrap; }
+    .pill { padding:6px 10px; border-radius:6px; cursor:pointer; border:1px dashed var(--border); background:var(--navy-mid); font-family:'DM Mono',monospace; font-size:11px; color:var(--white); transition:all .15s; }
+    .pill:hover { border-color:var(--teal); background:var(--teal-dim); }
+    .pill.selected { border:1px solid var(--amber); background:var(--amber-dim); font-weight:600; }
 
-    .cell-slot {
-      padding: 6px; border-radius: 6px; cursor: pointer; transition: all .15s ease; border: 1px dashed transparent;
-    }
-    .cell-slot:hover { border-color: var(--teal); background: var(--teal-dim); }
-    .cell-slot.selected { border-color: var(--amber) !important; background: var(--amber-dim) !important; font-weight: 600; }
-    .cell-slot.has-assignment { background: var(--navy-light); border: 1px solid var(--border); }
+    /* Panneaux latéraux */
+    .side-panel { background:var(--navy-mid); border-left:1px solid var(--border); display:flex; flex-direction:column; flex-shrink:0; }
+    #cand-panel { width:360px; }
+    #swap-panel { width:400px; display:none; }
+    .panel-header { padding:14px 18px; border-bottom:1px solid var(--border); font-family:'DM Mono',monospace; }
+    .panel-header h3 { font-size:13px; color:var(--teal); margin-bottom:4px; }
+    #swap-panel .panel-header h3 { color:var(--purple); }
+    .panel-header p { font-size:10px; color:var(--gray); line-height:1.5; }
+    .panel-filters { padding:10px 18px; border-bottom:1px solid var(--border); background:var(--navy); display:flex; flex-direction:column; gap:7px; }
+    .filter-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .filter-row label { font-family:'DM Mono',monospace; font-size:10px; color:var(--gray); }
+    .note { font-family:'DM Mono',monospace; font-size:10px; color:var(--amber); background:var(--amber-dim); border-radius:6px; padding:6px 10px; display:none; line-height:1.5; }
+    .list { flex:1; overflow-y:auto; padding:10px 18px; display:flex; flex-direction:column; gap:8px; }
+    .empty { font-size:11px; color:var(--gray); text-align:center; margin-top:20px; font-family:'DM Mono',monospace; }
 
-    /* ZONE DROITE : PANNEAU DE SÉLECTION & PROPOSITIONS */
-    #side-panel { width: 380px; background: var(--navy-mid); border-left: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
-    #side-panel-header { padding: 16px 20px; border-bottom: 1px solid var(--border); font-family: 'DM Mono', monospace; }
-    #side-panel-header h3 { font-size: 13px; color: var(--teal); margin-bottom: 4px; }
-    #side-panel-header p { font-size: 10px; color: var(--gray); }
+    .card { background:var(--navy); border:1px solid var(--border); border-radius:8px; padding:10px 12px; display:flex; justify-content:space-between; align-items:flex-start; gap:10px; cursor:pointer; transition:border-color .15s; }
+    .card:hover { border-color:var(--teal); }
+    .card.selected { border-color:var(--amber); background:var(--amber-dim); }
+    .card.unavail { opacity:.55; cursor:not-allowed; }
+    .card.unavail:hover { border-color:var(--border); }
+    .card-title { font-family:'DM Mono',monospace; font-size:12px; font-weight:600; }
+    .card-sub { font-family:'DM Mono',monospace; font-size:10px; color:var(--gray); margin-top:3px; }
+    .reasons { margin-top:5px; display:flex; flex-direction:column; gap:2px; }
+    .reason { font-family:'DM Mono',monospace; font-size:9.5px; color:var(--red); }
+    .badge { background:var(--navy-light); border-radius:4px; padding:2px 6px; font-size:9px; font-family:'DM Mono',monospace; white-space:nowrap; }
+    .badge.ok { color:var(--teal); }
 
-    #side-panel-filters { padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--navy); display: flex; flex-direction: column; gap: 8px; font-size: 11px; }
-    .filter-row { display: flex; align-items: center; justify-content: space-between; }
-    .filter-row label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--gray); }
+    .panel-footer { padding:14px 18px; border-top:1px solid var(--border); }
+    button { font-family:'Sora',sans-serif; font-size:12px; font-weight:600; padding:10px 16px; border-radius:6px; border:none; cursor:pointer; transition:opacity .15s; width:100%; }
+    button:disabled { opacity:.4; cursor:not-allowed; }
+    .btn-primary { background:var(--teal); color:#0d1b2a; }
+    .btn-purple { background:var(--purple); color:#0d1b2a; }
+    .btn-ghost { background:transparent; color:var(--gray); border:1px solid var(--border); width:auto; padding:5px 12px; font-size:11px; }
+    button:hover:not(:disabled) { opacity:.9; }
 
-    #candidates-list { flex: 1; overflow-y: auto; padding: 12px 20px; display: flex; flex-direction: column; gap: 8px; }
-    
-    .candidate-card {
-      background: var(--navy); border: 1px solid var(--border); border-radius: 8px; padding: 12px;
-      display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: border-color .15s;
-    }
-    .candidate-card:hover { border-color: var(--teal); }
-    .candidate-card.selected { border-color: var(--amber); background: var(--amber-dim); }
-    .candidate-name { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 600; color: var(--white); }
-    .candidate-stats { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--gray); margin-top: 4px; display: flex; gap: 8px; }
-    .candidate-badge { background: var(--navy-light); border-radius: 4px; padding: 2px 6px; font-size: 9px; }
+    #toast-container { position:fixed; bottom:20px; right:20px; z-index:300; display:flex; flex-direction:column; gap:8px; }
+    .toast { font-family:'DM Mono',monospace; font-size:11px; padding:10px 16px; border-radius:8px; background:var(--navy-mid); border-left:3px solid var(--teal); color:var(--white); max-width:380px; cursor:pointer; line-height:1.5; }
+    .toast.error { border-color:var(--red); }
+    .toast.warning { border-color:var(--amber); }
 
-    /* ACTION FINAL */
-    #action-footer { padding: 16px 20px; border-top: 1px solid var(--border); background: var(--navy-mid); }
-    button { font-family: 'Sora', sans-serif; font-size: 12px; font-weight: 600; padding: 10px 16px; border-radius: 6px; border: none; cursor: pointer; transition: opacity .15s; width: 100%; }
-    button:disabled { opacity: .4; cursor: not-allowed; }
-    .btn-primary { background: var(--teal); color: var(--navy); }
-    .btn-primary:hover:not(:disabled) { opacity: .9; }
-
-    /* TOAST */
-    #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 300; }
-    .toast { font-family: 'DM Mono', monospace; font-size: 11px; padding: 10px 16px; border-radius: 8px; background: var(--navy-mid); border-left: 3px solid var(--teal); color: var(--white); }
+    #auth-msg { position:fixed; inset:0; background:var(--navy); display:none; align-items:center; justify-content:center; z-index:500; font-family:'DM Mono',monospace; font-size:13px; color:var(--gray); text-align:center; line-height:2; }
+    #auth-msg a { color:var(--teal); }
   </style>
 </head>
 <body>
 
+<div id="auth-msg">
+  <div>Session introuvable.<br>Redirection vers le planning pour vous connecter…<br><a href="../index.html">← Retour au planning</a></div>
+</div>
+
 <div id="topbar">
-  <span class="brand">🤝 Assistant Échanges & Remplacements</span>
-  <a href="../index.html" style="color:var(--gray); text-decoration:none; font-family:'DM Mono'; font-size:11px;">← Retour au planning</a>
+  <span class="brand">🤝 Échanges & Remplacements</span>
+  <div class="right">
+    <span id="data-stamp"></span>
+    <a href="../index.html">← Retour au planning</a>
+  </div>
 </div>
 
 <div id="controls">
   <div>
-    <label>Médecin demandeur :</label>
-    <select id="select-doctor" onchange="onDoctorOrPeriodChange()"></select>
+    <label>Demandeur :</label>
+    <select id="select-doctor"></select>
   </div>
-  <div style="width:1px; height:20px; background:var(--border);"></div>
+  <div class="sep"></div>
   <div>
-    <label>Du :</label>
-    <input type="date" id="filter-date-from" onchange="onDoctorOrPeriodChange()" />
+    <label>Du :</label> <input type="date" id="filter-date-from" />
   </div>
   <div>
-    <label>Au :</label>
-    <input type="date" id="filter-date-to" onchange="onDoctorOrPeriodChange()" />
+    <label>Au :</label> <input type="date" id="filter-date-to" />
   </div>
+  <div class="sep"></div>
+  <button class="btn-ghost" id="btn-refresh">↺ Actualiser les données</button>
 </div>
 
 <div id="main-layout">
-  <!-- SEMAISNIER DE SÉLECTION -->
+
+  <!-- COLONNE 1 : mes postes -->
   <div id="schedule-container">
     <table>
-      <thead>
-        <tr>
-          <th style="width:110px;">Date</th>
-          <th style="width:70px;">Heure</th>
-          <th>Mon affectation actuelle</th>
-        </tr>
-      </thead>
-      <tbody id="schedule-body">
-        <!-- Rempli en JS -->
-      </tbody>
+      <thead><tr><th>Date</th><th>Mes affectations (cliquer pour choisir)</th></tr></thead>
+      <tbody id="schedule-body"></tbody>
     </table>
   </div>
 
-  <!-- PANNEAU DROIT : FILTRES SPÉCIFIQUES ET LISTE DU MOINS POSTÉ -->
-  <div id="side-panel">
-    <div id="side-panel-header">
-      <h3 id="selected-slot-title">Sélectionnez un créneau</h3>
-      <p id="selected-slot-subtitle">Cliquez sur une case dans la grille pour chercher un remplaçant.</p>
+  <!-- COLONNE 2 : candidats -->
+  <div class="side-panel" id="cand-panel">
+    <div class="panel-header">
+      <h3 id="selected-slot-title">Sélectionnez un poste</h3>
+      <p id="selected-slot-subtitle">Cliquez sur l'un de vos postes pour chercher un remplaçant.</p>
     </div>
 
-    <div id="side-panel-filters">
-      <!-- Règle spécifique Gardes/Astreintes -->
-      <div class="filter-row" id="window-filter-row" style="display:none;">
-        <label>Fenêtre repos (jours sans Garde/Astr) :</label>
-        <input type="number" id="cfg-rest-window" value="2" min="0" max="7" style="width:45px;" onchange="renderCandidates()" />
+    <div class="panel-filters">
+      <div id="rA-garde-rules" style="display:none; flex-direction:column; gap:7px;">
+        <div class="filter-row">
+          <label>Fenêtre sans Garde/Astr (± jours) :</label>
+          <input type="number" id="rA-win" value="2" min="0" max="7" style="width:50px;" />
+        </div>
+        <div class="filter-row">
+          <label>Éviter BOX le lendemain :</label>
+          <input type="checkbox" id="rA-box" checked />
+        </div>
+        <div class="filter-row">
+          <label>Éviter BIP / SAU le lendemain :</label>
+          <input type="checkbox" id="rA-bip" checked />
+        </div>
       </div>
-      <div class="filter-row" id="avoid-box-row" style="display:none;">
-        <label>Éviter BOX le lendemain :</label>
-        <input type="checkbox" id="cfg-avoid-box" checked onchange="renderCandidates()" />
+      <div class="filter-row">
+        <label>Compter les postes sur (± mois) :</label>
+        <select id="cfg-count-months">
+          <option value="3">3</option>
+          <option value="6">6</option>
+          <option value="12" selected>12</option>
+        </select>
       </div>
-      <div class="filter-row" id="avoid-bip-row" style="display:none;">
-        <label>Éviter BIP le lendemain :</label>
-        <input type="checkbox" id="cfg-avoid-bip" checked onchange="renderCandidates()" />
+      <div class="filter-row">
+        <label>Afficher aussi les indisponibles :</label>
+        <input type="checkbox" id="cfg-show-unavail" checked />
       </div>
+      <div class="note" id="next-missing-note"></div>
     </div>
 
-    <!-- Candidats classés du moins posté au plus posté -->
-    <div id="candidates-list">
-      <p style="font-size:11px; color:var(--gray); text-align:center; margin-top:20px;">
-        Aucun créneau sélectionné.
-      </p>
+    <div class="list" id="candidates-list">
+      <p class="empty">Aucun poste sélectionné.</p>
     </div>
 
-    <div id="action-footer">
-      <button id="btn-send-request" class="btn-primary" disabled onclick="sendExchangeRequest()">
-        📧 Proposer l'échange par e-mail
-      </button>
+    <div class="panel-footer">
+      <button class="btn-primary" id="btn-cession" disabled>📧 Demander un remplacement (sans contrepartie)</button>
     </div>
   </div>
+
+  <!-- COLONNE 3 : échange -->
+  <div class="side-panel" id="swap-panel">
+    <div class="panel-header">
+      <h3 id="swap-title">Échange en retour</h3>
+      <p id="swap-subtitle"></p>
+    </div>
+
+    <div class="panel-filters">
+      <p style="font-family:'DM Mono',monospace; font-size:10px; color:var(--gray); line-height:1.5;">
+        Mêmes règles, appliquées <b>à vous</b> pour le poste que vous reprendriez.
+      </p>
+      <div id="rB-garde-rules" style="display:none; flex-direction:column; gap:7px;">
+        <div class="filter-row">
+          <label>Fenêtre sans Garde/Astr (± jours) :</label>
+          <input type="number" id="rB-win" value="2" min="0" max="7" style="width:50px;" />
+        </div>
+        <div class="filter-row">
+          <label>Éviter BOX le lendemain :</label>
+          <input type="checkbox" id="rB-box" checked />
+        </div>
+        <div class="filter-row">
+          <label>Éviter BIP / SAU le lendemain :</label>
+          <input type="checkbox" id="rB-bip" checked />
+        </div>
+      </div>
+      <div class="filter-row">
+        <label>Afficher aussi les indisponibles :</label>
+        <input type="checkbox" id="rB-show" checked />
+      </div>
+    </div>
+
+    <div class="list" id="swap-list"></div>
+
+    <div class="panel-footer">
+      <button class="btn-purple" id="btn-swap" disabled>📧 Proposer l'échange</button>
+    </div>
+  </div>
+
 </div>
 
 <div id="toast-container"></div>
 
 <script>
+/* ════════════════════════════════════════════════════════════════
+   CONFIG
+   ════════════════════════════════════════════════════════════════ */
 const SUPABASE_URL = 'https://yseaujinbdwxpcelsywr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_7uC727-tO92zxGsAwCqBnA_E9oX_Xw8';
-const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  db: { schema: 'neuroplanning' }
-});
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { db: { schema: 'neuroplanning' } });
 
-const CATEGORIES = {
-  Garde:    ['Garde', 'Garde_int'],
-  Astr:     ['Astr', 'Astr_int'],
-  BIP:      ['BIPv', 'BIPng', 'BIP_int', 'SAU'],
-  USI:      ['USI1', 'USI2', 'USI_int1', 'USI_int2'],
-  UNV:      ['UNV1', 'UNV2', 'UNV_int1', 'UNV_int2'],
-  C_Periph: ['C_Periph']
-};
+// Admin(s) systématiquement mis en copie des mails — À RENSEIGNER
+const ADMIN_EMAILS = ['REMPLACER.PAR.VOTRE.MAIL@aphp.fr'];
 
-let listeMedecins = [];
-let allPlanning   = [];
-let allAbsences   = [];
-let currentUser   = null;
+const HEURES = ['09:00:00', '13:30:00'];
+const LOOKBACK_DAYS = 400;   // historique chargé avant la période affichée (comptage + règles)
 
-let selectedSlot  = null; // { date, heure, colKey, doctor }
-let selectedCandidate = null;
+const DOCTOR_COLS = [
+  'C_Periph','C_Cogn','C_sup','C_int1','C_int2',
+  'HDJ1','HDJ2','HDJ3','HDJ_int1','HDJ_int2',
+  'UNV1','UNV2','UNV_int1','UNV_int2',
+  'USI1','USI2','USI_int1','USI_int2',
+  'BIPv','BIPng','BIP_int','SAU',
+  'Garde','Garde_int','Astr','Astr_int',
+  'BOX1','BOX2','BOX3','BOX4','BOX5','BOX6','BOX7','BOX8','BOX9'
+];
+const GARDE_COLS = ['Garde','Garde_int','Astr','Astr_int'];
+const BOX_COLS   = ['BOX1','BOX2','BOX3','BOX4','BOX5','BOX6','BOX7','BOX8','BOX9'];
+const BIP_COLS   = ['BIPv','BIPng','BIP_int','SAU'];
 
-// INITIALISATION
-window.addEventListener('load', async () => {
-  const today = new Date();
-  const future = new Date();
-  future.setDate(today.getDate() + 30);
-  
-  document.getElementById('filter-date-from').value = today.toISOString().split('T')[0];
-  document.getElementById('filter-date-to').value   = future.toISOString().split('T')[0];
+const isIntCol = k => /_int\d*$/.test(k);
+// Même logique que Neuroplanning : Garde, SAU et toutes les colonnes internes sont exemptées des conflits cliniques
+const CONFLICT_IGNORE = new Set(['Garde', 'SAU', ...DOCTOR_COLS.filter(isIntCol)]);
+const family = k => k.replace(/_int\d*$/, '').replace(/\d+$/, '');
 
-  await loadUserAndEquipe();
-  await loadData();
-});
+/* ════════════════════════════════════════════════════════════════
+   UTILITAIRES
+   ════════════════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm = v => String(v ?? '').trim().toUpperCase();
 
-async function loadUserAndEquipe() {
+const toLocalISO = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const parseISO = s => { const [y,m,d] = s.split('-').map(Number); return Date.UTC(y, m-1, d); };
+const addDays  = (s, n) => new Date(parseISO(s) + n * 86400000).toISOString().slice(0, 10);
+const diffDays = (a, b) => Math.round((parseISO(a) - parseISO(b)) / 86400000);
+const minStr   = (a, b) => (a < b ? a : b);
+
+const fmtShort = s => new Date(s + 'T12:00:00').toLocaleDateString('fr-FR', { weekday:'short', day:'2-digit', month:'2-digit' });
+const fmtLong  = s => new Date(s + 'T12:00:00').toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+const shortH   = h => h.slice(0, 5);
+const heureLabel = h => (h < '12:00:00' ? 'matin' : 'après-midi');
+
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  el.addEventListener('click', () => el.remove());
+  $('toast-container').appendChild(el);
+  if (type !== 'error') setTimeout(() => el.remove(), type === 'warning' ? 6000 : 3500);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ÉTAT
+   ════════════════════════════════════════════════════════════════ */
+let currentUser = null;
+let meds = [];                 // neurologues
+let medByInit = new Map();     // INITIALES (norm) -> ligne neurologue
+let planning = [];             // lignes planning (triées date, heure, id)
+let absences = [];
+let byDate = new Map();        // date -> [rows]
+let absIdx = new Map();        // `${date}_${heure}` -> Map(INIT -> type)
+let loadedFrom = null;
+let state = { unit: null, cand: null, swapUnit: null };
+let unitsById = new Map();
+
+/* ════════════════════════════════════════════════════════════════
+   CHARGEMENT
+   ════════════════════════════════════════════════════════════════ */
+async function fetchAllRows(table, fromDate) {
+  const pageSize = 1000;
+  let all = [], from = 0;
+  while (true) {
+    const { data, error } = await _supabase.from(table).select('*')
+      .gte('date', fromDate)
+      .order('date', { ascending: true })
+      .order('heure', { ascending: true })
+      .order('id', { ascending: true })          // départage → pagination stable
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    all = all.concat(data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+
+async function loadUser() {
   const { data: { session } } = await _supabase.auth.getSession();
-  if (session) {
-    const { data: profile } = await _supabase
-      .schema('commun')
-      .from('profiles')
-      .select('*')
-      .eq('id', session.user.id)
-      .single();
-    if (profile) currentUser = profile;
+  if (!session) {
+    $('auth-msg').style.display = 'flex';
+    setTimeout(() => { location.href = '../index.html'; }, 2000);
+    return false;
   }
+  const { data: profile } = await _supabase.schema('commun').from('profiles').select('*').eq('id', session.user.id).single();
+  if (!profile) { toast('Profil introuvable.', 'error'); return false; }
+  currentUser = profile;
 
-  const { data: medecins } = await _supabase
-    .schema('commun')
-    .from('neurologues')
-    .select('*')
-    .order('initiales');
+  if (profile.preferences?.theme === 'light') document.body.classList.add('light-mode');
+  else if (profile.preferences?.theme === 'dark') document.body.classList.remove('light-mode');
 
-  if (medecins) {
-    listeMedecins = medecins;
-    const sel = document.getElementById('select-doctor');
-    sel.innerHTML = '';
-    medecins.forEach(m => {
-      const opt = document.createElement('option');
-      opt.value = m.initiales.toUpperCase();
-      opt.textContent = m.initiales;
-      sel.appendChild(opt);
+  const { data: medecins, error } = await _supabase.schema('commun').from('neurologues').select('*').order('initiales');
+  if (error || !medecins) { toast('Erreur chargement équipe : ' + (error?.message || ''), 'error'); return false; }
+  meds = medecins.filter(m => norm(m.initiales));
+  medByInit = new Map(meds.map(m => [norm(m.initiales), m]));
+
+  const sel = $('select-doctor');
+  sel.innerHTML = '';
+  meds.forEach(m => {
+    const o = document.createElement('option');
+    o.value = norm(m.initiales);
+    o.textContent = m.initiales;
+    sel.appendChild(o);
+  });
+  const me = norm(profile.initiales);
+  if (me && medByInit.has(me)) sel.value = me;
+  if (profile.role !== 'admin' && me && medByInit.has(me)) sel.disabled = true;   // un médecin ne gère que ses propres postes
+  return true;
+}
+
+function buildIndexes() {
+  byDate = new Map();
+  planning.forEach(r => {
+    if (!byDate.has(r.date)) byDate.set(r.date, []);
+    byDate.get(r.date).push(r);
+  });
+  absIdx = new Map();
+  absences.forEach(a => {
+    if (!a.date || !a.heure) return;
+    const key = `${a.date}_${a.heure}`;
+    if (!absIdx.has(key)) absIdx.set(key, new Map());
+    meds.forEach(m => {
+      const raw = m.initiales;
+      const v = a[raw] ?? a[String(raw).toLowerCase()] ?? a[String(raw).toUpperCase()];
+      if (v && String(v).trim()) absIdx.get(key).set(norm(raw), String(v).trim());
     });
+  });
+}
 
-    // Pré-sélection du médecin connecté
-    if (currentUser?.initiales) {
-      sel.value = currentUser.initiales.toUpperCase();
-    }
-  }
+function period() {
+  const today = toLocalISO(new Date());
+  return { from: $('filter-date-from').value || today, to: $('filter-date-to').value || addDays(today, 30) };
 }
 
 async function loadData() {
-  const dateFrom = document.getElementById('filter-date-from').value;
-  const dateTo   = document.getElementById('filter-date-to').value;
+  const today = toLocalISO(new Date());
+  const minDate = addDays(minStr(period().from, today), -LOOKBACK_DAYS);
+  const [p, a] = await Promise.all([fetchAllRows('planning', minDate), fetchAllRows('absences', minDate)]);
+  planning = p; absences = a; loadedFrom = minDate;
+  buildIndexes();
+  $('data-stamp').textContent = 'Données chargées à ' + new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+}
 
-  try {
-    // 1. Chargement de TOUTES les lignes de planning via pagination
-    const planRows = await fetchAllRows('planning', [
-      ['date', { ascending: true }],
-      ['heure', { ascending: true }]
-    ]);
+async function ensureLoaded() {
+  const today = toLocalISO(new Date());
+  const needed = addDays(minStr(period().from, today), -LOOKBACK_DAYS);
+  if (!loadedFrom || needed < loadedFrom) await loadData();
+}
 
-    // 2. Chargement de TOUTES les lignes d'absences via pagination
-    const absRows = await fetchAllRows('absences', [
-      ['date', { ascending: true }],
-      ['heure', { ascending: true }]
-    ]);
-
-    // 3. Filtrage en mémoire sur la plage sélectionnée
-    allPlanning = planRows.filter(r => (!dateFrom || r.date >= dateFrom) && (!dateTo || r.date <= dateTo));
-    allAbsences = absRows.filter(a => (!dateFrom || a.date >= dateFrom) && (!dateTo || a.date <= dateTo));
-
-    renderSchedule();
-  } catch (err) {
-    console.error('Erreur chargement données :', err);
-    toast('Erreur lors du chargement des données', 'error');
+/* ════════════════════════════════════════════════════════════════
+   MOTEUR DE RÈGLES
+   ════════════════════════════════════════════════════════════════ */
+// Valeur d'une cellule, avec surcouche optionnelle (cellules "libérées" lors d'un échange)
+function cellVal(row, col, ov) {
+  if (ov) {
+    const k = `${row.date}|${row.heure}|${col}`;
+    if (ov.has(k)) return ov.get(k);
   }
+  return norm(row[col]);
 }
 
-function onDoctorOrPeriodChange() {
-  selectedSlot = null;
-  selectedCandidate = null;
-  document.getElementById('btn-send-request').disabled = true;
-  loadData();
-}
-
-// RENDU DE LA GRILLE DU DEMANDEUR
-function renderSchedule() {
-  const doc = document.getElementById('select-doctor').value;
-  const tbody = document.getElementById('schedule-body');
-  tbody.innerHTML = '';
-
-  let lastDate = null;
-
-  allPlanning.forEach(row => {
-    // Identifier quels postes le médecin occupe sur cette ligne
-    const myPosts = [];
-    Object.keys(row).forEach(k => {
-      if (['id', 'date', 'heure', 'conflict_accepted', 'created_at'].includes(k)) return;
-      const val = row[k];
-      if (val !== null && val !== undefined && String(val).trim().toUpperCase() === doc) {
-        myPosts.push(k);
-      }
-    });
-
-    if (myPosts.length === 0) return; // N'afficher que ses créneaux
-
-    const tr = document.createElement('tr');
-    if (row.date !== lastDate) {
-      tr.classList.add('new-day');
-      lastDate = row.date;
+// Postes tenus par C à une date (optionnellement sur une seule heure)
+function postsAt(C, date, ov, colFilter, heureOnly) {
+  const out = [];
+  for (const row of (byDate.get(date) || [])) {
+    if (heureOnly && row.heure !== heureOnly) continue;
+    for (const col of DOCTOR_COLS) {
+      if (colFilter && !colFilter(col)) continue;
+      if (cellVal(row, col, ov) === C) out.push({ col, heure: row.heure });
     }
-    tr.classList.add(row.heure === '09:00:00' ? 'creno-matin' : 'creno-aprem');
+  }
+  return out;
+}
 
-    const slotsHtml = myPosts.map(colKey => {
-      const isSelected = selectedSlot && selectedSlot.rowId === row.id && selectedSlot.colKey === colKey;
-      return `<div class="cell-slot has-assignment ${isSelected ? 'selected' : ''}" 
-                   onclick="selectSlot('${row.id}', '${row.date}', '${row.heure}', '${colKey}')">
-                📌 ${colKey}
-              </div>`;
-    }).join(' ');
+// Un "poste" = unité échangeable. Garde/Astr : toute la journée (les 2 lignes horaires). Autres : un créneau.
+function buildUnits(doc, from, to) {
+  const units = [], g = new Map();
+  for (const row of planning) {
+    if (from && row.date < from) continue;
+    if (to && row.date > to) continue;
+    for (const col of DOCTOR_COLS) {
+      if (norm(row[col]) !== doc) continue;
+      if (GARDE_COLS.includes(col)) {
+        const id = `${row.date}|${col}`;
+        let u = g.get(id);
+        if (!u) { u = { id, date: row.date, colKey: col, gardeType: true, cells: [] }; g.set(id, u); units.push(u); }
+        u.cells.push({ heure: row.heure, rowId: row.id });
+      } else {
+        units.push({ id: `${row.date}|${row.heure}|${col}`, date: row.date, colKey: col, gardeType: false,
+                     cells: [{ heure: row.heure, rowId: row.id }] });
+      }
+    }
+  }
+  return units;
+}
 
-    const dateFmt = new Date(row.date + 'T00:00:00')
-      .toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+// Surcouche qui "libère" les cellules d'un poste (celui que la personne cède dans l'échange)
+function makeOv(unit) {
+  return new Map(unit.cells.map(c => [`${unit.date}|${c.heure}|${unit.colKey}`, '']));
+}
 
-    tr.innerHTML = `
-      <td style="font-weight:500;">${dateFmt}</td>
-      <td style="color:var(--teal);">${row.heure}</td>
-      <td style="display:flex; gap:6px; justify-content:center;">${slotsHtml}</td>
-    `;
+const unitHeureText = u => u.gardeType
+  ? u.cells.map(c => shortH(c.heure)).sort().join(' + ')
+  : heureLabel(u.cells[0].heure);
+const unitLabel = u => `${u.colKey}${u.gardeType ? ' (journée)' : ' · ' + heureLabel(u.cells[0].heure)}`;
+
+/**
+ * Le médecin C (initiales normalisées) peut-il prendre ce poste ?
+ * ov : cellules libérées (échange). rules : {win, box, bip}.
+ * Retourne { reasons: string[], nextMissing: bool } — reasons vide = disponible.
+ */
+function canTake(C, unit, ov, rules) {
+  const reasons = [];
+  const D = unit.date, col = unit.colKey;
+  let nextMissing = false;
+
+  // 1. Absence (garde = toute la journée ; sinon le créneau)
+  const hs = unit.gardeType ? HEURES : [unit.cells[0].heure];
+  for (const h of hs) {
+    const t = absIdx.get(`${D}_${h}`)?.get(C);
+    if (t) { reasons.push(`Absent (${t}) le ${fmtShort(D)}`); break; }
+  }
+
+  // 2. Conflit clinique sur la ligne + repos de garde de la veille (colonnes non exemptées uniquement)
+  if (!CONFLICT_IGNORE.has(col)) {
+    for (const cell of unit.cells) {
+      const others = postsAt(C, D, ov, k => k !== col && !CONFLICT_IGNORE.has(k), cell.heure);
+      if (others.length) {
+        reasons.push(`Déjà sur ${others.map(o => o.col).join(' + ')} le ${fmtShort(D)} ${heureLabel(cell.heure)}`);
+        break;
+      }
+    }
+    if (postsAt(C, addDays(D, -1), ov, k => k === 'Garde').length) {
+      reasons.push(`Repos de garde (garde la veille, ${fmtShort(addDays(D, -1))})`);
+    }
+  }
+
+  // 3. Règles propres aux gardes / astreintes
+  if (unit.gardeType) {
+    // 3a. Fenêtre sans autre garde/astreinte
+    for (let i = -rules.win; i <= rules.win; i++) {
+      const d = addDays(D, i);
+      const p = postsAt(C, d, ov, k => GARDE_COLS.includes(k));
+      if (p.length) { reasons.push(`${p[0].col} le ${fmtShort(d)} (fenêtre ±${rules.win} j)`); break; }
+    }
+
+    // 3b. Lendemain
+    const next = addDays(D, 1);
+    if (!(byDate.get(next) || []).length) nextMissing = true;
+
+    if (col === 'Garde') {
+      // repos de garde : aucun autre poste (hors BOX/BIP, gérés par les cases dédiées) le lendemain
+      const p = postsAt(C, next, ov, k => !CONFLICT_IGNORE.has(k) && !BOX_COLS.includes(k) && !BIP_COLS.includes(k));
+      if (p.length) reasons.push(`Repos de garde : déjà sur ${[...new Set(p.map(x => x.col))].join(' + ')} le ${fmtShort(next)}`);
+    }
+    if (rules.box) {
+      const p = postsAt(C, next, ov, k => BOX_COLS.includes(k));
+      if (p.length) reasons.push(`BOX le lendemain (${[...new Set(p.map(x => x.col))].join(' + ')}, ${fmtShort(next)})`);
+    }
+    if (rules.bip) {
+      const p = postsAt(C, next, ov, k => BIP_COLS.includes(k));
+      if (p.length) reasons.push(`BIP/SAU le lendemain (${[...new Set(p.map(x => x.col))].join(' + ')}, ${fmtShort(next)})`);
+    }
+  }
+  return { reasons, nextMissing };
+}
+
+// Compteurs (équité) : nombre de postes de la même famille dans ± N mois autour de la date du poste
+function famStats(unit, months) {
+  const D = unit.date, span = months * 30;
+  const from = addDays(D, -span), to = addDays(D, span);
+  const needInt = isIntCol(unit.colKey), fam = family(unit.colKey);
+  const cols = DOCTOR_COLS.filter(c => family(c) === fam && isIntCol(c) === needInt);
+  const perDate = GARDE_COLS.includes(unit.colKey);
+  const sets = new Map(), dist = new Map();
+  for (const row of planning) {
+    if (row.date < from || row.date > to) continue;
+    for (const c of cols) {
+      const v = norm(row[c]);
+      if (!v) continue;
+      if (!sets.has(v)) sets.set(v, new Set());
+      sets.get(v).add(perDate ? row.date : `${row.date}|${row.heure}`);
+      const dd = Math.abs(diffDays(row.date, D));
+      if (!dist.has(v) || dd < dist.get(v)) dist.set(v, dd);
+    }
+  }
+  return { sets, dist, fam };
+}
+
+function evaluateCandidates(unit, rules, months) {
+  const A = currentDoc();
+  const needInt = isIntCol(unit.colKey);
+  const { sets, dist, fam } = famStats(unit, months);
+  const out = [];
+  for (const m of meds) {
+    const init = norm(m.initiales);
+    if (init === A) continue;
+    if ((m.fonction === 'interne') !== needInt) continue;       // internes ↔ colonnes _int uniquement
+    const r = canTake(init, unit, null, rules);
+    out.push({
+      init, med: m, fam,
+      name: medName(init),
+      reasons: r.reasons, nextMissing: r.nextMissing,
+      count: sets.get(init)?.size || 0,
+      dist: dist.has(init) ? dist.get(init) : Infinity
+    });
+  }
+  out.sort((a, b) =>
+    (a.reasons.length > 0) - (b.reasons.length > 0) ||
+    a.count - b.count ||
+    b.dist - a.dist ||
+    a.init.localeCompare(b.init));
+  return out;
+}
+
+// Postes de B que A pourrait reprendre en retour de U1 (même famille de poste)
+function evaluateSwaps(U1, B, rulesA, rulesB) {
+  const A = currentDoc();
+  const { from, to } = period();
+  const fam = family(U1.colKey), needInt = isIntCol(U1.colKey);
+  const units = buildUnits(B, from, to).filter(u => family(u.colKey) === fam && isIntCol(u.colKey) === needInt);
+  const out = units.map(U2 => {
+    const resA = canTake(A, U2, makeOv(U1), rulesB);   // A reprend U2 (après avoir cédé U1)
+    const resB = canTake(B, U1, makeOv(U2), rulesA);   // B reprend U1 (après avoir cédé U2)
+    return { unit: U2, reasonsA: resA.reasons, reasonsB: resB.reasons, ok: !resA.reasons.length && !resB.reasons.length,
+             gap: Math.abs(diffDays(U2.date, U1.date)) };
+  });
+  out.sort((a, b) => (!a.ok - !b.ok) || a.gap - b.gap || a.unit.date.localeCompare(b.unit.date));
+  return out;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   AFFICHAGE
+   ════════════════════════════════════════════════════════════════ */
+const currentDoc = () => norm($('select-doctor').value);
+const medName = init => {
+  const m = medByInit.get(init);
+  const n = m ? `${m.prenom || ''} ${m.nom || ''}`.trim() : '';
+  return n || init;
+};
+const getRules = p => ({
+  win: Math.max(0, Math.min(7, parseInt($(`r${p}-win`).value, 10) || 0)),
+  box: $(`r${p}-box`).checked,
+  bip: $(`r${p}-bip`).checked
+});
+
+function renderSchedule() {
+  const doc = currentDoc(), { from, to } = period();
+  const tbody = $('schedule-body');
+  tbody.innerHTML = '';
+  const units = doc ? buildUnits(doc, from, to) : [];
+  unitsById = new Map(units.map(u => [u.id, u]));
+
+  if (!units.length) {
+    tbody.innerHTML = `<tr><td colspan="2" class="empty" style="padding:30px;">Aucune affectation pour ce médecin sur la période.</td></tr>`;
+    return;
+  }
+  const groups = new Map();
+  units.forEach(u => { if (!groups.has(u.date)) groups.set(u.date, []); groups.get(u.date).push(u); });
+
+  groups.forEach((list, date) => {
+    const tr = document.createElement('tr');
+    const td1 = document.createElement('td'); td1.className = 'date-cell'; td1.textContent = fmtShort(date);
+    const td2 = document.createElement('td');
+    const wrap = document.createElement('div'); wrap.className = 'pill-wrap';
+    list.forEach(u => {
+      const b = document.createElement('div');
+      b.className = 'pill' + (state.unit && state.unit.id === u.id ? ' selected' : '');
+      b.textContent = `📌 ${u.colKey} · ${unitHeureText(u)}`;
+      b.addEventListener('click', () => selectUnit(u.id));
+      wrap.appendChild(b);
+    });
+    td2.appendChild(wrap);
+    tr.appendChild(td1); tr.appendChild(td2);
     tbody.appendChild(tr);
   });
-
-  if (tbody.children.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="3" style="color:var(--gray); padding:30px;">
-      Aucune affectation trouvée pour ce médecin sur la période choisie.
-    </td></tr>`;
-  }
 }
 
-// SÉLECTION D'UN CRÉNEAU À ÉCHANGER
-function selectSlot(rowId, date, heure, colKey) {
-  selectedSlot = { rowId, date, heure, colKey, doctor: document.getElementById('select-doctor').value };
-  selectedCandidate = null;
-  document.getElementById('btn-send-request').disabled = true;
-
-  renderSchedule(); // Refresh pour la classe .selected
-
-  // Mise à jour de l'en-tête du panneau droit
-  const dateFmt = new Date(date + 'T00:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  document.getElementById('selected-slot-title').textContent = `${colKey} le ${dateFmt} (${heure})`;
-  document.getElementById('selected-slot-subtitle').textContent = `Recherche d'un remplaçant éligible`;
-
-  // Affichage des options spécifiques Gardes / Astreintes
-  const isGardeOrAstr = ['Garde', 'Garde_int', 'Astr', 'Astr_int'].includes(colKey);
-  document.getElementById('window-filter-row').style.display = isGardeOrAstr ? 'flex' : 'none';
-  document.getElementById('avoid-box-row').style.display     = isGardeOrAstr ? 'flex' : 'none';
-  document.getElementById('avoid-bip-row').style.display     = isGardeOrAstr ? 'flex' : 'none';
-
+function selectUnit(id) {
+  const u = unitsById.get(id);
+  if (!u) return;
+  state = { unit: u, cand: null, swapUnit: null };
+  $('rA-garde-rules').style.display = u.gardeType ? 'flex' : 'none';
+  $('rB-garde-rules').style.display = u.gardeType ? 'flex' : 'none';
+  renderSchedule();
   renderCandidates();
+  renderSwap();
 }
 
-// IDENTIFICATION ET CLASSEMENT DES CANDIDATS
 function renderCandidates() {
-  if (!selectedSlot) return;
+  const box = $('candidates-list');
+  box.innerHTML = '';
+  const u = state.unit;
+  $('btn-cession').disabled = true;
+  $('next-missing-note').style.display = 'none';
 
-  const { date, heure, colKey, doctor } = selectedSlot;
-  const container = document.getElementById('candidates-list');
-  container.innerHTML = '';
+  if (!u) {
+    $('selected-slot-title').textContent = 'Sélectionnez un poste';
+    $('selected-slot-subtitle').textContent = "Cliquez sur l'un de vos postes pour chercher un remplaçant.";
+    box.innerHTML = '<p class="empty">Aucun poste sélectionné.</p>';
+    return;
+  }
+  $('selected-slot-title').textContent = `${u.colKey} · ${fmtLong(u.date)}`;
+  $('selected-slot-subtitle').textContent = `${unitHeureText(u)} — classés du moins au plus sollicité sur ±${$('cfg-count-months').value} mois`;
 
-  const isGardeOrAstr = ['Garde', 'Garde_int', 'Astr', 'Astr_int'].includes(colKey);
-  const restWindowDays = parseInt(document.getElementById('cfg-rest-window').value || 0);
-  const avoidBoxLendemain = document.getElementById('cfg-avoid-box').checked;
-  const avoidBipLendemain = document.getElementById('cfg-avoid-bip').checked;
+  const rules = getRules('A');
+  const months = parseInt($('cfg-count-months').value, 10) || 12;
+  const list = evaluateCandidates(u, rules, months);
 
-  // 1. Calcul de la catégorie du poste
-  let categoryKey = 'Garde';
-  Object.entries(CATEGORIES).forEach(([cat, cols]) => {
-    if (cols.includes(colKey)) categoryKey = cat;
-  });
+  // Un candidat sélectionné qui devient indisponible est désélectionné
+  if (state.cand) {
+    const cur = list.find(c => c.init === state.cand);
+    if (!cur || cur.reasons.length) { state.cand = null; state.swapUnit = null; renderSwap(); }
+  }
 
-  // 2. Compteurs sur la période
-  const counts = {};
-  listeMedecins.forEach(m => counts[m.initiales.toUpperCase()] = 0);
-  allPlanning.forEach(r => {
-    Object.keys(r).forEach(k => {
-      const val = (r[k] !== null && r[k] !== undefined) ? String(r[k]).trim().toUpperCase() : '';
-      if (counts.hasOwnProperty(val) && (CATEGORIES[categoryKey] || []).includes(k)) {
-        counts[val]++;
-      }
-    });
-  });
+  if (u.gardeType && list.some(c => c.nextMissing)) {
+    const nx = addDays(u.date, 1);
+    const note = $('next-missing-note');
+    note.textContent = `⚠ Le planning du ${fmtShort(nx)} n'est pas saisi : les règles « lendemain » ne peuvent pas être vérifiées.`;
+    note.style.display = 'block';
+  }
 
-  // 3. Filtrage des médecins disponibles
-  const candidates = [];
-
-  listeMedecins.forEach(m => {
-    const init = m.initiales.toUpperCase();
-    if (init === doctor) return; // Exclure le demandeur lui-même
-
-    // A. Filtrage absences sur la même demi-journée
-    const absRow = allAbsences.find(a => a.date === date && a.heure === heure);
-    if (absRow && absRow[init] && absRow[init].trim() !== '') return;
-
-    // B. Filtrage indisponibilité clinique de journée (sauf si garde)
-    const planRow = allPlanning.find(p => p.date === date && p.heure === heure);
-    if (!isGardeOrAstr && planRow) {
-      const isAlreadyOccupied = Object.keys(planRow).some(k => (planRow[k] || '').trim().toUpperCase() === init);
-      if (isAlreadyOccupied) return;
-    }
-
-    // C. Règles spécifiques Gardes/Astreintes : Fenêtre de repos & Lendemain
-    if (isGardeOrAstr) {
-      // Fenêtre X jours avant/après
-      const curDate = new Date(date + 'T00:00:00');
-      let hasNearbyGarde = false;
-
-      allPlanning.forEach(r => {
-        const rDate = new Date(r.date + 'T00:00:00');
-        const diffDays = Math.abs((rDate - curDate) / (1000 * 60 * 60 * 24));
-        if (diffDays <= restWindowDays) {
-          if ((r.Garde || '').trim().toUpperCase() === init || (r.Astr || '').trim().toUpperCase() === init) {
-            hasNearbyGarde = true;
-          }
-        }
-      });
-      if (hasNearbyGarde) return;
-
-// Vérification du lendemain
-      const nextDateObj = new Date(curDate);
-      nextDateObj.setDate(nextDateObj.getDate() + 1);
-      const nextDateStr = nextDateObj.toISOString().split('T')[0];
-
-      const nextDayRows = allPlanning.filter(r => r.date === nextDateStr);
-      let isNextDayConflict = false;
-
-      nextDayRows.forEach(nr => {
-        Object.keys(nr).forEach(k => {
-          if (['id', 'date', 'heure', 'conflict_accepted', 'created_at'].includes(k)) return;
-          const rawV = nr[k];
-          if (rawV === null || rawV === undefined) return;
-          
-          const val = String(rawV).trim().toUpperCase();
-          if (val === init) {
-            if (avoidBoxLendemain && k.startsWith('BOX')) isNextDayConflict = true;
-            if (avoidBipLendemain && (k.startsWith('BIP') || k === 'SAU')) isNextDayConflict = true;
-          }
-        });
-      });
-      if (isNextDayConflict) return;
-    }
-
-    candidates.push({
-      initiales: init,
-      name: `${m.prenom || ''} ${m.nom || ''}`.trim() || init,
-      count: counts[init] || 0
-    });
-  });
-
-  // 4. Tri du moins posté au plus posté
-  candidates.sort((a, b) => a.count - b.count);
-
-  // Rendu de la liste
-  if (candidates.length === 0) {
-    container.innerHTML = `<p style="font-size:11px; color:var(--red); text-align:center; margin-top:20px;">
-      Aucun médecin disponible selon les critères sélectionnés.
-    </p>`;
+  const showAll = $('cfg-show-unavail').checked;
+  const shown = list.filter(c => showAll || !c.reasons.length);
+  if (!shown.length) {
+    box.innerHTML = `<p class="empty" style="color:var(--red)">Aucun médecin disponible selon les critères.</p>`;
     return;
   }
 
-  candidates.forEach(c => {
+  shown.forEach(c => {
+    const ok = !c.reasons.length;
     const card = document.createElement('div');
-    card.className = `candidate-card ${selectedCandidate === c.initiales ? 'selected' : ''}`;
-    card.onclick = () => selectCandidate(c.initiales);
-
+    card.className = 'card' + (ok ? '' : ' unavail') + (state.cand === c.init ? ' selected' : '');
+    const distTxt = c.dist === Infinity ? 'aucun autre' : `plus proche : ${c.dist} j`;
     card.innerHTML = `
       <div>
-        <div class="candidate-name">${c.initiales}</div>
-        <div class="candidate-stats">
-          <span>${c.name}</span>
-        </div>
+        <div class="card-title">${esc(c.init)} <span style="font-weight:400;color:var(--gray)">· ${esc(c.name)}</span></div>
+        <div class="card-sub">${esc(distTxt)}</div>
+        ${ok ? '' : `<div class="reasons">${c.reasons.map(r => `<div class="reason">✕ ${esc(r)}</div>`).join('')}</div>`}
       </div>
-      <div class="candidate-badge">${c.count} ${categoryKey}(s)</div>
-    `;
-    container.appendChild(card);
+      <div class="badge ${ok ? 'ok' : ''}">${c.count} ${esc(c.fam)}</div>`;
+    if (ok) card.addEventListener('click', () => selectCandidate(c.init));
+    box.appendChild(card);
   });
+  $('btn-cession').disabled = !state.cand;
 }
-  
-async function fetchAllRows(table, orderCols = []) {  
-  const pageSize = 1000;
-  let allRows = [];
-  let from = 0;
 
-  while (true) {
-    let query = _supabase.from(table).select('*').range(from, from + pageSize - 1);
-    orderCols.forEach(([col, opts]) => { query = query.order(col, opts); });
-    const { data, error } = await query;
-    if (error) throw error;
-    if (!data || data.length === 0) break;
-    allRows = allRows.concat(data);
-    if (data.length < pageSize) break; // Dernière page atteinte
-    from += pageSize;
-  }
-  return allRows;
-}
-  
-function selectCandidate(initiales) {
-  selectedCandidate = initiales;
-  document.getElementById('btn-send-request').disabled = false;
+function selectCandidate(init) {
+  state.cand = init;
+  state.swapUnit = null;
   renderCandidates();
+  renderSwap();
 }
 
-// ACTION FINALE : ENVOI DU MAIL
-function sendExchangeRequest() {
-  if (!selectedSlot || !selectedCandidate) return;
+function renderSwap() {
+  const panel = $('swap-panel');
+  const list = $('swap-list');
+  $('btn-swap').disabled = true;
+  if (!state.unit || !state.cand) { panel.style.display = 'none'; return; }
+  panel.style.display = 'flex';
 
-  const { date, heure, colKey, doctor } = selectedSlot;
-  const dateFmt = new Date(date + 'T00:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const u = state.unit, B = state.cand;
+  $('swap-title').textContent = `Échange avec ${B}`;
+  $('swap-subtitle').textContent = `Postes de ${medName(B)} de même type (${family(u.colKey)}) sur la période, que vous pourriez reprendre en retour du ${fmtShort(u.date)}. Triés par proximité.`;
 
-  const subject = encodeURIComponent(`[Neurologie] Demande d'échange : ${colKey} du ${dateFmt}`);
-  const body = encodeURIComponent(
-    `Bonjour ${selectedCandidate},\n\n` +
-    `Le Dr ${doctor} souhaite vous proposer un remplacement pour son poste de ${colKey} le ${dateFmt} (${heure}).\n\n` +
-    `Merci de bien vouloir confirmer votre accord en répondant à ce message (en incluant le secrétariat / admin pour validation du planning).\n\n` +
-    `Cordialement,\n Assistant Planning Neurologie`
-  );
+  const res = evaluateSwaps(u, B, getRules('A'), getRules('B'));
+  if (state.swapUnit) {
+    const cur = res.find(r => r.unit.id === state.swapUnit);
+    if (!cur || !cur.ok) state.swapUnit = null;
+  }
 
-  // Ouverture du client mail par défaut
-  window.location.href = `mailto:?subject=${subject}&body=${body}`;
-
-  toast('Client mail ouvert pour confirmation', 'info');
+  list.innerHTML = '';
+  const showAll = $('rB-show').checked;
+  const shown = res.filter(r => showAll || r.ok);
+  if (!shown.length) {
+    list.innerHTML = `<p class="empty">${res.length ? 'Aucune date compatible dans la période.' : `Aucun poste ${esc(family(u.colKey))} de ${esc(B)} sur la période (élargissez les dates).`}</p>`;
+    return;
+  }
+  shown.forEach(r => {
+    const card = document.createElement('div');
+    card.className = 'card' + (r.ok ? '' : ' unavail') + (state.swapUnit === r.unit.id ? ' selected' : '');
+    const gapTxt = r.gap === 0 ? 'même jour' : `${diffDays(r.unit.date, u.date) > 0 ? '+' : '−'}${r.gap} j`;
+    const rs = [...r.reasonsA.map(x => `Vous : ${x}`), ...r.reasonsB.map(x => `${B} : ${x}`)];
+    card.innerHTML = `
+      <div>
+        <div class="card-title">${esc(fmtShort(r.unit.date))} <span style="font-weight:400;color:var(--gray)">· ${esc(r.unit.colKey)} · ${esc(unitHeureText(r.unit))}</span></div>
+        ${r.ok ? '' : `<div class="reasons">${rs.map(x => `<div class="reason">✕ ${esc(x)}</div>`).join('')}</div>`}
+      </div>
+      <div class="badge ${r.ok ? 'ok' : ''}">${esc(gapTxt)}</div>`;
+    if (r.ok) card.addEventListener('click', () => { state.swapUnit = r.unit.id; renderSwap(); });
+    list.appendChild(card);
+  });
+  $('btn-swap').disabled = !state.swapUnit;
 }
 
-function toast(msg, type = 'info') {
-  const container = document.getElementById('toast-container');
-  const toastEl = document.createElement('div');
-  toastEl.className = `toast ${type}`;
-  toastEl.textContent = msg;
-  container.appendChild(toastEl);
-  setTimeout(() => toastEl.remove(), 4000);
+/* ════════════════════════════════════════════════════════════════
+   MAIL (avec revalidation sur données fraîches)
+   ════════════════════════════════════════════════════════════════ */
+function openMail(toList, ccList, subject, body) {
+  const to = toList.filter(Boolean).join(',');
+  const cc = ccList.filter(Boolean).join(',');
+  const q = [];
+  if (cc) q.push('cc=' + encodeURIComponent(cc));
+  q.push('subject=' + encodeURIComponent(subject));
+  q.push('body=' + encodeURIComponent(body));
+  window.location.href = `mailto:${to}?${q.join('&')}`;
 }
+
+async function prepareAndSend(withSwap) {
+  if (!state.unit || !state.cand || (withSwap && !state.swapUnit)) return;
+  const A = currentDoc(), B = state.cand;
+  const id1 = state.unit.id, id2 = state.swapUnit;
+  const d1 = state.unit.date;
+  const d2 = withSwap ? id2.split('|')[0] : null;
+  const btns = [$('btn-cession'), $('btn-swap')];
+  btns.forEach(b => b.disabled = true);
+
+  try {
+    await loadData();                                         // données fraîches avant tout envoi
+  } catch (e) {
+    toast('Impossible de revérifier le planning : ' + e.message, 'error');
+    btns.forEach(b => b.disabled = false);
+    return;
+  }
+
+  // On reconstruit les postes depuis les données fraîches
+  const U1 = buildUnits(A, d1, d1).find(u => u.id === id1);
+  const U2 = withSwap ? buildUnits(B, d2, d2).find(u => u.id === id2) : null;
+  if (!U1 || (withSwap && !U2)) {
+    toast("Le planning a changé : l'un des postes n'existe plus. La liste a été actualisée.", 'error');
+    state = { unit: null, cand: null, swapUnit: null };
+    renderSchedule(); renderCandidates(); renderSwap();
+    return;
+  }
+
+  const rA = getRules('A'), rB = getRules('B');
+  const chkB = canTake(B, U1, withSwap ? makeOv(U2) : null, rA);
+  const chkA = withSwap ? canTake(A, U2, makeOv(U1), rB) : { reasons: [] };
+  if (chkB.reasons.length || chkA.reasons.length) {
+    const why = chkB.reasons.length ? `${B} : ${chkB.reasons[0]}` : `Vous : ${chkA.reasons[0]}`;
+    toast("Le planning a changé, proposition devenue invalide — " + why, 'error');
+    state.unit = U1;
+    renderSchedule(); renderCandidates(); renderSwap();
+    return;
+  }
+  state.unit = U1;
+  renderSchedule(); renderCandidates(); renderSwap();
+
+  const nameA = medName(A), nameB = medName(B);
+  const mB = medByInit.get(B);
+  const emailB = mB?.email || mB?.mail || '';
+  let subject, body;
+  if (withSwap) {
+    subject = `[Neurologie] Proposition d'échange : ${U1.colKey} du ${fmtShort(U1.date)} contre ${U2.colKey} du ${fmtShort(U2.date)}`;
+    body =
+`Bonjour ${nameB},
+
+${nameA} (${A}) vous propose l'échange suivant :
+ • vous reprendriez son poste de ${unitLabel(U1)} le ${fmtLong(U1.date)} (${unitHeureText(U1)}) ;
+ • en contrepartie, ${nameA} reprendrait votre poste de ${unitLabel(U2)} le ${fmtLong(U2.date)} (${unitHeureText(U2)}).
+
+Merci de confirmer votre accord en répondant à tous : l'administrateur du planning est en copie pour mettre le planning à jour.
+
+Cordialement,
+Assistant Planning Neurologie`;
+  } else {
+    subject = `[Neurologie] Demande de remplacement : ${U1.colKey} du ${fmtShort(U1.date)}`;
+    body =
+`Bonjour ${nameB},
+
+${nameA} (${A}) souhaiterait que vous repreniez son poste de ${unitLabel(U1)} le ${fmtLong(U1.date)} (${unitHeureText(U1)}).
+
+Merci de confirmer votre accord en répondant à tous : l'administrateur du planning est en copie pour mettre le planning à jour.
+
+Cordialement,
+Assistant Planning Neurologie`;
+  }
+  openMail([emailB], ADMIN_EMAILS, subject, body);
+  toast(emailB ? 'Client mail ouvert' : `Client mail ouvert — adresse de ${B} non connue, à renseigner`, emailB ? 'info' : 'warning');
+}
+
+/* ════════════════════════════════════════════════════════════════
+   INITIALISATION
+   ════════════════════════════════════════════════════════════════ */
+async function fullRefresh(resetSelection = true) {
+  try {
+    await ensureLoaded();
+    if (resetSelection) state = { unit: null, cand: null, swapUnit: null };
+    renderSchedule(); renderCandidates(); renderSwap();
+  } catch (e) {
+    console.error(e);
+    toast('Erreur de chargement : ' + e.message, 'error');
+  }
+}
+
+window.addEventListener('load', async () => {
+  if (localStorage.getItem('theme') === 'light') document.body.classList.add('light-mode');
+  const today = toLocalISO(new Date());
+  $('filter-date-from').value = today;
+  $('filter-date-to').value = addDays(today, 30);
+
+  if (!(await loadUser())) return;
+
+  $('select-doctor').addEventListener('change', () => fullRefresh(true));
+  $('filter-date-from').addEventListener('change', () => fullRefresh(true));
+  $('filter-date-to').addEventListener('change', () => fullRefresh(true));
+  $('btn-refresh').addEventListener('click', async () => {
+    try { await loadData(); toast('Données actualisées'); } catch (e) { toast('Erreur : ' + e.message, 'error'); return; }
+    // on conserve la sélection si le poste existe toujours
+    const keep = state.unit?.id, cand = state.cand, sw = state.swapUnit;
+    state = { unit: null, cand: null, swapUnit: null };
+    renderSchedule();
+    if (keep && unitsById.has(keep)) { selectUnit(keep); if (cand) { state.cand = cand; state.swapUnit = sw; renderCandidates(); renderSwap(); } }
+    else { renderCandidates(); renderSwap(); }
+  });
+
+  ['rA-win','rA-box','rA-bip','cfg-count-months','cfg-show-unavail'].forEach(id =>
+    $(id).addEventListener('change', () => { renderCandidates(); renderSwap(); }));
+  ['rB-win','rB-box','rB-bip','rB-show'].forEach(id =>
+    $(id).addEventListener('change', () => renderSwap()));
+  $('btn-cession').addEventListener('click', () => prepareAndSend(false));
+  $('btn-swap').addEventListener('click', () => prepareAndSend(true));
+
+  await fullRefresh(true);
+});
 </script>
 </body>
 </html>
