@@ -167,7 +167,7 @@ function simulate(P,D){
 }
 
 function inject(plan,ctx){
-  const {slots,absent,repos}=ctx,W=[],edits={},q=m=>Number(P.quotas[m]??1);2>Ajuster à la main</h2><div class="scro
+  const {slots,absent,repos}=ctx,W=[],edits={},q=m=>Number(P.quotas[m]??1);
   const ov=(i,c)=>edits[i]?.[c]??slots[i].r[c];
   const posted=(i,m)=>POST.some(c=>norm(ov(i,c))===m);
   const free=(i,m)=>!absent.get(slots[i].key)?.has(m)&&!repos.get(slots[i].key)?.has(m)&&!posted(i,m);
