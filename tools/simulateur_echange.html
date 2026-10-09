@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulateur & Échange de Gardes / Bips</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --navy:        #0d1b2a;
+      --navy-mid:    #1a2d42;
+      --navy-light:  #243d55;
+      --teal:        #2dd4bf;
+      --teal-dim:    #14b8a620;
+      --red:         #f87171;
+      --red-dim:     #f8717120;
+      --amber:       #fbbf24;
+      --amber-dim:   #fbbf2420;
+      --purple:      #c084fc;
+      --purple-dim:  #c084fc22;
+      --white:       #f0f4f8;
+      --gray:        #8fa3b5;
+      --border:      #1e3148;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Sora', sans-serif; background: var(--navy); color: var(--white); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* TOPBAR & CONTROLS */
+    #topbar { display: flex; align-items: center; justify-content: space-between; padding: 0 24px; height: 56px; background: var(--navy-mid); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    #topbar .brand { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; color: var(--teal); letter-spacing: .08em; }
+    
+    #controls { display: flex; align-items: center; gap: 16px; padding: 12px 24px; background: var(--navy-mid); border-bottom: 1px solid var(--border); font-family: 'DM Mono', monospace; font-size: 11px; flex-wrap: wrap; }
+    #controls label { color: var(--gray); }
+    #controls select, #controls input[type="date"], #controls input[type="number"] {
+      background: var(--navy); border: 1px solid var(--border); color: var(--white); padding: 5px 10px; border-radius: 6px; font-family: 'DM Mono', monospace; font-size: 11px;
+    }
+    #controls select:focus, #controls input:focus { border-color: var(--teal); outline: none; }
+
+    /* LAYOUT PRINCIPAL */
+    #main-layout { display: flex; flex: 1; overflow: hidden; }
+
+    /* ZONE GAUCHE : TABLEAU TYPE SEMAINE */
+    #schedule-container { flex: 1; overflow: auto; padding: 16px 24px; }
+    table { border-collapse: collapse; width: 100%; font-family: 'DM Mono', monospace; font-size: 11px; }
+    thead th { position: sticky; top: 0; background: var(--navy-light); padding: 10px; text-align: center; color: var(--gray); border-bottom: 1px solid var(--border); z-index: 10; }
+    tbody td { border-bottom: 1px solid var(--border); padding: 8px; height: 44px; text-align: center; }
+    tr.creno-matin { background: var(--navy); }
+    tr.creno-aprem { background: #112235; }
+    tr.new-day td { border-top: 2px solid var(--border); }
+
+    .cell-slot {
+      padding: 6px; border-radius: 6px; cursor: pointer; transition: all .15s ease; border: 1px dashed transparent;
+    }
+    .cell-slot:hover { border-color: var(--teal); background: var(--teal-dim); }
+    .cell-slot.selected { border-color: var(--amber) !important; background: var(--amber-dim) !important; font-weight: 600; }
+    .cell-slot.has-assignment { background: var(--navy-light); border: 1px solid var(--border); }
+
+    /* ZONE DROITE : PANNEAU DE SÉLECTION & PROPOSITIONS */
+    #side-panel { width: 380px; background: var(--navy-mid); border-left: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+    #side-panel-header { padding: 16px 20px; border-bottom: 1px solid var(--border); font-family: 'DM Mono', monospace; }
+    #side-panel-header h3 { font-size: 13px; color: var(--teal); margin-bottom: 4px; }
+    #side-panel-header p { font-size: 10px; color: var(--gray); }
+
+    #side-panel-filters { padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--navy); display: flex; flex-direction: column; gap: 8px; font-size: 11px; }
+    .filter-row { display: flex; align-items: center; justify-content: space-between; }
+    .filter-row label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--gray); }
+
+    #candidates-list { flex: 1; overflow-y: auto; padding: 12px 20px; display: flex; flex-direction: column; gap: 8px; }
+    
+    .candidate-card {
+      background: var(--navy); border: 1px solid var(--border); border-radius: 8px; padding: 12px;
+      display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: border-color .15s;
+    }
+    .candidate-card:hover { border-color: var(--teal); }
+    .candidate-card.selected { border-color: var(--amber); background: var(--amber-dim); }
+    .candidate-name { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 600; color: var(--white); }
+    .candidate-stats { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--gray); margin-top: 4px; display: flex; gap: 8px; }
+    .candidate-badge { background: var(--navy-light); border-radius: 4px; padding: 2px 6px; font-size: 9px; }
+
+    /* ACTION FINAL */
+    #action-footer { padding: 16px 20px; border-top: 1px solid var(--border); background: var(--navy-mid); }
+    button { font-family: 'Sora', sans-serif; font-size: 12px; font-weight: 600; padding: 10px 16px; border-radius: 6px; border: none; cursor: pointer; transition: opacity .15s; width: 100%; }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-primary { background: var(--teal); color: var(--navy); }
+    .btn-primary:hover:not(:disabled) { opacity: .9; }
+
+    /* TOAST */
+    #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 300; }
+    .toast { font-family: 'DM Mono', monospace; font-size: 11px; padding: 10px 16px; border-radius: 8px; background: var(--navy-mid); border-left: 3px solid var(--teal); color: var(--white); }
+  </style>
+</head>
+<body>
+
+<div id="topbar">
+  <span class="brand">🤝 Assistant Échanges & Remplacements</span>
+  <a href="index.html" style="color:var(--gray); text-decoration:none; font-family:'DM Mono'; font-size:11px;">← Retour au planning</a>
+</div>
+
+<div id="controls">
+  <div>
+    <label>Médecin demandeur :</label>
+    <select id="select-doctor" onchange="onDoctorOrPeriodChange()"></select>
+  </div>
+  <div style="width:1px; height:20px; background:var(--border);"></div>
+  <div>
+    <label>Du :</label>
+    <input type="date" id="filter-date-from" onchange="onDoctorOrPeriodChange()" />
+  </div>
+  <div>
+    <label>Au :</label>
+    <input type="date" id="filter-date-to" onchange="onDoctorOrPeriodChange()" />
+  </div>
+</div>
+
+<div id="main-layout">
+  <!-- SEMAISNIER DE SÉLECTION -->
+  <div id="schedule-container">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:110px;">Date</th>
+          <th style="width:70px;">Heure</th>
+          <th>Mon affectation actuelle</th>
+        </tr>
+      </thead>
+      <tbody id="schedule-body">
+        <!-- Rempli en JS -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- PANNEAU DROIT : FILTRES SPÉCIFIQUES ET LISTE DU MOINS POSTÉ -->
+  <div id="side-panel">
+    <div id="side-panel-header">
+      <h3 id="selected-slot-title">Sélectionnez un créneau</h3>
+      <p id="selected-slot-subtitle">Cliquez sur une case dans la grille pour chercher un remplaçant.</p>
+    </div>
+
+    <div id="side-panel-filters">
+      <!-- Règle spécifique Gardes/Astreintes -->
+      <div class="filter-row" id="window-filter-row" style="display:none;">
+        <label>Fenêtre repos (jours sans Garde/Astr) :</label>
+        <input type="number" id="cfg-rest-window" value="2" min="0" max="7" style="width:45px;" onchange="renderCandidates()" />
+      </div>
+      <div class="filter-row" id="avoid-box-row" style="display:none;">
+        <label>Éviter BOX le lendemain :</label>
+        <input type="checkbox" id="cfg-avoid-box" checked onchange="renderCandidates()" />
+      </div>
+      <div class="filter-row" id="avoid-bip-row" style="display:none;">
+        <label>Éviter BIP le lendemain :</label>
+        <input type="checkbox" id="cfg-avoid-bip" checked onchange="renderCandidates()" />
+      </div>
+    </div>
+
+    <!-- Candidats classés du moins posté au plus posté -->
+    <div id="candidates-list">
+      <p style="font-size:11px; color:var(--gray); text-align:center; margin-top:20px;">
+        Aucun créneau sélectionné.
+      </p>
+    </div>
+
+    <div id="action-footer">
+      <button id="btn-send-request" class="btn-primary" disabled onclick="sendExchangeRequest()">
+        📧 Proposer l'échange par e-mail
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+const SUPABASE_URL = 'https://yseaujinbdwxpcelsywr.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_7uC727-tO92zxGsAwCqBnA_E9oX_Xw8';
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  db: { schema: 'neuroplanning' }
+});
+
+const CATEGORIES = {
+  Garde:    ['Garde', 'Garde_int'],
+  Astr:     ['Astr', 'Astr_int'],
+  BIP:      ['BIPv', 'BIPng', 'BIP_int', 'SAU'],
+  USI:      ['USI1', 'USI2', 'USI_int1', 'USI_int2'],
+  UNV:      ['UNV1', 'UNV2', 'UNV_int1', 'UNV_int2'],
+  C_Periph: ['C_Periph']
+};
+
+let listeMedecins = [];
+let allPlanning   = [];
+let allAbsences   = [];
+let currentUser   = null;
+
+let selectedSlot  = null; // { date, heure, colKey, doctor }
+let selectedCandidate = null;
+
+// INITIALISATION
+window.addEventListener('load', async () => {
+  const today = new Date();
+  const future = new Date();
+  future.setDate(today.getDate() + 30);
+  
+  document.getElementById('filter-date-from').value = today.toISOString().split('T')[0];
+  document.getElementById('filter-date-to').value   = future.toISOString().split('T')[0];
+
+  await loadUserAndEquipe();
+  await loadData();
+});
+
+async function loadUserAndEquipe() {
+  const { data: { session } } = await _supabase.auth.getSession();
+  if (session) {
+    const { data: profile } = await _supabase
+      .schema('commun')
+      .from('profiles')
+      .select('*')
+      .eq('id', session.user.id)
+      .single();
+    if (profile) currentUser = profile;
+  }
+
+  const { data: medecins } = await _supabase
+    .schema('commun')
+    .from('neurologues')
+    .select('*')
+    .order('initiales');
+
+  if (medecins) {
+    listeMedecins = medecins;
+    const sel = document.getElementById('select-doctor');
+    sel.innerHTML = '';
+    medecins.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.initiales.toUpperCase();
+      opt.textContent = m.initiales;
+      sel.appendChild(opt);
+    });
+
+    // Pré-sélection du médecin connecté
+    if (currentUser?.initiales) {
+      sel.value = currentUser.initiales.toUpperCase();
+    }
+  }
+}
+
+async function loadData() {
+  const dateFrom = document.getElementById('filter-date-from').value;
+  const dateTo   = document.getElementById('filter-date-to').value;
+
+  const { data: plan } = await _supabase
+    .from('planning')
+    .select('*')
+    .gte('date', dateFrom)
+    .lte('date', dateTo)
+    .order('date', { ascending: true })
+    .order('heure', { ascending: true });
+
+  const { data: abs } = await _supabase
+    .from('absences')
+    .select('*')
+    .gte('date', dateFrom)
+    .lte('date', dateTo);
+
+  allPlanning = plan || [];
+  allAbsences = abs || [];
+
+  renderSchedule();
+}
+
+function onDoctorOrPeriodChange() {
+  selectedSlot = null;
+  selectedCandidate = null;
+  document.getElementById('btn-send-request').disabled = true;
+  loadData();
+}
+
+// RENDU DE LA GRILLE DU DEMANDEUR
+function renderSchedule() {
+  const doc = document.getElementById('select-doctor').value;
+  const tbody = document.getElementById('schedule-body');
+  tbody.innerHTML = '';
+
+  let lastDate = null;
+
+  allPlanning.forEach(row => {
+    // Identifier quels postes le médecin occupe sur cette ligne
+    const myPosts = [];
+    Object.keys(row).forEach(k => {
+      if ((row[k] || '').trim().toUpperCase() === doc) {
+        myPosts.push(k);
+      }
+    });
+
+    if (myPosts.length === 0) return; // N'afficher que ses créneaux
+
+    const tr = document.createElement('tr');
+    if (row.date !== lastDate) {
+      tr.classList.add('new-day');
+      lastDate = row.date;
+    }
+    tr.classList.add(row.heure === '09:00:00' ? 'creno-matin' : 'creno-aprem');
+
+    const slotsHtml = myPosts.map(colKey => {
+      const isSelected = selectedSlot && selectedSlot.rowId === row.id && selectedSlot.colKey === colKey;
+      return `<div class="cell-slot has-assignment ${isSelected ? 'selected' : ''}" 
+                   onclick="selectSlot('${row.id}', '${row.date}', '${row.heure}', '${colKey}')">
+                📌 ${colKey}
+              </div>`;
+    }).join(' ');
+
+    const dateFmt = new Date(row.date + 'T00:00:00')
+      .toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+
+    tr.innerHTML = `
+      <td style="font-weight:500;">${dateFmt}</td>
+      <td style="color:var(--teal);">${row.heure}</td>
+      <td style="display:flex; gap:6px; justify-content:center;">${slotsHtml}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  if (tbody.children.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="3" style="color:var(--gray); padding:30px;">
+      Aucune affectation trouvée pour ce médecin sur la période choisie.
+    </td></tr>`;
+  }
+}
+
+// SÉLECTION D'UN CRÉNEAU À ÉCHANGER
+function selectSlot(rowId, date, heure, colKey) {
+  selectedSlot = { rowId, date, heure, colKey, doctor: document.getElementById('select-doctor').value };
+  selectedCandidate = null;
+  document.getElementById('btn-send-request').disabled = true;
+
+  renderSchedule(); // Refresh pour la classe .selected
+
+  // Mise à jour de l'en-tête du panneau droit
+  const dateFmt = new Date(date + 'T00:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  document.getElementById('selected-slot-title').textContent = `${colKey} le ${dateFmt} (${heure})`;
+  document.getElementById('selected-slot-subtitle').textContent = `Recherche d'un remplaçant éligible`;
+
+  // Affichage des options spécifiques Gardes / Astreintes
+  const isGardeOrAstr = ['Garde', 'Garde_int', 'Astr', 'Astr_int'].includes(colKey);
+  document.getElementById('window-filter-row').style.display = isGardeOrAstr ? 'flex' : 'none';
+  document.getElementById('avoid-box-row').style.display     = isGardeOrAstr ? 'flex' : 'none';
+  document.getElementById('avoid-bip-row').style.display     = isGardeOrAstr ? 'flex' : 'none';
+
+  renderCandidates();
+}
+
+// IDENTIFICATION ET CLASSEMENT DES CANDIDATS
+function renderCandidates() {
+  if (!selectedSlot) return;
+
+  const { date, heure, colKey, doctor } = selectedSlot;
+  const container = document.getElementById('candidates-list');
+  container.innerHTML = '';
+
+  const isGardeOrAstr = ['Garde', 'Garde_int', 'Astr', 'Astr_int'].includes(colKey);
+  const restWindowDays = parseInt(document.getElementById('cfg-rest-window').value || 0);
+  const avoidBoxLendemain = document.getElementById('cfg-avoid-box').checked;
+  const avoidBipLendemain = document.getElementById('cfg-avoid-bip').checked;
+
+  // 1. Calcul de la catégorie du poste
+  let categoryKey = 'Garde';
+  Object.entries(CATEGORIES).forEach(([cat, cols]) => {
+    if (cols.includes(colKey)) categoryKey = cat;
+  });
+
+  // 2. Compteurs sur la période
+  const counts = {};
+  listeMedecins.forEach(m => counts[m.initiales.toUpperCase()] = 0);
+  allPlanning.forEach(r => {
+    Object.keys(r).forEach(k => {
+      const val = (r[k] || '').trim().toUpperCase();
+      if (counts.hasOwnProperty(val) && (CATEGORIES[categoryKey] || []).includes(k)) {
+        counts[val]++;
+      }
+    });
+  });
+
+  // 3. Filtrage des médecins disponibles
+  const candidates = [];
+
+  listeMedecins.forEach(m => {
+    const init = m.initiales.toUpperCase();
+    if (init === doctor) return; // Exclure le demandeur lui-même
+
+    // A. Filtrage absences sur la même demi-journée
+    const absRow = allAbsences.find(a => a.date === date && a.heure === heure);
+    if (absRow && absRow[init] && absRow[init].trim() !== '') return;
+
+    // B. Filtrage indisponibilité clinique de journée (sauf si garde)
+    const planRow = allPlanning.find(p => p.date === date && p.heure === heure);
+    if (!isGardeOrAstr && planRow) {
+      const isAlreadyOccupied = Object.keys(planRow).some(k => (planRow[k] || '').trim().toUpperCase() === init);
+      if (isAlreadyOccupied) return;
+    }
+
+    // C. Règles spécifiques Gardes/Astreintes : Fenêtre de repos & Lendemain
+    if (isGardeOrAstr) {
+      // Fenêtre X jours avant/après
+      const curDate = new Date(date + 'T00:00:00');
+      let hasNearbyGarde = false;
+
+      allPlanning.forEach(r => {
+        const rDate = new Date(r.date + 'T00:00:00');
+        const diffDays = Math.abs((rDate - curDate) / (1000 * 60 * 60 * 24));
+        if (diffDays <= restWindowDays) {
+          if ((r.Garde || '').trim().toUpperCase() === init || (r.Astr || '').trim().toUpperCase() === init) {
+            hasNearbyGarde = true;
+          }
+        }
+      });
+      if (hasNearbyGarde) return;
+
+      // Vérification du lendemain
+      const nextDateObj = new Date(curDate);
+      nextDateObj.setDate(nextDateObj.getDate() + 1);
+      const nextDateStr = nextDateObj.toISOString().split('T')[0];
+
+      const nextDayRows = allPlanning.filter(r => r.date === nextDateStr);
+      let isNextDayConflict = false;
+
+      nextDayRows.forEach(nr => {
+        Object.keys(nr).forEach(k => {
+          const val = (nr[k] || '').trim().toUpperCase();
+          if (val === init) {
+            if (avoidBoxLendemain && k.startsWith('BOX')) isNextDayConflict = true;
+            if (avoidBipLendemain && (k.startsWith('BIP') || k === 'SAU')) isNextDayConflict = true;
+          }
+        });
+      });
+      if (isNextDayConflict) return;
+    }
+
+    candidates.push({
+      initiales: init,
+      name: `${m.prenom || ''} ${m.nom || ''}`.trim() || init,
+      count: counts[init] || 0
+    });
+  });
+
+  // 4. Tri du moins posté au plus posté
+  candidates.sort((a, b) => a.count - b.count);
+
+  // Rendu de la liste
+  if (candidates.length === 0) {
+    container.innerHTML = `<p style="font-size:11px; color:var(--red); text-align:center; margin-top:20px;">
+      Aucun médecin disponible selon les critères sélectionnés.
+    </p>`;
+    return;
+  }
+
+  candidates.forEach(c => {
+    const card = document.createElement('div');
+    card.className = `candidate-card ${selectedCandidate === c.initiales ? 'selected' : ''}`;
+    card.onclick = () => selectCandidate(c.initiales);
+
+    card.innerHTML = `
+      <div>
+        <div class="candidate-name">${c.initiales}</div>
+        <div class="candidate-stats">
+          <span>${c.name}</span>
+        </div>
+      </div>
+      <div class="candidate-badge">${c.count} ${categoryKey}(s)</div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function selectCandidate(initiales) {
+  selectedCandidate = initiales;
+  document.getElementById('btn-send-request').disabled = false;
+  renderCandidates();
+}
+
+// ACTION FINALE : ENVOI DU MAIL
+function sendExchangeRequest() {
+  if (!selectedSlot || !selectedCandidate) return;
+
+  const { date, heure, colKey, doctor } = selectedSlot;
+  const dateFmt = new Date(date + 'T00:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  const subject = encodeURIComponent(`[Neurologie] Demande d'échange : ${colKey} du ${dateFmt}`);
+  const body = encodeURIComponent(
+    `Bonjour ${selectedCandidate},\n\n` +
+    `Le Dr ${doctor} souhaite vous proposer un remplacement pour son poste de ${colKey} le ${dateFmt} (${heure}).\n\n` +
+    `Merci de bien vouloir confirmer votre accord en répondant à ce message (en incluant le secrétariat / admin pour validation du planning).\n\n` +
+    `Cordialement,\n Assistant Planning Neurologie`
+  );
+
+  // Ouverture du client mail par défaut
+  window.location.href = `mailto:?subject=${subject}&body=${body}`;
+
+  toast('Client mail ouvert pour confirmation', 'info');
+}
+
+function toast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const toastEl = document.createElement('div');
+  toastEl.className = `toast ${type}`;
+  toastEl.textContent = msg;
+  container.appendChild(toastEl);
+  setTimeout(() => toastEl.remove(), 4000);
+}
+</script>
+</body>
+</html>
