@@ -42,6 +42,7 @@ td.USI{background:var(--usi)}td.UNV{background:var(--unv)}
   <h2>Paramètres</h2>
   <div class="row">
     <label>Semaines par bloc<input type="number" id="p-chunk" min="1" max="8"></label>
+    <label>Minimum après réduction<input type="number" id="p-chunkmin" min="1" max="8"></label>
     <label>Seuil de vacance (%)<input type="number" id="p-seuil" min="50" max="100"></label>
     <label>Postes USI<input type="number" id="p-usi" min="0" max="2"></label>
     <label>Postes UNV<input type="number" id="p-unv" min="0" max="2"></label>
@@ -76,7 +77,7 @@ const POST=['C_Periph','C_Cogn','C_sup','C_int1','C_int2','HDJ1','HDJ2','HDJ3','
 const SEUIL_SEMAINE=6; // cellules USI (ou UNV) dans la semaine pour la considérer déjà pourvue
 
 // ---- Valeurs par défaut (à modifier ici si besoin) ----
-const DEFAULTS={chunk:3,seuil:90,nbUsi:2,nbUnv:2,
+const DEFAULTS={chunk:3, chunkMin:2, seuil:90,nbUsi:2,nbUnv:2,
   participants:['AYW','AND','NB','HL','FF','AT','BL','IP'],
   vasc:['AYW','AND','NB','HL','FF','AT'],
   quotas:{},
@@ -135,7 +136,8 @@ function simulate(P,D){
   let p=start,c=0;
   while(p<weeks.length){
     c++;const maxS=Math.min(P.chunk,weeks.length-p);let best=null;
-    for(let s=maxS;s>=1;s--){
+    const lo=Math.max(1,Math.min(P.chunkMin||1,maxS));
+    for(let s=maxS;s>=lo;s--){
       const ix=weeks.slice(p,p+s).flatMap(w=>w.ix),e=ev(ix);
       const cand=e.ok.filter(m=>!hist[m][c-1]);
       best={s,ix,e,cand};
@@ -234,11 +236,11 @@ function renderRules(){
   $('#rules').querySelectorAll('[data-cr]').forEach(e=>e.onchange=()=>{const o=P.rules[e.dataset.cr]??={};if(e.value)o[e.dataset.m]=e.value;else delete o[e.dataset.m];saveP();});
 }
 function renderParams(){
-  $('#p-chunk').value=P.chunk;$('#p-seuil').value=P.seuil;$('#p-usi').value=P.nbUsi;$('#p-unv').value=P.nbUnv;
+  $('#p-chunk').value=P.chunk;$('#p-chunkmin').value=P.chunkMin;$('#p-seuil').value=P.seuil;$('#p-usi').value=P.nbUsi;$('#p-unv').value=P.nbUnv;
   chips('#c-part','participants',renderRules);chips('#c-vasc','vasc');renderRules();
   $('#dl').innerHTML=D.medecins.map(m=>`<option value="${m}">`).join('');
 }
-[['#p-chunk','chunk'],['#p-seuil','seuil'],['#p-usi','nbUsi'],['#p-unv','nbUnv']].forEach(([s,k])=>$(s).onchange=e=>{P[k]=Number(e.target.value);saveP();});
+[['#p-chunk','chunk'],['#p-chunkmin','chunkMin'],['#p-seuil','seuil'],['#p-usi','nbUsi'],['#p-unv','nbUnv']].forEach(([s,k])=>$(s).onchange=e=>{P[k]=Number(e.target.value);saveP();});
 $('#b-reset').onclick=()=>{P=structuredClone(DEFAULTS);saveP();renderParams();};
   
 function weekInfo(ctx,w,m){
