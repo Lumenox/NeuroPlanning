@@ -251,24 +251,28 @@ async function loadData() {
   const dateFrom = document.getElementById('filter-date-from').value;
   const dateTo   = document.getElementById('filter-date-to').value;
 
-  const { data: plan } = await _supabase
-    .from('planning')
-    .select('*')
-    .gte('date', dateFrom)
-    .lte('date', dateTo)
-    .order('date', { ascending: true })
-    .order('heure', { ascending: true });
+  try {
+    // 1. Chargement de TOUTES les lignes de planning via pagination
+    const planRows = await fetchAllRows('planning', [
+      ['date', { ascending: true }],
+      ['heure', { ascending: true }]
+    ]);
 
-  const { data: abs } = await _supabase
-    .from('absences')
-    .select('*')
-    .gte('date', dateFrom)
-    .lte('date', dateTo);
+    // 2. Chargement de TOUTES les lignes d'absences via pagination
+    const absRows = await fetchAllRows('absences', [
+      ['date', { ascending: true }],
+      ['heure', { ascending: true }]
+    ]);
 
-  allPlanning = plan || [];
-  allAbsences = abs || [];
+    // 3. Filtrage en mémoire sur la plage sélectionnée
+    allPlanning = planRows.filter(r => (!dateFrom || r.date >= dateFrom) && (!dateTo || r.date <= dateTo));
+    allAbsences = absRows.filter(a => (!dateFrom || a.date >= dateFrom) && (!dateTo || a.date <= dateTo));
 
-  renderSchedule();
+    renderSchedule();
+  } catch (err) {
+    console.error('Erreur chargement données :', err);
+    toast('Erreur lors du chargement des données', 'error');
+  }
 }
 
 function onDoctorOrPeriodChange() {
@@ -290,7 +294,9 @@ function renderSchedule() {
     // Identifier quels postes le médecin occupe sur cette ligne
     const myPosts = [];
     Object.keys(row).forEach(k => {
-      if ((row[k] || '').trim().toUpperCase() === doc) {
+      if (['id', 'date', 'heure', 'conflict_accepted', 'created_at'].includes(k)) return;
+      const val = row[k];
+      if (val !== null && val !== undefined && String(val).trim().toUpperCase() === doc) {
         myPosts.push(k);
       }
     });
@@ -376,7 +382,7 @@ function renderCandidates() {
   listeMedecins.forEach(m => counts[m.initiales.toUpperCase()] = 0);
   allPlanning.forEach(r => {
     Object.keys(r).forEach(k => {
-      const val = (r[k] || '').trim().toUpperCase();
+      const val = (r[k] !== null && r[k] !== undefined) ? String(r[k]).trim().toUpperCase() : '';
       if (counts.hasOwnProperty(val) && (CATEGORIES[categoryKey] || []).includes(k)) {
         counts[val]++;
       }
@@ -473,7 +479,25 @@ function renderCandidates() {
     container.appendChild(card);
   });
 }
+  
+async function fetchAllRows(table, orderCols = []) {  
+  const pageSize = 1000;
+  let allRows = [];
+  let from = 0;
 
+  while (true) {
+    let query = _supabase.from(table).select('*').range(from, from + pageSize - 1);
+    orderCols.forEach(([col, opts]) => { query = query.order(col, opts); });
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    allRows = allRows.concat(data);
+    if (data.length < pageSize) break; // Dernière page atteinte
+    from += pageSize;
+  }
+  return allRows;
+}
+  
 function selectCandidate(initiales) {
   selectedCandidate = initiales;
   document.getElementById('btn-send-request').disabled = false;
