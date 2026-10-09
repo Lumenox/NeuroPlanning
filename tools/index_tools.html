@@ -53,11 +53,43 @@
         <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
           <i class="fa-solid fa-cubes text-indigo-500"></i> Applications & Modules
         </h2>
-        <span class="text-xs text-slate-400 font-medium">2 outils actifs</span>
+        <span id="active-tools-count" class="text-xs text-slate-400 font-medium">2 outils actifs</span>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
 
+
+      <!-- CARTE CAMPAGNE DE GARDES (Affichée uniquement si une campagne est ouverte) -->
+<a id="card-campagne" href="https://lumenox.github.io/CongesPrevisionnels/" target="_blank" class="hidden group bg-gradient-to-br from-purple-900 to-indigo-900 rounded-3xl p-6 shadow-md border border-purple-500/50 hover:border-purple-300 hover:shadow-lg transition-all duration-200 flex flex-col justify-between space-y-4 relative overflow-hidden text-white">
+  <div class="absolute top-0 right-0 w-28 h-28 bg-purple-500/20 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
+  
+  <div class="space-y-3 relative z-10">
+    <div class="flex items-center justify-between">
+      <span class="p-3 bg-purple-500/30 text-purple-200 rounded-2xl text-xl font-bold group-hover:bg-purple-500 group-hover:text-white transition-colors">
+        <i class="fa-solid fa-calendar-check"></i>
+      </span>
+      <span class="text-[11px] font-bold text-purple-200 bg-purple-500/30 border border-purple-400/40 px-2.5 py-0.5 rounded-full animate-pulse">
+        <i class="fa-solid fa-bell text-[10px] mr-1"></i> Campagne Ouverte
+      </span>
+    </div>
+
+    <div>
+      <h3 class="text-lg font-bold text-white group-hover:text-purple-200 transition-colors flex items-center gap-2">
+        Campagne de des gardes/astreintes de WE <i class="fa-solid fa-arrow-up-right-from-square text-xs opacity-70"></i>
+      </h3>
+      <p class="text-xs text-purple-100/80 mt-1 leading-relaxed">
+        Une campagne de saisie des vœux de congés est actuellement ouverte. Accédez directement au formulaire de saisie.
+      </p>
+    </div>
+  </div>
+
+  <div class="pt-4 border-t border-purple-700/50 flex items-center justify-between text-xs font-semibold text-purple-200 group-hover:translate-x-1 transition-transform relative z-10">
+    <span>Accéder au module de vœux</span>
+    <i class="fa-solid fa-arrow-right"></i>
+  </div>
+</a>
+
+        
       <!-- CARTE 1 : Simulateur d'échange -->
         <a href="simulateur_echange.html" class="group bg-white rounded-3xl p-6 shadow-sm border border-slate-200 hover:border-blue-500 hover:shadow-md transition-all duration-200 flex flex-col justify-between space-y-4 relative overflow-hidden">
           <div class="absolute top-0 right-0 w-24 h-24 bg-sky-50 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
@@ -240,6 +272,91 @@
       await supabaseClient.auth.signOut();
       window.location.reload();
     }
+    function updateActiveToolsCount() {
+      // Sélectionne toutes les cartes dans le main (liens <a> et placeholders <div> qui n'ont pas la classe 'hidden')
+      const visibleCards = document.querySelectorAll('main .grid > a:not(.hidden)');
+      const count = visibleCards.length;
+    
+      const countElement = document.getElementById('active-tools-count');
+      if (countElement) {
+        countElement.textContent = `${count} outil${count > 1 ? 's' : ''} actif${count > 1 ? 's' : ''}`;
+      }
+    }
+    // Vérifie si une campagne de congés est actuellement ouverte dans Supabase
+    async function checkCampagneOuverte() {
+      try {
+        const { data, error } = await supabaseClient
+          .schema('gardes')
+          .from('campagne_config')
+          .select('ouverte')
+          .eq('ouverte', true)
+          .limit(1);
+    
+        if (error) {
+          console.error('Erreur vérification campagne :', error.message);
+          return;
+        }
+    
+        if (data && data.length > 0) {
+          const card = document.getElementById('card-campagne');
+          if (card) {
+            card.classList.remove('hidden');
+          }
+        }
+      } catch (err) {
+        console.error('Erreur réseau ou Supabase :', err);
+      }
+    }
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Vérification de la campagne de gardes
+      checkCampagneOuverte();
+
+    document.addEventListener('DOMContentLoaded', async () => {
+  // 1. Vérifie si la campagne est ouverte (affiche ou masque la carte)
+  await checkCampagneOuverte();
+
+  // 2. Met à jour le compteur d'outils actifs
+  updateActiveToolsCount();
+
+  // 3. Gestion de la session utilisateur
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (session) {
+    const { data: profile } = await supabaseClient
+      .schema('commun')
+      .from('profiles')
+      .select('hospital_id, role')
+      .eq('id', session.user.id)
+      .single();
+
+    if (profile) {
+      const userBadge = document.getElementById('user-badge');
+      userBadge.innerText = `👤 ${profile.hospital_id}`;
+      userBadge.classList.remove('hidden');
+      document.getElementById('btn-logout').classList.remove('hidden');
+    }
+  }
+});
+    
+      // Détecte si un utilisateur est déjà connecté
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session) {
+        const { data: profile } = await supabaseClient
+          .schema('commun')
+          .from('profiles')
+          .select('hospital_id, role')
+          .eq('id', session.user.id)
+          .single();
+    
+        if (profile) {
+          const userBadge = document.getElementById('user-badge');
+          userBadge.innerText = `👤 ${profile.hospital_id}`;
+          userBadge.classList.remove('hidden');
+          document.getElementById('btn-logout').classList.remove('hidden');
+        }
+      }
+    });
+    
   </script>
 </body>
 </html>
