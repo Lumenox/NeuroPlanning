@@ -293,6 +293,7 @@ function toast(msg, type = 'info') {
    ════════════════════════════════════════════════════════════════ */
 let currentUser = null;
 let meds = [];                 // neurologues
+let profiles = [];             // commun.profiles : initiales, email, permissions
 let medByInit = new Map();     // INITIALES (norm) -> ligne neurologue
 let planning = [];             // lignes planning (triées date, heure, id)
 let absences = [];
@@ -343,6 +344,10 @@ async function loadUser() {
   meds = medecins.filter(m => norm(m.initiales));
   medByInit = new Map(meds.map(m => [norm(m.initiales), m]));
 
+  const { data: profs, error: pErr } = await _supabase.schema('commun').from('profiles').select('initiales,email,permissions');
+  if (pErr) toast('Profils illisibles (' + pErr.message + ') : e-mails à saisir à la main.', 'warning');
+  profiles = profs || [];
+  
   const sel = $('select-doctor');
   sel.innerHTML = '';
   meds.forEach(m => {
@@ -745,6 +750,21 @@ function renderSwap() {
 /* ════════════════════════════════════════════════════════════════
    MAIL (avec revalidation sur données fraîches)
    ════════════════════════════════════════════════════════════════ */
+
+const groupOfCol = col => (family(col) === 'BIPv' || family(col) === 'BIPng' || family(col) === 'BIP' || col === 'SAU')
+  ? 'bip' : family(col).toLowerCase();
+
+const emailOf = init => profiles.find(p => norm(p.initiales) === init)?.email || '';
+
+const editorEmails = col => {
+  const g = groupOfCol(col);
+  return [...new Set(profiles.filter(p => {
+    const perm = p.permissions || {};
+    const groups = (perm.editable_groups || []).map(x => String(x).toLowerCase());
+    return p.email && perm.can_edit_planning && (groups.includes('*') || groups.includes(g));
+  }).map(p => p.email))];
+};
+  
 function openMail(toList, ccList, subject, body) {
   const to = toList.filter(Boolean).join(',');
   const cc = ccList.filter(Boolean).join(',');
@@ -796,8 +816,9 @@ async function prepareAndSend(withSwap) {
   renderSchedule(); renderCandidates(); renderSwap();
 
   const nameA = medName(A), nameB = medName(B);
-  const mB = medByInit.get(B);
-  const emailB = mB?.email || mB?.mail || '';
+  
+  const emailB = emailOf(B);
+  const ccList = editorEmails(U1.colKey).filter(e => e.toLowerCase() !== emailB.toLowerCase());
   let subject, body;
   if (withSwap) {
     subject = `[Neurologie] Proposition d'échange : ${U1.colKey} du ${fmtShort(U1.date)} contre ${U2.colKey} du ${fmtShort(U2.date)}`;
@@ -808,7 +829,7 @@ ${nameA} (${A}) vous propose l'échange suivant :
  • vous reprendriez son poste de ${unitLabel(U1)} le ${fmtLong(U1.date)} (${unitHeureText(U1)}) ;
  • en contrepartie, ${nameA} reprendrait votre poste de ${unitLabel(U2)} le ${fmtLong(U2.date)} (${unitHeureText(U2)}).
 
-Merci de confirmer votre accord en répondant à tous : l'administrateur du planning est en copie pour mettre le planning à jour.
+Merci de confirmer votre accord en répondant à tous : les responsables du planning sont en copie pour le mettre à jour.
 
 Cordialement,
 Assistant Planning Neurologie`;
@@ -824,9 +845,13 @@ Merci de confirmer votre accord en répondant à tous : l'administrateur du plan
 Cordialement,
 Assistant Planning Neurologie`;
   }
-  openMail([emailB], ADMIN_EMAILS, subject, body);
-  toast(emailB ? 'Client mail ouvert' : `Client mail ouvert — adresse de ${B} non connue, à renseigner`, emailB ? 'info' : 'warning');
+openMail([emailB], ccList.length ? ccList : ADMIN_EMAILS, subject, body);
+const warn = [];
+if (!emailB) warn.push(`adresse de ${B} introuvable`);
+if (!ccList.length) warn.push('aucun éditeur trouvé pour ce groupe (repli sur ADMIN_EMAILS)');
+toast(warn.length ? 'Mail ouvert — ' + warn.join(' ; ') : 'Client mail ouvert', warn.length ? 'warning' : 'info');
 }
+  
 
 /* ════════════════════════════════════════════════════════════════
    INITIALISATION
