@@ -114,7 +114,7 @@ function simulate(P,D){
   const lab=weeks.map(w=>{const o={};P.participants.forEach(m=>{o[m]=cells(w.ix,USI_C,m)>=SEUIL_SEMAINE?'USI':cells(w.ix,UNV_C,m)>=SEUIL_SEMAINE?'UNV':null;});return o;});
   const start=lab.findIndex(o=>!Object.values(o).some(Boolean));
   if(start<0){warn('o','Toutes les semaines ont déjà du personnel en USI/UNV : rien à répartir.');return{W};}
-  lab.forEach((o,i)=>P.participants.forEach(m=>{if(o[m]&&i<start){cnt[m][o[m]]++;hist[m][0]=o[m];}}));
+  lab.forEach((o,i)=>P.participants.forEach(m=>{if(o[m]){cnt[m][o[m]]++;if(i<start)hist[m][0]=o[m];}}));
   const base=structuredClone(cnt);
 
   const ev=ix=>{ // disponibilité d'un médecin sur un ensemble de créneaux
