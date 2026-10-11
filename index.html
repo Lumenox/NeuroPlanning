@@ -1018,9 +1018,9 @@ tr.new-day td { box-shadow: inset 0 3px 0 -2px var(--gray); }
 		
 	  <div id="ics-url-wrap" style="display:none; flex-direction:column; gap:8px;">
 	    <input type="text" id="ics-url" readonly style="width:100%;">
-	    <div style="display:flex; gap:8px;">
-	      <button class="btn-primary" onclick="copyMyCalendarUrl()">Copier</button>
-	      <button class="btn-danger" onclick="rotateMyCalendarUrl()">Régénérer le lien</button>
+	    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+	      <button class="btn-primary" onclick="copyMyCalendarUrl()" style="flex:1;">Copier</button>
+	      <a href="#" onclick="rotateMyCalendarUrl(); return false;" style="font-size:10px; color:var(--gray); text-decoration:underline; font-family:'DM Mono',monospace;" title="Régénérer un nouveau lien (invalidera l'ancien)">Régénérer le lien</a>
 	    </div>
 	  </div>
 	</div>
