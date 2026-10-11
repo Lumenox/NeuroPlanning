@@ -1010,19 +1010,18 @@ tr.new-day td { box-shadow: inset 0 3px 0 -2px var(--gray); }
 
 	<!-- Mon agenda -->
 	<div class="settings-section">
-	  <div class="settings-section-title">Mon agenda (Google / iPhone)</div>
+	  <div class="settings-section-title" style="display: flex; justify-content: space-between; align-items: center;">
+	    <span>Mon agenda (Google / iPhone)</span>
+	    <a href="ics_help/ics_help.html" target="_blank" title="Aide calendrier" style="background: var(--navy); color: var(--teal); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 10px; text-decoration: none; font-family: 'DM Mono', monospace;">? Aide</a>
+	  </div>
 	  <button class="btn-ghost" onclick="showMyCalendarUrl()">📅 Afficher mon lien d'abonnement</button>
+		
 	  <div id="ics-url-wrap" style="display:none; flex-direction:column; gap:8px;">
 	    <input type="text" id="ics-url" readonly style="width:100%;">
 	    <div style="display:flex; gap:8px;">
 	      <button class="btn-primary" onclick="copyMyCalendarUrl()">Copier</button>
 	      <button class="btn-danger" onclick="rotateMyCalendarUrl()">Régénérer le lien</button>
 	    </div>
-	    <p style="font-size:10px; color:var(--gray); line-height:1.6;">
-	      Google Agenda (sur ordinateur) : « + » à côté d'« Autres agendas » → « À partir de l'URL ».<br>
-	      iPhone : Réglages → Calendrier → Comptes → Ajouter un compte → Autre → Ajouter un calendrier avec abonnement.<br>
-	      Le fichier est créé ou mis à jour en moins de 5 minutes. Ne partagez pas ce lien : il donne accès à votre planning.
-	    </p>
 	  </div>
 	</div>
 
