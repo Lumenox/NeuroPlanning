@@ -587,10 +587,10 @@ function evaluateSwaps(U1, B, rulesA, rulesB) {
    AFFICHAGE
    ════════════════════════════════════════════════════════════════ */
 const currentDoc = () => norm($('select-doctor').value);
-const medName = init => {
-  const m = medByInit.get(init);
-  const n = m ? `${m.prenom || ''} ${m.nom || ''}`.trim() : '';
-  return n || init;
+const medName = init => medByInit.get(init)?.nom_complet?.trim() || init;
+const fullLabel = init => {
+  const n = medName(init);
+  return n === init ? init : `${n} (${init})`;   // repli : initiales seules si nom_complet est vide
 };
 const getRules = p => ({
   win: Math.max(0, Math.min(7, parseInt($(`r${p}-win`).value, 10) || 0)),
@@ -815,7 +815,7 @@ async function prepareAndSend(withSwap) {
   state.unit = U1;
   renderSchedule(); renderCandidates(); renderSwap();
 
-  const nameA = medName(A), nameB = medName(B);
+  const nameA = fullLabel(A), nameB = fullLabel(B);
   
   const emailB = emailOf(B);
   const ccList = editorEmails(U1.colKey).filter(e => e.toLowerCase() !== emailB.toLowerCase());
@@ -825,7 +825,7 @@ async function prepareAndSend(withSwap) {
     body =
 `Bonjour ${nameB},
 
-${nameA} (${A}) vous propose l'échange suivant :
+${nameA} vous propose l'échange suivant :
  • vous reprendriez son poste de ${unitLabel(U1)} le ${fmtLong(U1.date)} (${unitHeureText(U1)}) ;
  • en contrepartie, ${nameA} reprendrait votre poste de ${unitLabel(U2)} le ${fmtLong(U2.date)} (${unitHeureText(U2)}).
 
@@ -838,7 +838,7 @@ Assistant Planning Neurologie`;
     body =
 `Bonjour ${nameB},
 
-${nameA} (${A}) souhaiterait que vous repreniez son poste de ${unitLabel(U1)} le ${fmtLong(U1.date)} (${unitHeureText(U1)}).
+${nameA} souhaiterait que vous repreniez son poste de ${unitLabel(U1)} le ${fmtLong(U1.date)} (${unitHeureText(U1)}).
 
 Merci de confirmer votre accord en répondant à tous : l'administrateur du planning est en copie pour mettre le planning à jour.
 
