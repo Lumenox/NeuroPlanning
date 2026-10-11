@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aide · Mon planning dans mon agenda</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet" />
+
+  <!--
+  ╔══════════════════════════════════════════════════════════════════════════╗
+  ║  MODE D'EMPLOI POUR L'AUTEUR                                              ║
+  ║                                                                          ║
+  ║  • Emplacement conseillé : tools/help_ics.html                           ║
+  ║  • Images : à placer dans tools/help_img/  (ex. help_img/google-1.png)   ║
+  ║  • Ouvrir la page avec  help_ics.html?edit  affiche des encadrés         ║
+  ║    "Capture à ajouter" à la place des images manquantes. Sans ?edit,     ║
+  ║    une image manquante est simplement masquée.                           ║
+  ║  • Lien direct vers un onglet : help_ics.html#google  (#ios, #mac,       ║
+  ║    #outlook, #faq)                                                       ║
+  ║                                                                          ║
+  ║  MODÈLE D'UNE ÉTAPE (à copier dans un <ol class="steps"> ) :             ║
+  ║                                                                          ║
+  ║  <li>                                                                    ║
+  ║    <div class="step-text">Texte de l'étape, <b>mot en gras</b>.</div>    ║
+  ║    <figure class="shot">                                                 ║
+  ║      <img src="help_img/mon-image.png" alt="Description de l'image">     ║
+  ║      <figcaption>Légende facultative</figcaption>                        ║
+  ║    </figure>                                                             ║
+  ║  </li>                                                                   ║
+  ║                                                                          ║
+  ║  Pour ajouter un onglet : 1) un <button class="tab-btn" data-tab="xxx">  ║
+  ║  dans la barre d'onglets, 2) un <section class="panel" id="panel-xxx">. ║
+  ╚══════════════════════════════════════════════════════════════════════════╝
+  -->
+
+  <style>
+    :root {
+      --navy:       #0d1b2a;
+      --navy-mid:   #1a2d42;
+      --navy-light: #243d55;
+      --teal:       #2dd4bf;
+      --teal-dim:   #14b8a620;
+      --amber:      #fbbf24;
+      --amber-dim:  #fbbf2420;
+      --white:      #f0f4f8;
+      --gray:       #8fa3b5;
+      --border:     #1e3148;
+    }
+    body.light-mode {
+      --navy:       #F4F6F8;
+      --navy-mid:   #FFFFFF;
+      --navy-light: #E8EDF2;
+      --teal:       #0D9488;
+      --teal-dim:   #CCFBF1;
+      --amber:      #D97706;
+      --amber-dim:  #FEF3C7;
+      --white:      #1E293B;
+      --gray:       #64748B;
+      --border:     #CBD5E1;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Sora', sans-serif;
+      background: var(--navy);
+      color: var(--white);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    b { font-weight: 600; }
+
+    /* ── En-tête ─────────────────────────────────────────── */
+    header {
+      background: var(--navy-mid);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 20px;
+    }
+    .wrap { max-width: 860px; margin: 0 auto; }
+    .header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    h1 { font-size: 18px; font-weight: 700; color: var(--teal); }
+    .sub { font-size: 12px; color: var(--gray); margin-top: 4px; max-width: 640px; }
+    #theme-btn {
+      flex-shrink: 0;
+      background: transparent; color: var(--gray);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 6px 10px; font-size: 14px; cursor: pointer;
+    }
+    #theme-btn:hover { color: var(--teal); border-color: var(--teal); }
+
+    main { padding: 20px 20px 48px; }
+
+    /* ── Cartes ──────────────────────────────────────────── */
+    .card {
+      background: var(--navy-mid);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 20px;
+    }
+    .card h2 { font-size: 13px; font-family: 'DM Mono', monospace; color: var(--teal); font-weight: 500; }
+
+    /* ── Onglets ─────────────────────────────────────────── */
+    .tab-bar {
+      display: flex; gap: 4px;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 20px;
+    }
+    .tab-btn {
+      flex-shrink: 0;
+      font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500;
+      padding: 9px 18px;
+      background: var(--navy-mid); color: var(--gray);
+      border: 1px solid var(--border); border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      cursor: pointer;
+      position: relative; bottom: -2px;
+    }
+    .tab-btn:hover { color: var(--white); background: var(--navy-light); }
+    .tab-btn.active {
+      color: var(--teal);
+      background: var(--navy);
+      border-bottom: 2px solid var(--navy);
+    }
+    .tab-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: -2px; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .panel > h2 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+    .panel > .intro { font-size: 13px; color: var(--gray); margin-bottom: 4px; }
+
+    /* ── Étapes numérotées ───────────────────────────────── */
+    .steps {
+      list-style: none; counter-reset: step;
+      display: flex; flex-direction: column; gap: 22px;
+      margin-top: 14px;
+    }
+    .steps > li { counter-increment: step; position: relative; padding-left: 44px; }
+    .steps > li::before {
+      content: counter(step);
+      position: absolute; left: 0; top: 0;
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--teal-dim); color: var(--teal); border: 1px solid var(--teal);
+      font-family: 'DM Mono', monospace; font-size: 12px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .step-text { font-size: 13px; padding-top: 3px; }
+
+    /* ── Captures d'écran ────────────────────────────────── */
+    figure.shot { margin-top: 10px; }
+    figure.shot img {
+      display: block; max-width: 100%; height: auto;
+      border: 1px solid var(--border); border-radius: 10px;
+      cursor: zoom-in;
+    }
+    figure.shot figcaption { font-size: 11px; color: var(--gray); margin-top: 6px; }
+    figure.shot.missing { display: none; }
+    figure.shot.missing img { display: none; }
+    body.edit figure.shot.missing { display: block; }
+    .shot-missing {
+      border: 2px dashed var(--border); border-radius: 10px;
+      padding: 22px 12px; text-align: center;
+      color: var(--gray); font-family: 'DM Mono', monospace; font-size: 11px;
+      word-break: break-all;
+    }
+
+    /* ── Encadrés ────────────────────────────────────────── */
+    .note {
+      font-size: 12px; line-height: 1.7; color: var(--amber);
+      background: var(--amber-dim); border-left: 3px solid var(--amber);
+      border-radius: 6px; padding: 10px 14px; margin-top: 20px;
+    }
+    .todo {
+      font-size: 13px; color: var(--gray);
+      border: 2px dashed var(--border); border-radius: 10px;
+      padding: 28px 16px; text-align: center; margin-top: 16px;
+    }
+
+    /* ── FAQ ─────────────────────────────────────────────── */
+    details {
+      background: var(--navy-mid); border: 1px solid var(--border);
+      border-radius: 8px; margin-top: 10px; overflow: hidden;
+    }
+    summary {
+      cursor: pointer; padding: 12px 16px;
+      font-size: 13px; font-weight: 600; list-style: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::before { content: '▸'; display: inline-block; width: 16px; color: var(--teal); }
+    details[open] > summary::before { content: '▾'; }
+    details > div { padding: 2px 16px 14px 32px; font-size: 13px; color: var(--gray); line-height: 1.7; }
+    details > div b { color: var(--white); }
+    details > div ul { margin: 6px 0 0 18px; }
+
+    /* ── Lightbox ────────────────────────────────────────── */
+    #lightbox {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(13,27,42,.94);
+      display: none; align-items: center; justify-content: center;
+      padding: 20px; cursor: zoom-out;
+    }
+    #lightbox.open { display: flex; }
+    #lightbox img { max-width: 100%; max-height: 100%; border-radius: 10px; }
+
+    footer { text-align: center; font-size: 10px; color: var(--gray); padding: 0 20px 28px; font-family: 'DM Mono', monospace; }
+
+    @media (max-width: 520px) {
+      .steps > li { padding-left: 38px; }
+      .tab-btn { padding: 9px 12px; font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="wrap header-row">
+    <div>
+      <h1>📅 Mon planning dans mon agenda</h1>
+      <p class="sub">Abonnez Google Agenda, Apple Calendrier ou Outlook à votre planning : vos postes et vos gardes s'y affichent et se mettent à jour automatiquement.</p>
+    </div>
+    <button id="theme-btn" title="Clair / Obscur">🌓</button>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+
+    <!-- ═════════ AVANT DE COMMENCER : RÉCUPÉRER LE LIEN ═════════ -->
+    <div class="card">
+      <h2>AVANT DE COMMENCER · RÉCUPÉRER MON LIEN</h2>
+      <ol class="steps">
+        <li>
+          <div class="step-text">Dans l'application Planning Neurologie, ouvrez <b>⚙️ Préférences</b>.</div>
+        </li>
+        <li>
+          <div class="step-text">Dans la section <b>Mon agenda</b>, cliquez sur <b>📅 Afficher mon lien d'abonnement</b>, puis sur <b>Copier</b>.</div>
+          <figure class="shot">
+            <img src="help_img/lien-1.png" alt="Section Mon agenda dans les préférences" />
+            <figcaption>Votre lien est personnel : ne le partagez pas.</figcaption>
+          </figure>
+        </li>
+      </ol>
+    </div>
+
+    <!-- ═════════ ONGLETS ═════════ -->
+    <div class="tab-bar" role="tablist" aria-label="Choisissez votre application d'agenda">
+      <button class="tab-btn" role="tab" data-tab="google"  aria-selected="true">🗓️ Google Agenda</button>
+      <button class="tab-btn" role="tab" data-tab="ios"     aria-selected="false">📱 iPhone / iPad</button>
+      <button class="tab-btn" role="tab" data-tab="mac"     aria-selected="false">💻 Mac</button>
+      <button class="tab-btn" role="tab" data-tab="outlook" aria-selected="false">📧 Outlook</button>
+      <button class="tab-btn" role="tab" data-tab="faq"     aria-selected="false">❓ Questions fréquentes</button>
+    </div>
+
+    <!-- ───────── GOOGLE AGENDA ───────── -->
+    <!-- Brouillon à ajuster avec tes captures : vérifie les libellés exacts affichés par Google. -->
+    <section class="panel active" id="panel-google" role="tabpanel">
+      <h2>Google Agenda (sur ordinateur)</h2>
+      <p class="intro">L'abonnement par adresse (URL) se fait depuis un ordinateur.</p>
+
+      <ol class="steps">
+        <li>
+          <div class="step-text">Ouvrez <b>calendar.google.com</b> et connectez-vous.</div>
+          <figure class="shot">
+            <img src="help_img/google-1.png" alt="Page d'accueil de Google Agenda" />
+          </figure>
+        </li>
+        <li>
+          <div class="step-text">Dans la colonne de gauche, à côté de <b>Autres agendas</b>, cliquez sur <b>+</b>, puis sur <b>À partir de l'URL</b>.</div>
+          <figure class="shot">
+            <img src="help_img/google-2.png" alt="Menu + à côté d'Autres agendas" />
+          </figure>
+        </li>
+        <li>
+          <div class="step-text">Collez votre lien dans le champ <b>URL de l'agenda</b>.</div>
+          <figure class="shot">
+            <img src="help_img/google-3.png" alt="Champ d'URL de l'agenda" />
+          </figure>
+        </li>
+        <li>
+          <div class="step-text">Cliquez sur <b>Ajouter l'agenda</b>. Il apparaît sous <b>Autres agendas</b>, où vous pouvez le renommer ou changer sa couleur.</div>
+          <figure class="shot">
+            <img src="help_img/google-4.png" alt="Agenda ajouté dans la liste" />
+          </figure>
+        </li>
+      </ol>
+
+      <div class="note">
+        Google met à jour les agendas abonnés de lui-même, en général en quelques heures et jusqu'à 24 h, et il n'existe pas de bouton pour forcer la mise à jour.
+        Pour voir un changement tout de suite, supprimez l'agenda puis ajoutez-le de nouveau avec le même lien.
+      </div>
+    </section>
+
+    <!-- ───────── IPHONE / IPAD ───────── -->
+    <section class="panel" id="panel-ios" role="tabpanel">
+      <h2>iPhone / iPad</h2>
+      <p class="intro">Application Calendrier.</p>
+      <div class="todo">Contenu à venir.</div>
+      <!-- Pour remplir : ajoutez un <ol class="steps"> comme dans l'onglet Google (modèle en haut de page), puis supprimez le bloc .todo ci-dessus. -->
+    </section>
+
+    <!-- ───────── MAC ───────── -->
+    <section class="panel" id="panel-mac" role="tabpanel">
+      <h2>Mac</h2>
+      <p class="intro">Application Calendrier.</p>
+      <div class="todo">Contenu à venir.</div>
+    </section>
+
+    <!-- ───────── OUTLOOK ───────── -->
+    <section class="panel" id="panel-outlook" role="tabpanel">
+      <h2>Outlook</h2>
+      <div class="todo">Contenu à venir.</div>
+    </section>
+
+    <!-- ───────── FAQ ───────── -->
+    <!-- Réponses basées sur la configuration actuelle de la fonction generate-ics : adapte-les si tu modifies les horaires, les absences ou la fenêtre. -->
+    <section class="panel" id="panel-faq" role="tabpanel">
+      <h2>Questions fréquentes</h2>
+
+      <details>
+        <summary>Quand mon agenda est-il mis à jour ?</summary>
+        <div>
+          Le fichier est régénéré dans les minutes qui suivent une modification du planning. Ensuite, c'est votre application qui vient le relire :
+          de quelques minutes à 24 h selon l'application (Google est la plus lente, Apple permet de choisir la fréquence).
+        </div>
+      </details>
+
+      <details>
+        <summary>Comment lire les événements ?</summary>
+        <div>
+          <ul>
+            <li><b>Matin</b> : 9 h à 12 h 30. <b>Après-midi</b> : 13 h 30 à 17 h.</li>
+            <li><b>Garde</b> : de 18 h à 9 h le lendemain.</li>
+            <li>Plusieurs postes sur le même créneau sont regroupés, par exemple « BIP ng + SAU ».</li>
+            <li>Un <b>⚠</b> devant le titre signale un conflit non accepté dans le planning.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>Pourquoi mes absences n'apparaissent-elles pas ?</summary>
+        <div>Seuls les postes et les gardes sont exportés. Les absences ne figurent pas dans l'agenda.</div>
+      </details>
+
+      <details>
+        <summary>Puis-je modifier ou supprimer un événement dans mon agenda ?</summary>
+        <div>Non, l'agenda est en lecture seule : toute modification se fait dans le planning. Vous pouvez en revanche masquer l'agenda, le renommer ou changer sa couleur.</div>
+      </details>
+
+      <details>
+        <summary>Un événement est en double ou n'a pas disparu</summary>
+        <div>Attendez le prochain rafraîchissement de votre application. Si le problème persiste, supprimez l'agenda puis réabonnez-vous avec le même lien.</div>
+      </details>
+
+      <details>
+        <summary>Quelle période l'agenda couvre-t-il ?</summary>
+        <div>Une période glissante autour d'aujourd'hui : quelques mois avant et plusieurs mois après. Les événements trop anciens quittent l'agenda au fil du temps.</div>
+      </details>
+
+      <details>
+        <summary>J'ai partagé mon lien par erreur, que faire ?</summary>
+        <div>
+          Dans <b>⚙️ Préférences → Mon agenda</b>, cliquez sur <b>Régénérer le lien</b> : l'ancien cesse de fonctionner. Il faudra ensuite vous réabonner avec le nouveau lien.
+        </div>
+      </details>
+    </section>
+
+  </div>
+</main>
+
+<footer>Planning Neurologie · aide à l'abonnement agenda</footer>
+
+<div id="lightbox" title="Cliquer pour fermer"><img src="" alt="" /></div>
+
+<script>
+(function () {
+  // ── Mode édition : help_ics.html?edit affiche les emplacements d'images manquantes ──
+  if (/[?&]edit\b/.test(location.search)) document.body.classList.add('edit');
+
+  // ── Thème : même clé que l'application principale ──
+  try { if (localStorage.getItem('theme') === 'light') document.body.classList.add('light-mode'); } catch (e) {}
+  document.getElementById('theme-btn').addEventListener('click', function () {
+    document.body.classList.toggle('light-mode');
+    try { localStorage.setItem('theme', document.body.classList.contains('light-mode') ? 'light' : 'dark'); } catch (e) {}
+  });
+
+  // ── Onglets ──
+  const tabs   = Array.prototype.slice.call(document.querySelectorAll('.tab-btn'));
+  const panels = Array.prototype.slice.call(document.querySelectorAll('.panel'));
+
+  function activate(id, updateHash) {
+    if (!panels.some(function (p) { return p.id === 'panel-' + id; })) id = tabs[0].dataset.tab;
+    tabs.forEach(function (t) {
+      const on = t.dataset.tab === id;
+      t.classList.toggle('active', on);
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+      t.tabIndex = on ? 0 : -1;
+    });
+    panels.forEach(function (p) { p.classList.toggle('active', p.id === 'panel-' + id); });
+    if (updateHash) history.replaceState(null, '', location.pathname + location.search + '#' + id);
+  }
+
+  tabs.forEach(function (t, i) {
+    t.addEventListener('click', function () { activate(t.dataset.tab, true); });
+    t.addEventListener('keydown', function (e) {
+      let n = -1;
+      if (e.key === 'ArrowRight') n = (i + 1) % tabs.length;
+      if (e.key === 'ArrowLeft')  n = (i - 1 + tabs.length) % tabs.length;
+      if (n >= 0) { e.preventDefault(); activate(tabs[n].dataset.tab, true); tabs[n].focus(); }
+    });
+  });
+  window.addEventListener('hashchange', function () { activate(location.hash.replace('#', ''), false); });
+  activate(location.hash.replace('#', '') || tabs[0].dataset.tab, false);
+
+  // ── Images manquantes : masquées (ou encadré "à ajouter" en mode ?edit) ──
+  document.querySelectorAll('figure.shot').forEach(function (fig) {
+    const img = fig.querySelector('img');
+    if (!img) return;
+    function fail() {
+      if (fig.classList.contains('missing')) return;
+      fig.classList.add('missing');
+      const ph = document.createElement('div');
+      ph.className = 'shot-missing';
+      ph.textContent = '📷 Capture à ajouter : ' + (img.getAttribute('src') || '');
+      fig.insertBefore(ph, img);
+    }
+    if (img.complete && img.naturalWidth === 0) fail();
+    else img.addEventListener('error', fail);
+  });
+
+  // ── Agrandissement des captures ──
+  const lb = document.getElementById('lightbox');
+  const lbImg = lb.querySelector('img');
+  document.addEventListener('click', function (e) {
+    const img = e.target.closest && e.target.closest('figure.shot img');
+    if (!img || img.closest('.missing')) return;
+    lbImg.src = img.currentSrc || img.src;
+    lbImg.alt = img.alt;
+    lb.classList.add('open');
+  });
+  lb.addEventListener('click', function () { lb.classList.remove('open'); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') lb.classList.remove('open'); });
+})();
+</script>
+
+</body>
+</html>
