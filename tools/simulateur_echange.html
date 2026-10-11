@@ -239,7 +239,7 @@ const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { db: { sche
 
 // Admin(s) systématiquement mis en copie des mails — À RENSEIGNER
 const ADMIN_EMAILS = ['REMPLACER.PAR.VOTRE.MAIL@aphp.fr'];
-
+const MAIL_SEP = ';'; 
 const HEURES = ['09:00:00', '13:30:00'];
 const LOOKBACK_DAYS = 400;   // historique chargé avant la période affichée (comptage + règles)
 
@@ -766,8 +766,8 @@ const editorEmails = col => {
 };
   
 function openMail(toList, ccList, subject, body) {
-  const to = toList.filter(Boolean).join(',');
-  const cc = ccList.filter(Boolean).join(',');
+  const to = toList.filter(Boolean).join(MAIL_SEP);
+  const cc = ccList.filter(Boolean).join(MAIL_SEP);
   const q = [];
   if (cc) q.push('cc=' + encodeURIComponent(cc));
   q.push('subject=' + encodeURIComponent(subject));
