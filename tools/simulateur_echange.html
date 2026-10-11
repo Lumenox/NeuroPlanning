@@ -83,6 +83,11 @@
     .reason { font-family:'DM Mono',monospace; font-size:9.5px; color:var(--red); }
     .badge { background:var(--navy-light); border-radius:4px; padding:2px 6px; font-size:9px; font-family:'DM Mono',monospace; white-space:nowrap; }
     .badge.ok { color:var(--teal); }
+    .card.warn { border-color:var(--amber); }
+    .card.warn:hover { border-color:var(--amber); }
+    .reason.soft { color:var(--amber); }
+    .warn-box { display:none; margin:0 18px 10px; padding:10px 12px; border:1px solid var(--red); background:var(--red-dim); border-radius:8px; font-family:'DM Mono',monospace; font-size:10px; line-height:1.6; color:var(--red); }
+    .warn-box b { display:block; margin-bottom:3px; font-size:11px; }
 
     .panel-footer { padding:14px 18px; border-top:1px solid var(--border); }
     button { font-family:'Sora',sans-serif; font-size:12px; font-weight:600; padding:10px 16px; border-radius:6px; border:none; cursor:pointer; transition:opacity .15s; width:100%; }
@@ -182,6 +187,7 @@
       <p class="empty">Aucun poste sélectionné.</p>
     </div>
 
+    <div class="warn-box" id="warn-cand"></div>
     <div class="panel-footer">
       <button class="btn-primary" id="btn-cession" disabled>📧 Demander un remplacement (sans contrepartie)</button>
     </div>
@@ -220,6 +226,7 @@
 
     <div class="list" id="swap-list"></div>
 
+    <div class="warn-box" id="warn-swap"></div>
     <div class="panel-footer">
       <button class="btn-purple" id="btn-swap" disabled>📧 Proposer l'échange</button>
     </div>
@@ -255,6 +262,8 @@ const DOCTOR_COLS = [
 const GARDE_COLS = ['Garde','Garde_int','Astr','Astr_int'];
 const BOX_COLS   = ['BOX1','BOX2','BOX3','BOX4','BOX5','BOX6','BOX7','BOX8','BOX9'];
 const BIP_COLS   = ['BIPv','BIPng','BIP_int','SAU'];
+// true = bloquant (non sélectionnable) ; false = avertissement (sélectionnable, signalé dans le mail)
+const HARD_RULES = { absence:true, clash:true, reposVeille:true, reposLendemain:true, fenetre:false, box:false, bip:false };
 
 const isIntCol = k => /_int\d*$/.test(k);
 // Même logique que Neuroplanning : Garde, SAU et toutes les colonnes internes sont exemptées des conflits cliniques
@@ -464,7 +473,8 @@ const unitLabel = u => `${u.colKey}${u.gardeType ? ' (journée)' : ' · ' + heur
  * Retourne { reasons: string[], nextMissing: bool } — reasons vide = disponible.
  */
 function canTake(C, unit, ov, rules) {
-  const reasons = [];
+  const reasons = [], hard = [];
+  const add = (key, txt) => { reasons.push(txt); if (HARD_RULES[key]) hard.push(txt); };
   const D = unit.date, col = unit.colKey;
   let nextMissing = false;
 
@@ -472,7 +482,7 @@ function canTake(C, unit, ov, rules) {
   const hs = unit.gardeType ? HEURES : [unit.cells[0].heure];
   for (const h of hs) {
     const t = absIdx.get(`${D}_${h}`)?.get(C);
-    if (t) { reasons.push(`Absent (${t}) le ${fmtShort(D)}`); break; }
+    if (t) { add('absence', `Absent (${t}) le ${fmtShort(D)}`); break; }
   }
 
   // 2. Conflit clinique sur la ligne + repos de garde de la veille (colonnes non exemptées uniquement)
@@ -480,12 +490,12 @@ function canTake(C, unit, ov, rules) {
     for (const cell of unit.cells) {
       const others = postsAt(C, D, ov, k => k !== col && !CONFLICT_IGNORE.has(k), cell.heure);
       if (others.length) {
-        reasons.push(`Déjà sur ${others.map(o => o.col).join(' + ')} le ${fmtShort(D)} ${heureLabel(cell.heure)}`);
+        add('clash', `Déjà sur ${others.map(o => o.col).join(' + ')} le ${fmtShort(D)} ${heureLabel(cell.heure)}`);
         break;
       }
     }
     if (postsAt(C, addDays(D, -1), ov, k => k === 'Garde').length) {
-      reasons.push(`Repos de garde (garde la veille, ${fmtShort(addDays(D, -1))})`);
+      add('reposVeille', `Repos de garde (garde la veille, ${fmtShort(addDays(D, -1))})`);
     }
   }
 
@@ -495,7 +505,7 @@ function canTake(C, unit, ov, rules) {
     for (let i = -rules.win; i <= rules.win; i++) {
       const d = addDays(D, i);
       const p = postsAt(C, d, ov, k => GARDE_COLS.includes(k));
-      if (p.length) { reasons.push(`${p[0].col} le ${fmtShort(d)} (fenêtre ±${rules.win} j)`); break; }
+      if (p.length) { add('fenetre', `${p[0].col} le ${fmtShort(d)} (fenêtre ±${rules.win} j)`); break; }
     }
 
     // 3b. Lendemain
@@ -503,20 +513,19 @@ function canTake(C, unit, ov, rules) {
     if (!(byDate.get(next) || []).length) nextMissing = true;
 
     if (col === 'Garde') {
-      // repos de garde : aucun autre poste (hors BOX/BIP, gérés par les cases dédiées) le lendemain
       const p = postsAt(C, next, ov, k => !CONFLICT_IGNORE.has(k) && !BOX_COLS.includes(k) && !BIP_COLS.includes(k));
-      if (p.length) reasons.push(`Repos de garde : déjà sur ${[...new Set(p.map(x => x.col))].join(' + ')} le ${fmtShort(next)}`);
+      if (p.length) add('reposLendemain', `Repos de garde : déjà sur ${[...new Set(p.map(x => x.col))].join(' + ')} le ${fmtShort(next)}`);
     }
     if (rules.box) {
       const p = postsAt(C, next, ov, k => BOX_COLS.includes(k));
-      if (p.length) reasons.push(`BOX le lendemain (${[...new Set(p.map(x => x.col))].join(' + ')}, ${fmtShort(next)})`);
+      if (p.length) add('box', `BOX le lendemain (${[...new Set(p.map(x => x.col))].join(' + ')}, ${fmtShort(next)})`);
     }
     if (rules.bip) {
       const p = postsAt(C, next, ov, k => BIP_COLS.includes(k));
-      if (p.length) reasons.push(`BIP/SAU le lendemain (${[...new Set(p.map(x => x.col))].join(' + ')}, ${fmtShort(next)})`);
+      if (p.length) add('bip', `BIP/SAU le lendemain (${[...new Set(p.map(x => x.col))].join(' + ')}, ${fmtShort(next)})`);
     }
   }
-  return { reasons, nextMissing };
+  return { reasons, hard, nextMissing };
 }
 
 // Compteurs (équité) : nombre de postes de la même famille dans ± N mois autour de la date du poste
@@ -554,12 +563,13 @@ function evaluateCandidates(unit, rules, months) {
     out.push({
       init, med: m, fam,
       name: medName(init),
-      reasons: r.reasons, nextMissing: r.nextMissing,
+      reasons: r.reasons, hard: r.hard, nextMissing: r.nextMissing,
       count: sets.get(init)?.size || 0,
       dist: dist.has(init) ? dist.get(init) : Infinity
     });
   }
   out.sort((a, b) =>
+    (a.hard.length > 0) - (b.hard.length > 0) ||
     (a.reasons.length > 0) - (b.reasons.length > 0) ||
     a.count - b.count ||
     b.dist - a.dist ||
@@ -576,10 +586,12 @@ function evaluateSwaps(U1, B, rulesA, rulesB) {
   const out = units.map(U2 => {
     const resA = canTake(A, U2, makeOv(U1), rulesB);   // A reprend U2 (après avoir cédé U1)
     const resB = canTake(B, U1, makeOv(U2), rulesA);   // B reprend U1 (après avoir cédé U2)
-    return { unit: U2, reasonsA: resA.reasons, reasonsB: resB.reasons, ok: !resA.reasons.length && !resB.reasons.length,
+    return { unit: U2, reasonsA: resA.reasons, reasonsB: resB.reasons, hardA: resA.hard, hardB: resB.hard,
+             blocked: resA.hard.length > 0 || resB.hard.length > 0,
+             ok: !resA.reasons.length && !resB.reasons.length,
              gap: Math.abs(diffDays(U2.date, U1.date)) };
   });
-  out.sort((a, b) => (!a.ok - !b.ok) || a.gap - b.gap || a.unit.date.localeCompare(b.unit.date));
+  out.sort((a, b) => (a.blocked - b.blocked) || (!a.ok - !b.ok) || a.gap - b.gap || a.unit.date.localeCompare(b.unit.date));
   return out;
 }
 
@@ -597,6 +609,13 @@ const getRules = p => ({
   box: $(`r${p}-box`).checked,
   bip: $(`r${p}-bip`).checked
 });
+
+function showWarn(id, title, items) {
+  const el = $(id);
+  if (!items.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.innerHTML = `<b>⚠ ${esc(title)}</b>` + items.map(x => `• ${esc(x)}`).join('<br>');
+  el.style.display = 'block';
+}
 
 function renderSchedule() {
   const doc = currentDoc(), { from, to } = period();
@@ -647,6 +666,7 @@ function renderCandidates() {
   const u = state.unit;
   $('btn-cession').disabled = true;
   $('next-missing-note').style.display = 'none';
+  showWarn('warn-cand', '', []);
 
   if (!u) {
     $('selected-slot-title').textContent = 'Sélectionnez un poste';
@@ -664,7 +684,7 @@ function renderCandidates() {
   // Un candidat sélectionné qui devient indisponible est désélectionné
   if (state.cand) {
     const cur = list.find(c => c.init === state.cand);
-    if (!cur || cur.reasons.length) { state.cand = null; state.swapUnit = null; renderSwap(); }
+    if (!cur || cur.hard.length) { state.cand = null; state.swapUnit = null; renderSwap(); }
   }
 
   if (u.gardeType && list.some(c => c.nextMissing)) {
@@ -673,6 +693,9 @@ function renderCandidates() {
     note.textContent = `⚠ Le planning du ${fmtShort(nx)} n'est pas saisi : les règles « lendemain » ne peuvent pas être vérifiées.`;
     note.style.display = 'block';
   }
+
+  const selC = state.cand && list.find(c => c.init === state.cand);
+  showWarn('warn-cand', 'Point(s) bloquant(s) à régler avec ce remplaçant', selC ? selC.reasons : []);
 
   const showAll = $('cfg-show-unavail').checked;
   const shown = list.filter(c => showAll || !c.reasons.length);
@@ -683,17 +706,18 @@ function renderCandidates() {
 
   shown.forEach(c => {
     const ok = !c.reasons.length;
+    const blocked = c.hard.length > 0;
     const card = document.createElement('div');
-    card.className = 'card' + (ok ? '' : ' unavail') + (state.cand === c.init ? ' selected' : '');
+    card.className = 'card' + (blocked ? ' unavail' : (ok ? '' : ' warn')) + (state.cand === c.init ? ' selected' : '');
     const distTxt = c.dist === Infinity ? 'aucun autre' : `plus proche : ${c.dist} j`;
     card.innerHTML = `
       <div>
         <div class="card-title">${esc(c.init)} <span style="font-weight:400;color:var(--gray)">· ${esc(c.name)}</span></div>
         <div class="card-sub">${esc(distTxt)}</div>
-        ${ok ? '' : `<div class="reasons">${c.reasons.map(r => `<div class="reason">✕ ${esc(r)}</div>`).join('')}</div>`}
+        ${ok ? '' : `<div class="reasons">${c.reasons.map(r => `<div class="reason ${c.hard.includes(r) ? '' : 'soft'}">✕ ${esc(r)}</div>`).join('')}</div>`}
       </div>
       <div class="badge ${ok ? 'ok' : ''}">${c.count} ${esc(c.fam)}</div>`;
-    if (ok) card.addEventListener('click', () => selectCandidate(c.init));
+    if (!blocked) card.addEventListener('click', () => selectCandidate(c.init));
     box.appendChild(card);
   });
   $('btn-cession').disabled = !state.cand;
@@ -710,6 +734,7 @@ function renderSwap() {
   const panel = $('swap-panel');
   const list = $('swap-list');
   $('btn-swap').disabled = true;
+  showWarn('warn-swap', '', []);
   if (!state.unit || !state.cand) { panel.style.display = 'none'; return; }
   panel.style.display = 'flex';
 
@@ -720,8 +745,11 @@ function renderSwap() {
   const res = evaluateSwaps(u, B, getRules('A'), getRules('B'));
   if (state.swapUnit) {
     const cur = res.find(r => r.unit.id === state.swapUnit);
-    if (!cur || !cur.ok) state.swapUnit = null;
+    if (!cur || cur.blocked) state.swapUnit = null;
   }
+  const selS = state.swapUnit && res.find(r => r.unit.id === state.swapUnit);
+  showWarn('warn-swap', "Point(s) bloquant(s) de l'échange",
+    selS ? [...selS.reasonsA.map(x => `Vous : ${x}`), ...selS.reasonsB.map(x => `${B} : ${x}`)] : []);
 
   list.innerHTML = '';
   const showAll = $('rB-show').checked;
@@ -732,16 +760,16 @@ function renderSwap() {
   }
   shown.forEach(r => {
     const card = document.createElement('div');
-    card.className = 'card' + (r.ok ? '' : ' unavail') + (state.swapUnit === r.unit.id ? ' selected' : '');
+    card.className = 'card' + (r.blocked ? ' unavail' : (r.ok ? '' : ' warn')) + (state.swapUnit === r.unit.id ? ' selected' : '');
     const gapTxt = r.gap === 0 ? 'même jour' : `${diffDays(r.unit.date, u.date) > 0 ? '+' : '−'}${r.gap} j`;
-    const rs = [...r.reasonsA.map(x => `Vous : ${x}`), ...r.reasonsB.map(x => `${B} : ${x}`)];
+    const rs = [...r.reasonsA.map(x => ({ t: `Vous : ${x}`, h: r.hardA.includes(x) })), ...r.reasonsB.map(x => ({ t: `${B} : ${x}`, h: r.hardB.includes(x) }))];
     card.innerHTML = `
       <div>
         <div class="card-title">${esc(fmtShort(r.unit.date))} <span style="font-weight:400;color:var(--gray)">· ${esc(r.unit.colKey)} · ${esc(unitHeureText(r.unit))}</span></div>
-        ${r.ok ? '' : `<div class="reasons">${rs.map(x => `<div class="reason">✕ ${esc(x)}</div>`).join('')}</div>`}
+        ${r.ok ? '' : `<div class="reasons">${rs.map(x => `<div class="reason ${x.h ? '' : 'soft'}">✕ ${esc(x.t)}</div>`).join('')}</div>`}
       </div>
       <div class="badge ${r.ok ? 'ok' : ''}">${esc(gapTxt)}</div>`;
-    if (r.ok) card.addEventListener('click', () => { state.swapUnit = r.unit.id; renderSwap(); });
+    if (!r.blocked) card.addEventListener('click', () => { state.swapUnit = r.unit.id; renderSwap(); });
     list.appendChild(card);
   });
   $('btn-swap').disabled = !state.swapUnit;
@@ -804,10 +832,12 @@ async function prepareAndSend(withSwap) {
 
   const rA = getRules('A'), rB = getRules('B');
   const chkB = canTake(B, U1, withSwap ? makeOv(U2) : null, rA);
-  const chkA = withSwap ? canTake(A, U2, makeOv(U1), rB) : { reasons: [] };
-  if (chkB.reasons.length || chkA.reasons.length) {
-    const why = chkB.reasons.length ? `${B} : ${chkB.reasons[0]}` : `Vous : ${chkA.reasons[0]}`;
-    toast("Le planning a changé, proposition devenue invalide — " + why, 'error');
+  const chkA = withSwap ? canTake(A, U2, makeOv(U1), rB) : { reasons: [], hard: [] };
+
+  // Règles absolument bloquantes (absence, double affectation, repos…) : refus, sur données fraîches
+  const hardAll = [...chkB.hard.map(x => withSwap ? `${B} : ${x}` : x), ...chkA.hard.map(x => `Vous : ${x}`)];
+  if (hardAll.length) {
+    toast("Le planning a changé, proposition impossible — " + hardAll[0], 'error');
     state.unit = U1;
     renderSchedule(); renderCandidates(); renderSwap();
     return;
@@ -816,40 +846,51 @@ async function prepareAndSend(withSwap) {
   renderSchedule(); renderCandidates(); renderSwap();
 
   const nameA = fullLabel(A), nameB = fullLabel(B);
-  
+  // Règles non respectées mais non bloquantes : confirmées par l'utilisateur et signalées dans le mail
+  const warnings = [
+    ...chkB.reasons.map(x => withSwap ? `${nameB} : ${x}` : x),
+    ...chkA.reasons.map(x => `${nameA} : ${x}`)
+  ];
+  if (warnings.length && !confirm(`Cette proposition ne respecte pas ${warnings.length} règle(s) :\n\n• ${warnings.join('\n• ')}\n\nLe mail le mentionnera pour que les responsables du planning tranchent. Continuer ?`)) return;
+
   const emailB = emailOf(B);
   const ccList = editorEmails(U1.colKey).filter(e => e.toLowerCase() !== emailB.toLowerCase());
+  const tag = warnings.length ? '[⚠ À vérifier] ' : '';
+  const warnBlock = warnings.length
+    ? `\n⚠ ATTENTION — cette proposition ne respecte pas les règles suivantes, à régler avant toute modification du planning :\n${warnings.map(w => ' ✕ ' + w).join('\n')}\n`
+    : '';
   let subject, body;
   if (withSwap) {
-    subject = `[Neuroplanning] Proposition d'échange : ${U1.colKey} du ${fmtShort(U1.date)} contre ${U2.colKey} du ${fmtShort(U2.date)}`;
+    subject = `${tag}[Neuroplanning] Proposition d'échange : ${U1.colKey} du ${fmtShort(U1.date)} contre ${U2.colKey} du ${fmtShort(U2.date)}`;
     body =
 `Bonjour ${nameB},
 
 ${nameA} vous propose l'échange suivant :
  • vous reprendriez son poste de ${unitLabel(U1)} le ${fmtLong(U1.date)} (${unitHeureText(U1)}) ;
  • en contrepartie, ${nameA} reprendrait votre poste de ${unitLabel(U2)} le ${fmtLong(U2.date)} (${unitHeureText(U2)}).
-
+${warnBlock}
 Merci de confirmer votre accord en répondant à tous : les responsables du planning sont en copie pour le mettre à jour.
 
 Cordialement,
 Assistant Planning Neurologie`;
   } else {
-    subject = `[Neuroplanning] Demande de remplacement : ${U1.colKey} du ${fmtShort(U1.date)}`;
+    subject = `${tag}[Neuroplanning] Demande de remplacement : ${U1.colKey} du ${fmtShort(U1.date)}`;
     body =
 `Bonjour ${nameB},
 
 ${nameA} souhaiterait que vous repreniez son poste de ${unitLabel(U1)} le ${fmtLong(U1.date)} (${unitHeureText(U1)}).
-
-Merci de confirmer votre accord en répondant à tous : l'administrateur du planning est en copie pour mettre le planning à jour.
+${warnBlock}
+Merci de confirmer votre accord en répondant à tous : les responsables du planning sont en copie pour le mettre à jour.
 
 Cordialement,
 Assistant Planning Neurologie`;
   }
-openMail([emailB], ccList.length ? ccList : ADMIN_EMAILS, subject, body);
-const warn = [];
-if (!emailB) warn.push(`adresse de ${B} introuvable`);
-if (!ccList.length) warn.push('aucun éditeur trouvé pour ce groupe (repli sur ADMIN_EMAILS)');
-toast(warn.length ? 'Mail ouvert — ' + warn.join(' ; ') : 'Client mail ouvert', warn.length ? 'warning' : 'info');
+  openMail([emailB], ccList.length ? ccList : ADMIN_EMAILS, subject, body);
+  const warn = [];
+  if (!emailB) warn.push(`adresse de ${B} introuvable`);
+  if (!ccList.length) warn.push('aucun éditeur trouvé pour ce groupe (repli sur ADMIN_EMAILS)');
+  if (warnings.length) warn.push(`${warnings.length} règle(s) non respectée(s), mentionnée(s) dans le mail`);
+  toast(warn.length ? 'Mail ouvert — ' + warn.join(' ; ') : 'Client mail ouvert', warn.length ? 'warning' : 'info');
 }
   
 
