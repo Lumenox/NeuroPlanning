@@ -152,7 +152,7 @@
       <div id="rA-garde-rules" style="display:none; flex-direction:column; gap:7px;">
         <div class="filter-row">
           <label>Fenêtre sans Garde/Astr (± jours) :</label>
-          <input type="number" id="rA-win" value="2" min="0" max="7" style="width:50px;" />
+          <input type="number" id="rA-win" value="2" min="0" max="30" style="width:50px;" />
         </div>
         <div class="filter-row">
           <label>Éviter BOX le lendemain :</label>
@@ -201,7 +201,7 @@
       <div id="rB-garde-rules" style="display:none; flex-direction:column; gap:7px;">
         <div class="filter-row">
           <label>Fenêtre sans Garde/Astr (± jours) :</label>
-          <input type="number" id="rB-win" value="2" min="0" max="7" style="width:50px;" />
+          <input type="number" id="rB-win" value="2" min="0" max="30" style="width:50px;" />
         </div>
         <div class="filter-row">
           <label>Éviter BOX le lendemain :</label>
@@ -593,7 +593,7 @@ const fullLabel = init => {
   return n === init ? init : `${n} (${init})`;   // repli : initiales seules si nom_complet est vide
 };
 const getRules = p => ({
-  win: Math.max(0, Math.min(7, parseInt($(`r${p}-win`).value, 10) || 0)),
+  win: Math.max(0, Math.min(30, parseInt($(`r${p}-win`).value, 10) || 0)),
   box: $(`r${p}-box`).checked,
   bip: $(`r${p}-bip`).checked
 });
@@ -821,7 +821,7 @@ async function prepareAndSend(withSwap) {
   const ccList = editorEmails(U1.colKey).filter(e => e.toLowerCase() !== emailB.toLowerCase());
   let subject, body;
   if (withSwap) {
-    subject = `[Neurologie] Proposition d'échange : ${U1.colKey} du ${fmtShort(U1.date)} contre ${U2.colKey} du ${fmtShort(U2.date)}`;
+    subject = `[Neuroplanning] Proposition d'échange : ${U1.colKey} du ${fmtShort(U1.date)} contre ${U2.colKey} du ${fmtShort(U2.date)}`;
     body =
 `Bonjour ${nameB},
 
@@ -834,7 +834,7 @@ Merci de confirmer votre accord en répondant à tous : les responsables du plan
 Cordialement,
 Assistant Planning Neurologie`;
   } else {
-    subject = `[Neurologie] Demande de remplacement : ${U1.colKey} du ${fmtShort(U1.date)}`;
+    subject = `[Neuroplanning] Demande de remplacement : ${U1.colKey} du ${fmtShort(U1.date)}`;
     body =
 `Bonjour ${nameB},
 
