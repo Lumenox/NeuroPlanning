@@ -124,6 +124,10 @@
 		  <input type="checkbox" id="excludeTlc" checked class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
 		  <span>Ignorer les <strong>téléconsultations</strong> (colonne Commentaire)</span>
 		</label>
+		<label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+		  <input type="checkbox" id="excludeHdj" checked class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
+		  <span>Ignorer les <strong>HDJ</strong> (colonne Commentaire)</span>
+		</label>
       </div>
 
     </div>
@@ -247,7 +251,8 @@
 	// Ressources qui ne consultent pas en box (comparaison sans accents, casse ni espaces)
 	const RESSOURCES_HORS_BOX = ['CREANGE', 'YOUSSOV'];
 	// Marqueur de téléconsultation dans la colonne Commentaire (pas de box nécessaire)
-	const MARQUEUR_TLC = ['TLC_ORTIF', 'PAR TEL'];
+	const MARQUEURS_TLC = ['TLC_ORTIF', 'PAR TEL'];
+	const MARQUEURS_HDJ = ['HDJ'];
 	document.getElementById('excludeNeuroList').textContent = RESSOURCES_HORS_BOX.join(', ');
     // Utilitaires de nettoyage et normalisation de texte
     function cleanText(str) {
@@ -438,6 +443,7 @@ function updateFileName(name) {
 		const excludeNeuropsy = document.getElementById('excludeNeuropsy').checked;
 		const excludeNeuro = document.getElementById('excludeNeuro').checked;
 	    const excludeTlc = document.getElementById('excludeTlc').checked;
+		const excludeHdj = document.getElementById('excludeHdj').checked;
 		const ressourcesExclues = RESSOURCES_HORS_BOX.map(cleanText);
 		const allRdvDates = [];
         dataRdv.data.forEach(row => {
@@ -460,6 +466,10 @@ function updateFileName(name) {
 			  const comm = String(row.Commentaire || row.commentaire || '').toUpperCase();
 			  if (MARQUEURS_TLC.some(m => comm.includes(m))) return;
 			}
+		if (excludeHdj) {
+		  const comm = String(row.Commentaire || row.commentaire || '').toUpperCase();
+		  if (MARQUEURS_HDJ.some(m => comm.includes(m))) return;
+		}
 		if (excludeNeuro) {
 			  const resClean = cleanText(row.Ressource || row.ressource);
 			  if (ressourcesExclues.some(nom => resClean.includes(nom))) return;
