@@ -201,6 +201,10 @@
 		  </button>
 		</div>
       </div>
+	<div id="ignoredInfoContainer" class="hidden px-6 py-2.5 bg-amber-50 border-b border-amber-200 text-amber-800 text-xs flex items-center gap-2">
+        <i class="fa-solid fa-circle-info"></i>
+        <span id="ignoredInfoText"></span>
+      </div>
 	<!-- Fenetre résumé "mailable" -->
 		<div id="summaryPanel" class="hidden px-6 py-4 border-b border-slate-200 bg-indigo-50/40 space-y-2">
 		  <textarea id="summaryText" rows="10" class="w-full text-xs font-mono p-3 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
@@ -468,6 +472,7 @@ function updateFileName(name) {
 		const excludeHdj = document.getElementById('excludeHdj').checked;
 		const ressourcesExclues = RESSOURCES_HORS_BOX.map(cleanText);
 		const allRdvDates = [];
+		let ignoredPatientsCount = 0;
         dataRdv.data.forEach(row => {
           const rawDate = row.Date || row.date || row.Date_RDV;
           const rawRessource = row.Ressource || row.ressource;
@@ -497,6 +502,11 @@ function updateFileName(name) {
 			  if (ressourcesExclues.some(nom => resClean.includes(nom))) return;
 			};
           const slotKey = getSlotFromTime(row.Heure || row.heure);
+		  if (!slotKey) {
+              // (On en profitera pour les compter juste après)
+              ignoredPatientsCount++; 
+              return; 
+          }
 			const init = getInitFromRessource(rawRessource);
 			let keyRef = init;
 			if (!init) {
@@ -596,6 +606,16 @@ Object.keys(rdvCounts).forEach(key => {
         document.getElementById('kpiUnknown').innerText = countYellow;
         document.getElementById('kpiContainer').classList.remove('hidden');
 
+
+        //(gestion de l'affichage de la note des omis)
+        const infoContainer = document.getElementById('ignoredInfoContainer');
+        const infoText = document.getElementById('ignoredInfoText');
+        if (ignoredPatientsCount > 0) {
+          infoText.innerHTML = `<strong>${ignoredPatientsCount}</strong> patient${ignoredPatientsCount > 1 ? 's ont été omis' : ' a été omis'} car consultant dans la transition entre matin et aprem (12h55 et 13h25).`;
+          infoContainer.classList.remove('hidden');
+        } else {
+          infoContainer.classList.add('hidden');
+        }
         // Rendu initial du tableau
         renderTable();
 
