@@ -275,11 +275,33 @@
     }
 
     // Normalisation de l'heure vers la demi-journée (Matin / Apres-midi)
-    function getSlotFromTime(timeStr) {
-      if (!timeStr) return '09:00:00';
-      const hour = parseInt(timeStr.split(':')[0], 10);
-      return hour >= 13 ? '13:30:00' : '09:00:00';
-    }
+    //function getSlotFromTime(timeStr) {
+    //  if (!timeStr) return '09:00:00';
+    //  const hour = parseInt(timeStr.split(':')[0], 10);
+    //  return hour >= 13 ? '13:30:00' : '09:00:00';
+    //}
+	// Normalisation de l'heure avec zone de flou renvoyant null
+	function getSlotFromTime(timeStr) {
+	  if (!timeStr) return '09:00:00';
+	  
+	  const parts = timeStr.split(':');
+	  const hour = parseInt(parts[0], 10);
+	  const minute = parseInt(parts[1] || 0, 10);
+	  const totalMinutes = hour * 60 + minute;
+	
+	  
+	  if (totalMinutes <= 775) {
+	    return '09:00:00'; // Matin (jusqu'à 12h55 inclus)
+	  } 
+	  // 13h25 = 13 * 60 + 25 = 810 minutes
+	  else if (totalMinutes >= 805) {
+	    return '13:30:00'; // Après-midi (à partir de 13h25)
+	  } 
+	  else {
+	    // Zone de flou (entre 12h45 et 13h30) : ecertains du matin consultent à 13h, certains aprem commencent à 13h: on renvoie null pour ne pas l'attribuer par défaut  
+	    return null; 
+	  }
+	}
 
     // Parsage de fichier CSV local via PapaParse
 	async function parseCSV(file) {
