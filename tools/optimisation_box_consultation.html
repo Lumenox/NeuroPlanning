@@ -205,6 +205,24 @@
         <i class="fa-solid fa-circle-info"></i>
         <span id="ignoredInfoText"></span>
       </div>
+	<div id="conflictPanel" class="hidden border-b border-rose-200 bg-rose-50">
+	  <button id="btnToggleConflicts" type="button"
+	          class="w-full px-6 py-2.5 flex items-center justify-between text-xs font-semibold text-rose-800 hover:bg-rose-100/60 transition">
+	    <span><i class="fa-solid fa-user-clock mr-2"></i><span id="conflictCount"></span></span>
+	    <i class="fa-solid fa-chevron-down"></i>
+	  </button>
+	  <div id="conflictList" class="hidden overflow-x-auto px-6 pb-4">
+	    <table class="w-full text-left text-xs">
+	      <thead class="text-rose-700 uppercase tracking-wider">
+	        <tr>
+	          <th class="py-2 pr-4">Date</th><th class="py-2 pr-4">Heure</th>
+	          <th class="py-2 pr-4">Médecin</th><th class="py-2 pr-4">RDV</th><th class="py-2">Motif</th>
+	        </tr>
+	      </thead>
+	      <tbody id="conflictBody"></tbody>
+	    </table>
+	  </div>
+	</div>
 	<!-- Fenetre résumé "mailable" -->
 		<div id="summaryPanel" class="hidden px-6 py-4 border-b border-slate-200 bg-indigo-50/40 space-y-2">
 		  <textarea id="summaryText" rows="10" class="w-full text-xs font-mono p-3 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
@@ -252,6 +270,7 @@
     });
 
     let allResults = []; // Stockage global pour le filtrage interactif
+	let conflicts = [];
 	// Ressources qui ne consultent pas en box (comparaison sans accents, casse ni espaces)
 	const RESSOURCES_HORS_BOX = ['CREANGE', 'YOUSSOV'];
 	// Marqueur de téléconsultation dans la colonne Commentaire (pas de box nécessaire)
@@ -265,7 +284,11 @@
                 .toUpperCase()
                 .replace(/[^A-Z0-9]/g, '');
     }
-
+	function addDays(iso, n) {  // Utilise l’UTC pour que le changement d’heure du 25 octobre ne décale pas les dates
+	  const d = new Date(iso + 'T00:00:00Z');
+	  d.setUTCDate(d.getUTCDate() + n);
+	  return d.toISOString().slice(0, 10);
+	}
     // Extrait le nom de famille de la chaîne Ressource (ex: "026NEU2PLAV-PLANTE BORDENEUVE" -> "PLANTE BORDENEUVE")
     function extractNameFromRessource(ressourceStr) {
       if (!ressourceStr) return '';
@@ -402,10 +425,11 @@ function updateFileName(name) {
 
       try {
         // 1. Récupération parallèle depuis Supabase et du CSV local
-        const [planningRes, neuroRes, dataRdv] = await Promise.all([
+        const [planningRes, neuroRes, dataRdv, absRes] = await Promise.all([
           fetchAllRows('planning', ['id']).then(data => ({ data, error: null })),
           supabaseClient.schema('commun').from('neurologues').select('*'),
-          parseCSV(fileRdv)
+          parseCSV(fileRdv),
+		  fetchAllRows('absences', ['id']).then(data => ({ data, error: null }))
         ]);
 
         if (planningRes.error) throw new Error("Erreur Planning: " + planningRes.error.message);
@@ -414,6 +438,24 @@ function updateFileName(name) {
         const dataPlanning = planningRes.data || [];
 		console.log('planning reçu:', dataPlanning.length);
         const dataNeuro = neuroRes.data || [];
+		const reposSet = new Set();  // `${date}_${INIT}` : lendemain de garde
+		const absSet   = new Set();  // `${date}_${INIT}` : congé déclaré
+		
+		dataPlanning.forEach(row => {
+		  const d = (row.date || '').trim();
+		  if (!d || !row.garde) return;
+		  String(row.garde).split(/[,;|\/\s]+/).forEach(i => {
+		    const init = i.trim().toUpperCase();
+		    if (init && init !== 'NULL') reposSet.add(`${addDays(d, 1)}_${init}`);
+		  });
+		});
+		
+		(absRes.data || []).forEach(a => {
+		  const init  = (a.initiales || '').trim().toUpperCase();
+		  const debut = String(a.date_debut).slice(0, 10);
+		  const fin   = String(a.date_fin || a.date_debut).slice(0, 10);
+		  for (let d = debut; d <= fin; d = addDays(d, 1)) absSet.add(`${d}_${init}`);
+		});
 
         statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Supabase : Connecté`;
         statusEl.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200";
@@ -441,6 +483,29 @@ function updateFileName(name) {
 		function getInitFromRessource(ressourceStr) {
 		  return ressourceToInit[cleanText(ressourceStr)] || null;
 		}
+		// 2.5 Index des conflits potentiels
+		const reposSet = new Set();   // `${date}_${INIT}` : lendemain de garde (journée entière)
+		const absMap   = new Map();   // `${date}_${slot}_${INIT}` -> code (ex. "CF")
+		
+		dataPlanning.forEach(row => {
+		  const d = String(row.date || '').trim().slice(0, 10);
+		  const init = String(row.Garde ?? '').trim().toUpperCase();
+		  if (d && init && init !== 'NULL') reposSet.add(`${addDays(d, 1)}_${init}`);
+		});
+		
+		(absRes.data || []).forEach(a => {
+		  const d = String(a.date || '').trim().slice(0, 10);
+		  const t = a.heure || a.creneau;
+		  const s = t ? getSlotFromTime(String(t)) : null;
+		  if (!d || !s) return;
+		  const up = {};
+		  Object.keys(a).forEach(k => { up[k.toUpperCase()] = a[k]; });
+		  Object.keys(neurologuesMap).forEach(init => {
+		    const code = String(up[init] ?? '').trim();
+		    if (code && code.toUpperCase() !== 'NULL') absMap.set(`${d}_${s}_${init}`, code);
+		  });
+		});
+				  
         // 3. Traitement du Planning Supabase
         const allocatedBoxes = {}; // Key: "YYYY-MM-DD_09:00:00_INIT" -> [ "BOX1", "BOX2" ]
         dataPlanning.forEach(row => {
@@ -473,6 +538,7 @@ function updateFileName(name) {
 		const ressourcesExclues = RESSOURCES_HORS_BOX.map(cleanText);
 		const allRdvDates = [];
 		let ignoredPatientsCount = 0;
+		conflicts = [];
         dataRdv.data.forEach(row => {
           const rawDate = row.Date || row.date || row.Date_RDV;
           const rawRessource = row.Ressource || row.ressource;
@@ -486,7 +552,26 @@ function updateFileName(name) {
           allRdvDates.push(dateKey);
 
 		const rawStatut = row.Statut || row.statut || row.STATUT || '';
-                if (excludeAnnule && cleanText(rawStatut).includes('ANNUL')) return;
+			
+		const isAnnule = cleanText(rawStatut).includes('ANNUL');
+		const initC = getInitFromRessource(rawRessource);
+		if (!isAnnule && initC) {
+		  const slotC = getSlotFromTime(row.Heure || row.heure);
+		  // zone de flou (slot null) : on ne signale que si les DEUX créneaux sont absents
+		  const slots = slotC ? [slotC] : ['09:00:00', '13:30:00'];
+		  const codes = slots.map(s => absMap.get(`${dateKey}_${s}_${initC}`));
+		  const repos = reposSet.has(`${dateKey}_${initC}`);
+		  const abs = codes.every(Boolean) ? codes[0] : null;
+		  if (repos || abs) conflicts.push({
+		    date: dateKey,
+		    heure: String(row.Heure || row.heure || '').padStart(5, '0'),
+		    init: initC,
+		    nom: neurologuesMap[initC]?.nomComplet || initC,
+		    rdv: row.RDV || row.rdv || '',
+		    repos, abs
+		  });
+		}
+        if (excludeAnnule && cleanText(rawStatut).includes('ANNUL')) return;
 		if (excludeProtocole && cleanText(row.RDV || row.rdv) === 'PROTOCOLERECHERCHECLINIQUE') return;
 		if (excludeNeuropsy && cleanText(row.RDV || row.rdv).includes('NEUROPSY')) return;
 		if (excludeTlc) {
@@ -518,7 +603,7 @@ function updateFileName(name) {
           const key = `${dateKey}_${slotKey}_${keyRef}`;
           rdvCounts[key] = (rdvCounts[key] || 0) + 1;
         });
-
+		console.log('reposSet:', reposSet.size, '| absMap:', absMap.size, '| conflits:', conflicts.length);
         // 4.5. Détermination de la fenêtre temporelle du fichier RDV
 	const rdvDates = [...allRdvDates].sort();
 	const minDate = rdvDates[0];
@@ -593,6 +678,7 @@ Object.keys(rdvCounts).forEach(key => {
           if (a.date !== b.date) return a.date.localeCompare(b.date);
           return a.time.localeCompare(b.time);
         });
+		conflicts.sort((a, b) => a.date.localeCompare(b.date) || a.heure.localeCompare(b.heure));
 
         // 7. Mise à jour des totaux KPI
         const countGreen = allResults.filter(r => r.category === 'GREEN').length;
@@ -616,6 +702,7 @@ Object.keys(rdvCounts).forEach(key => {
         } else {
           infoContainer.classList.add('hidden');
         }
+		
         // Rendu initial du tableau
         renderTable();
 
@@ -698,7 +785,29 @@ Object.keys(rdvCounts).forEach(key => {
         tbody.appendChild(tr);
       });
     }
+function renderConflicts() {
+  const panel = document.getElementById('conflictPanel');
+  const body = document.getElementById('conflictBody');
+  document.getElementById('conflictList').classList.add('hidden');
+  if (!conflicts.length) { panel.classList.add('hidden'); body.innerHTML = ''; return; }
 
+  const esc = s => String(s ?? '').replace(/[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const motif = c => [c.repos ? 'Lendemain de garde' : null,
+                      c.abs ? `Absence déclarée (${c.abs})` : null].filter(Boolean).join(' + ');
+
+  document.getElementById('conflictCount').textContent =
+    `${conflicts.length} consultation${conflicts.length > 1 ? 's' : ''} un lendemain de garde ou pendant une absence déclarée`;
+  body.innerHTML = conflicts.map(c => `
+    <tr class="border-t border-rose-100">
+      <td class="py-1.5 pr-4 font-medium">${esc(c.date)}</td>
+      <td class="py-1.5 pr-4">${esc(c.heure)}</td>
+      <td class="py-1.5 pr-4 font-semibold">${esc(c.nom)} <span class="font-mono text-slate-500">${esc(c.init)}</span></td>
+      <td class="py-1.5 pr-4">${esc(c.rdv)}</td>
+      <td class="py-1.5 text-rose-800 font-semibold">${esc(motif(c))}</td>
+    </tr>`).join('');
+  panel.classList.remove('hidden');
+}
 function exportResultsCsv() {
   if (!allResults.length) {
     alert("Aucun résultat à exporter : lance d'abord l'analyse.");
@@ -758,7 +867,21 @@ function buildSummaryText() {
       lines.push(`${head} ${parts.join(' ; ')} ${plural ? 'semblent' : 'semble'} non utilisé${plural ? 's' : ''}.`);
     }
   });
-
+	
+	const confGroups = new Map();
+	conflicts.forEach(c => {
+	  const k = `${c.date}_${c.init}`;
+	  if (!confGroups.has(k)) confGroups.set(k, { ...c, n: 0 });
+	  confGroups.get(k).n++;
+	});
+	const confLines = [];
+	confGroups.forEach(g => {
+	  const quoi = [g.repos ? 'en repos de garde' : null,
+	                g.abs ? `déclaré absent (${g.abs})` : null].filter(Boolean).join(' et ');
+	  confLines.push(`Pour le ${fmtDate(g.date)} : ${g.nom} est ${quoi} mais a ${pts(g.n)} en consultation au planning.`);
+	});
+	lines.unshift(...confLines);
+	
   return lines.length
     ? lines.join('\n')
     : "Aucune anomalie détectée : tous les box réservés sont utilisés et aucun patient n'est sans box.";
@@ -769,7 +892,8 @@ function buildSummaryText() {
     ['filterOk', 'filterAlert', 'filterNoBox', 'filterUnknown'].forEach(id => {
       document.getElementById(id).addEventListener('change', renderTable);
     });
-
+document.getElementById('btnToggleConflicts').addEventListener('click', () =>
+  document.getElementById('conflictList').classList.toggle('hidden'));
 document.getElementById('btnExportCsv').addEventListener('click', exportResultsCsv);
 document.getElementById('btnSummary').addEventListener('click', () => {
   if (!allResults.length) {
