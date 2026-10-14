@@ -286,6 +286,7 @@
     }
 	function addDays(iso, n) {  // Utilise l’UTC pour que le changement d’heure du 25 octobre ne décale pas les dates
 	  const d = new Date(iso + 'T00:00:00Z');
+	  if (isNaN(d.getTime())) return null;
 	  d.setUTCDate(d.getUTCDate() + n);
 	  return d.toISOString().slice(0, 10);
 	}
@@ -490,7 +491,10 @@ function updateFileName(name) {
 		dataPlanning.forEach(row => {
 		  const d = String(row.date || '').trim().slice(0, 10);
 		  const init = String(row.Garde ?? '').trim().toUpperCase();
-		  if (d && init && init !== 'NULL') reposSet.add(`${addDays(d, 1)}_${init}`);
+		  if (!d || !init || init === 'NULL') return;
+		  const lendemain = addDays(d, 1);
+	      if (!lendemain) { console.warn('Date planning invalide pour Garde :', JSON.stringify(row.date)); return; }
+		  reposSet.add(`${lendemain}_${init}`);
 		});
 		
 		(absRes.data || []).forEach(a => {
