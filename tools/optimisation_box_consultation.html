@@ -438,8 +438,7 @@ function updateFileName(name) {
         const dataPlanning = planningRes.data || [];
 		console.log('planning reçu:', dataPlanning.length);
         const dataNeuro = neuroRes.data || [];
-		const reposSet = new Set();  // `${date}_${INIT}` : lendemain de garde
-		const absSet   = new Set();  // `${date}_${INIT}` : congé déclaré
+
 		
 		dataPlanning.forEach(row => {
 		  const d = (row.date || '').trim();
