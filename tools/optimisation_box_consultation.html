@@ -288,7 +288,7 @@
 	const MARQUEURS_HDJ = ['HDJ'];
 	const MAIL_CC = 'neurologie.consultation.hmn@aphp.fr';
 	const MAIL_SEP = ';';
-	const MAIL_DEST_FIELD = 'bcc';
+	const MAIL_DEST_FIELD = 'to';
 	document.getElementById('excludeNeuroList').textContent = RESSOURCES_HORS_BOX.join(', ');
     // Utilitaires de nettoyage et normalisation de texte
     function cleanText(str) {
@@ -947,14 +947,24 @@ document.getElementById('btnMailAll').addEventListener('click', async () => {
   const fb = document.getElementById('mailFeedback');
   const say = msg => { fb.textContent = msg; fb.classList.remove('hidden'); };
   say('Récupération des adresses…');
-
+	
+  const concernes = new Set();
+conflicts.forEach(c => c.init && concernes.add(c.init));
+allResults.forEach(r => {
+  if ((r.category === 'RED' || r.category === 'PURPLE') && r.init && r.init !== 'N/A') concernes.add(r.init);
+});
+if (!concernes.size) { say('Aucune anomalie : personne à prévenir.'); return; }
+	
   const { data, error } = await supabaseClient.schema('commun').from('profiles').select('initiales, email');
   if (error) { say('Erreur profiles : ' + error.message); return; }
 
-  const emails = [...new Set((data || [])
-    .map(p => String(p.email || '').trim().toLowerCase())
-    .filter(e => e.includes('@') && e !== MAIL_CC.toLowerCase()))];
-  if (!emails.length) { say('Aucune adresse trouvée (table vide ou accès refusé par RLS).'); return; }
+const mailOf = new Map((data || []).map(p =>
+  [String(p.initiales || '').trim().toUpperCase(), String(p.email || '').trim().toLowerCase()]));
+const sansMail = [...concernes].filter(i => !(mailOf.get(i) || '').includes('@'));
+const emails = [...new Set([...concernes].map(i => mailOf.get(i))
+  .filter(e => e && e.includes('@') && e !== MAIL_CC.toLowerCase()))];
+if (!emails.length) { say('Aucune adresse trouvée pour : ' + [...concernes].join(', ') + ' (table vide ou accès refusé par RLS).'); return; }
+const manque = sansMail.length ? ` Sans adresse : ${sansMail.join(', ')}.` : '';
 
   const dates = allResults.map(r => r.date).sort();
 	const fmtFR = d => d.split('-').reverse().join('/');
@@ -980,12 +990,12 @@ document.getElementById('btnMailAll').addEventListener('click', async () => {
   const build = b => `mailto:?${MAIL_DEST_FIELD}=${enc(emails.join(MAIL_SEP))}&cc=${enc(MAIL_CC)}&subject=${enc(subject)}&body=${enc(b)}`;
 
   let url = build(body);
-  if (url.length > 1900) {   // certains clients tronquent les mailto trop longs
+  if (url.length > 2500) {   // certains clients tronquent les mailto trop longs
     try { await navigator.clipboard.writeText(body); } catch {}
     url = build('Message trop long pour être pré-rempli : il a été copié dans le presse-papiers, colle-le ici (Ctrl+V).');
-    say(`${emails.length} destinataires. Corps copié dans le presse-papiers : colle-le dans le mail.`);
+      say(`${emails.length} destinataire(s) (${[...concernes].join(', ')}). Corps copié : colle-le dans le mail, puis joins le CSV.${manque}`);
   } else {
-    say(`${emails.length} destinataires, ouverture du mail…`);
+      say(`${emails.length} destinataire(s) (${[...concernes].join(', ')}). Joins le CSV téléchargé au mail.${manque}`);
   }
   exportResultsCsv();
   window.location.href = url;
