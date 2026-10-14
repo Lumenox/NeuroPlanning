@@ -976,6 +976,7 @@ const manque = sansMail.length ? ` Sans adresse : ${sansMail.join(', ')}.` : '';
     'Bonjour à tous,',
     '',
     `Voici le contrôle automatique des box de consultation${periode}.`,
+    `Vérifiez si ces alertes sont valides et nécessitent une intervention.`,
     '',
     resume,
     '',
@@ -990,7 +991,7 @@ const manque = sansMail.length ? ` Sans adresse : ${sansMail.join(', ')}.` : '';
   const build = b => `mailto:?${MAIL_DEST_FIELD}=${enc(emails.join(MAIL_SEP))}&cc=${enc(MAIL_CC)}&subject=${enc(subject)}&body=${enc(b)}`;
 
   let url = build(body);
-  if (url.length > 2500) {   // certains clients tronquent les mailto trop longs
+  if (url.length > 10000) {   // certains clients tronquent les mailto trop longs
     try { await navigator.clipboard.writeText(body); } catch {}
     url = build('Message trop long pour être pré-rempli : il a été copié dans le presse-papiers, colle-le ici (Ctrl+V).');
       say(`${emails.length} destinataire(s) (${[...concernes].join(', ')}). Corps copié : colle-le dans le mail, puis joins le CSV.${manque}`);
