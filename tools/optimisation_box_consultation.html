@@ -18,7 +18,12 @@
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen p-4 sm:p-6 lg:p-8">
-
+	
+	<div id="auth-msg" class="hidden fixed inset-0 z-50 bg-slate-50 items-center justify-center text-center text-sm text-slate-500 leading-8">
+	  <div>Session introuvable.<br>Redirection vers le planning pour vous connecter…<br>
+	    <a href="index.html" class="text-indigo-600 underline">← Retour au planning</a></div>
+	</div>
+	
   <div class="max-w-7xl mx-auto space-y-6">
     
     <!-- En-tête principal -->
@@ -228,6 +233,10 @@
 		  <textarea id="summaryText" rows="10" class="w-full text-xs font-mono p-3 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
 		  <div class="flex items-center gap-3">
 		    <button id="btnCopySummary" class="text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg px-3 py-1.5">Copier</button>
+			<button id="btnMailAll" class="text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg px-3 py-1.5 flex items-center gap-1.5">
+			  <i class="fa-solid fa-paper-plane"></i> Envoyer à tous
+			</button>
+			<span id="mailFeedback" class="text-xs text-slate-600 font-medium hidden"></span>
 		    <span id="copyFeedback" class="text-xs text-emerald-600 font-medium hidden">Copié ✓</span>
 		  </div>
 		</div>
@@ -268,14 +277,18 @@
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
       db: { schema: 'neuroplanning' }
     });
-
+    let currentUser = null;
     let allResults = []; // Stockage global pour le filtrage interactif
 	let conflicts = [];
+	let csvRange = { min: null, max: null };
 	// Ressources qui ne consultent pas en box (comparaison sans accents, casse ni espaces)
 	const RESSOURCES_HORS_BOX = ['CREANGE', 'YOUSSOV'];
 	// Marqueur de téléconsultation dans la colonne Commentaire (pas de box nécessaire)
 	const MARQUEURS_TLC = ['TLC_ORTIF', 'PAR TEL'];
 	const MARQUEURS_HDJ = ['HDJ'];
+	const MAIL_CC = 'neurologie.consultation.hmn@aphp.fr';
+	const MAIL_SEP = ';';
+	const MAIL_DEST_FIELD = 'bcc';
 	document.getElementById('excludeNeuroList').textContent = RESSOURCES_HORS_BOX.join(', ');
     // Utilitaires de nettoyage et normalisation de texte
     function cleanText(str) {
@@ -386,6 +399,20 @@ dropZone.addEventListener('drop', (e) => {
   }
 });
 
+async function requireLogin() {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) {
+    const m = document.getElementById('auth-msg');
+    m.classList.remove('hidden'); m.classList.add('flex');
+    setTimeout(() => { location.href = 'index.html'; }, 2000);   // adapte le chemin
+    return false;
+  }
+  const { data: profile, error } = await supabaseClient.schema('commun')
+    .from('profiles').select('*').eq('id', session.user.id).single();
+  if (error || !profile) { alert('Profil introuvable : ' + (error?.message || '')); return false; }
+  currentUser = profile;
+  return true;
+}
 
 async function fetchAllRows(table, orderCols) {
   const pageSize = 1000;
@@ -403,7 +430,8 @@ async function fetchAllRows(table, orderCols) {
   }
   return all;
 }
-	  
+
+
 // Afficher le nom du fichier sélectionné
 function updateFileName(name) {
   fileNameDisplay.innerText = `📄 Fichier chargé : ${name}`;
@@ -412,6 +440,7 @@ function updateFileName(name) {
 
 
     document.getElementById('btnAnalyse').addEventListener('click', async () => {
+	   if (!currentUser) { alert("Connexion requise : ouvre l'outil depuis le planning."); return; }
       const fileRdv = document.getElementById('csvRdv').files[0];
       const statusEl = document.getElementById('connectionStatus');
 
@@ -439,24 +468,6 @@ function updateFileName(name) {
         const dataPlanning = planningRes.data || [];
 		console.log('planning reçu:', dataPlanning.length);
         const dataNeuro = neuroRes.data || [];
-		const reposSet = new Set();   // `${date}_${INIT}` : lendemain de garde (journée entière)
-		const absSet   = new Set(); // `${date}_${INIT}` : congé déclaré
-		
-		dataPlanning.forEach(row => {
-		  const d = (row.date || '').trim();
-		  if (!d || !row.garde) return;
-		  String(row.garde).split(/[,;|\/\s]+/).forEach(i => {
-		    const init = i.trim().toUpperCase();
-		    if (init && init !== 'NULL') reposSet.add(`${addDays(d, 1)}_${init}`);
-		  });
-		});
-		
-		(absRes.data || []).forEach(a => {
-		  const init  = (a.initiales || '').trim().toUpperCase();
-		  const debut = String(a.date_debut).slice(0, 10);
-		  const fin   = String(a.date_fin || a.date_debut).slice(0, 10);
-		  for (let d = debut; d <= fin; d = addDays(d, 1)) absSet.add(`${d}_${init}`);
-		});
 
         statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Supabase : Connecté`;
         statusEl.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200";
@@ -485,7 +496,7 @@ function updateFileName(name) {
 		  return ressourceToInit[cleanText(ressourceStr)] || null;
 		}
 		// 2.5 Index des conflits potentiels
-
+        const reposSet = new Set();   // `${date}_${INIT}` : lendemain de garde
 		const absMap   = new Map();   // `${date}_${slot}_${INIT}` -> code (ex. "CF")
 		
 		dataPlanning.forEach(row => {
@@ -612,6 +623,7 @@ function updateFileName(name) {
 	const rdvDates = [...allRdvDates].sort();
 	const minDate = rdvDates[0];
 	const maxDate = rdvDates[rdvDates.length - 1];
+    csvRange = { min: minDate, max: maxDate };
 
 	console.log(`Fenêtre temporelle détectée : du ${minDate} au ${maxDate}`);
 
@@ -709,6 +721,7 @@ Object.keys(rdvCounts).forEach(key => {
 		
         // Rendu initial du tableau
         renderTable();
+		renderConflicts();
 
 		document.getElementById('summaryPanel').classList.add('hidden');
 
@@ -844,51 +857,56 @@ function buildSummaryText() {
     .toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
   const pts = n => `${n} patient${n > 1 ? 's' : ''}`;
 
-  // Regroupement par (date, créneau) ; allResults est déjà trié chronologiquement
-  const groups = new Map();
-  allResults.forEach(r => {
-    if (r.category !== 'PURPLE' && r.category !== 'RED') return;
-    const k = `${r.date}_${r.time}`;
-    if (!groups.has(k)) groups.set(k, { date: r.date, time: r.time, noBox: [], unused: [] });
-    const g = groups.get(k);
-    if (r.category === 'PURPLE') g.noBox.push(r); else g.unused.push(r);
+  // Catégorie 1 : consultations un lendemain de garde / pendant une absence
+  const confGroups = new Map();
+  conflicts.forEach(c => {
+    const k = `${c.date}_${c.init}`;
+    const g = confGroups.get(k) || { date: c.date, nom: c.nom, n: 0, repos: false, abs: new Set() };
+    g.n++;
+    if (c.repos) g.repos = true;
+    if (c.abs) g.abs.add(c.abs);
+    confGroups.set(k, g);
+  });
+  const confLines = [...confGroups.values()].map(g => {
+    const quoi = [g.repos ? 'lendemain de garde' : null,
+                  g.abs.size ? `absence déclarée : ${[...g.abs].join(', ')}` : null].filter(Boolean).join(' + ');
+    return `- ${fmtDate(g.date)} : ${g.nom} (${quoi}) a ${g.n} consultation${g.n > 1 ? 's' : ''} programmée${g.n > 1 ? 's' : ''}.`;
   });
 
-  const lines = [];
-  groups.forEach(g => {
-    const head = `Pour le ${fmtDate(g.date)}, ${slotLabel(g.time)} :`;
+  // Catégories 2 et 3 : regroupement par (date, créneau) ; allResults est déjà trié
+  const groupBy = cat => {
+    const m = new Map();
+    allResults.filter(r => r.category === cat).forEach(r => {
+      const k = `${r.date}_${r.time}`;
+      if (!m.has(k)) m.set(k, { date: r.date, time: r.time, items: [] });
+      m.get(k).items.push(r);
+    });
+    return [...m.values()];
+  };
 
-    if (g.noBox.length) {
-      const who = g.noBox.map(r => `${r.nom} (${pts(r.patients)})`).join(', ');
-      lines.push(`${head} pas de box défini pour ${who}.`);
-    }
-    if (g.unused.length) {
-      const nbBox = g.unused.reduce((s, r) => s + r.box.split(',').length, 0);
-      const parts = g.unused.map(r => r.box.includes(',')
-        ? `les box ${r.box} réservés pour ${r.nom}`
-        : `le ${r.box} réservé pour ${r.nom}`);
-      const plural = nbBox > 1;
-      lines.push(`${head} ${parts.join(' ; ')} ${plural ? 'semblent' : 'semble'} non utilisé${plural ? 's' : ''}.`);
-    }
+  const unusedLines = groupBy('RED').map(g => {
+    const parts = g.items.map(r => r.box.includes(',')
+      ? `les box ${r.box} réservés pour ${r.nom}`
+      : `le ${r.box} réservé pour ${r.nom}`);
+    const nbBox = g.items.reduce((s, r) => s + r.box.split(',').length, 0);
+    return `- ${fmtDate(g.date)}, ${slotLabel(g.time)} : ${parts.join(' ; ')} ${nbBox > 1 ? 'semblent' : 'semble'} non utilisé${nbBox > 1 ? 's' : ''}.`;
   });
-	
-	const confGroups = new Map();
-	conflicts.forEach(c => {
-	  const k = `${c.date}_${c.init}`;
-	  if (!confGroups.has(k)) confGroups.set(k, { ...c, n: 0 });
-	  confGroups.get(k).n++;
-	});
-	const confLines = [];
-	confGroups.forEach(g => {
-	  const quoi = [g.repos ? 'en repos de garde' : null,
-	                g.abs ? `déclaré absent (${g.abs})` : null].filter(Boolean).join(' et ');
-	  confLines.push(`Pour le ${fmtDate(g.date)} : ${g.nom} est ${quoi} mais a ${pts(g.n)} en consultation au planning.`);
-	});
-	lines.unshift(...confLines);
-	
-  return lines.length
-    ? lines.join('\n')
-    : "Aucune anomalie détectée : tous les box réservés sont utilisés et aucun patient n'est sans box.";
+
+  const noBoxLines = groupBy('PURPLE').map(g => {
+    const who = g.items.map(r => `${r.nom} (${pts(r.patients)})`).join(', ');
+    return `- ${fmtDate(g.date)}, ${slotLabel(g.time)} : pas de box défini pour ${who}.`;
+  });
+
+  const sections = [
+    ['CONSULTATIONS PROGRAMMÉES UN LENDEMAIN DE GARDE OU PENDANT UNE ABSENCE', confLines],
+    ['BOX RÉSERVÉS MAIS APPAREMMENT NON UTILISÉS', unusedLines],
+    ['PATIENTS SANS BOX DÉFINI', noBoxLines]
+  ].filter(([, l]) => l.length);
+
+  if (!sections.length) {
+    return "Aucune anomalie détectée : tous les box réservés sont utilisés et aucun patient n'est sans box.";
+  }
+  return sections.map(([titre, l]) => `${titre}\n${l.join('\n')}`).join('\n\n');
 }
 
 	  
@@ -924,6 +942,55 @@ document.getElementById('btnCopySummary').addEventListener('click', async () => 
   setTimeout(() => fb.classList.add('hidden'), 1500);
 });
 
+document.getElementById('btnMailAll').addEventListener('click', async () => {
+  if (!currentUser) return;
+  const fb = document.getElementById('mailFeedback');
+  const say = msg => { fb.textContent = msg; fb.classList.remove('hidden'); };
+  say('Récupération des adresses…');
+
+  const { data, error } = await supabaseClient.schema('commun').from('profiles').select('initiales, email');
+  if (error) { say('Erreur profiles : ' + error.message); return; }
+
+  const emails = [...new Set((data || [])
+    .map(p => String(p.email || '').trim().toLowerCase())
+    .filter(e => e.includes('@') && e !== MAIL_CC.toLowerCase()))];
+  if (!emails.length) { say('Aucune adresse trouvée (table vide ou accès refusé par RLS).'); return; }
+
+  const dates = allResults.map(r => r.date).sort();
+	const fmtFR = d => d.split('-').reverse().join('/');
+	const periode = csvRange.min ? ` du ${fmtFR(csvRange.min)} au ${fmtFR(csvRange.max)}` : '';
+	const subject = `[Neuroplanning] Audit des box${periode}`;
+
+  const resume = document.getElementById('summaryText').value.trim();
+  const body = [
+    'Bonjour à tous,',
+    '',
+    `Voici le contrôle automatique des box de consultation${periode}.`,
+    '',
+    resume,
+    '',
+    "Ceci est encore un prototype et peut faire l'objet d'erreurs : merci de les remonter à RN pour qu'il m'améliore !",
+	'Le détail complet est en pièce jointe (CSV).',
+    '',
+    'Cordialement,',
+    "L'outil d'audit des box (NeuroPlanning)"
+  ].join('\n');
+
+  const enc = encodeURIComponent;
+  const build = b => `mailto:?${MAIL_DEST_FIELD}=${enc(emails.join(MAIL_SEP))}&cc=${enc(MAIL_CC)}&subject=${enc(subject)}&body=${enc(b)}`;
+
+  let url = build(body);
+  if (url.length > 1900) {   // certains clients tronquent les mailto trop longs
+    try { await navigator.clipboard.writeText(body); } catch {}
+    url = build('Message trop long pour être pré-rempli : il a été copié dans le presse-papiers, colle-le ici (Ctrl+V).');
+    say(`${emails.length} destinataires. Corps copié dans le presse-papiers : colle-le dans le mail.`);
+  } else {
+    say(`${emails.length} destinataires, ouverture du mail…`);
+  }
+  exportResultsCsv();
+  window.location.href = url;
+});
+	  
 document.getElementById('btnHelp').addEventListener('click', () => {
   const helpWindow = window.open('', '_blank');
   
@@ -993,6 +1060,14 @@ document.getElementById('btnHelp').addEventListener('click', () => {
 
   helpWindow.document.write(helpHtml);
   helpWindow.document.close();
+});
+
+window.addEventListener('load', async () => {
+  const ok = await requireLogin();
+  document.getElementById('btnAnalyse').disabled = !ok;
+  if (!ok) return;
+  const peutEnvoyer = currentUser.role === 'admin' || currentUser.permissions?.can_edit_planning;
+  document.getElementById('btnMailAll').style.display = peutEnvoyer ? '' : 'none';
 });
 	  
   </script>
