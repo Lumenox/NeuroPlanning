@@ -438,7 +438,8 @@ function updateFileName(name) {
         const dataPlanning = planningRes.data || [];
 		console.log('planning reçu:', dataPlanning.length);
         const dataNeuro = neuroRes.data || [];
-
+		const reposSet = new Set();   // `${date}_${INIT}` : lendemain de garde (journée entière)
+		const absSet   = new Set(); // `${date}_${INIT}` : congé déclaré
 		
 		dataPlanning.forEach(row => {
 		  const d = (row.date || '').trim();
@@ -483,7 +484,7 @@ function updateFileName(name) {
 		  return ressourceToInit[cleanText(ressourceStr)] || null;
 		}
 		// 2.5 Index des conflits potentiels
-		const reposSet = new Set();   // `${date}_${INIT}` : lendemain de garde (journée entière)
+
 		const absMap   = new Map();   // `${date}_${slot}_${INIT}` -> code (ex. "CF")
 		
 		dataPlanning.forEach(row => {
