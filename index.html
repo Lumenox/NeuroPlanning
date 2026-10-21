@@ -4607,7 +4607,7 @@ function openRotationsTool() {
     return;
   }
   // Ouverture dans un nouvel onglet/fenêtre
-  rotationsWindow = window.open('tools/rotations_usi_unv.html', 'rotations_tool');
+  rotationsWindow = window.open('tools/rotations_global.html', 'rotations_tool');   //rotations_usi_unv
 }
 
 // Écouteur de messages postMessage provenant de rotations_usi_unv.html
@@ -4634,7 +4634,8 @@ window.addEventListener('message', async (e) => {
       type: 'rotations:init',
       rows: rows,
       absences: absences,
-      medecins: medecins
+      medecins: medecins,
+	neurologues: listeMedecins
     }, location.origin);
   }
 
