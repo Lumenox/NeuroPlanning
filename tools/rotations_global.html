@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rotations de salle</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#1d2733;--mut:#667385;--line:#d9dee5;--acc:#1f6f78;--red:#c0392b;--amb:#b9770e;--grn:#2e7d4f}
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+h1{font-size:18px;margin:0 0 12px}h2{font-size:15px;margin:0 0 8px}h3{font-size:13px;margin:12px 0 6px}
+section{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin-bottom:12px}
+.row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+label{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:3px}
+input,select,button{font:inherit;color:inherit}
+input[type=number],input[type=text],select{border:1px solid var(--line);border-radius:4px;padding:4px 6px;background:#fff}
+input[type=number]{width:84px}
+button{border:1px solid var(--acc);background:var(--acc);color:#fff;border-radius:4px;padding:6px 12px;cursor:pointer}
+button.ghost{background:#fff;color:var(--acc)}button:disabled{opacity:.4;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{background:#e8eef2;border-radius:12px;padding:2px 4px 2px 10px;display:inline-flex;gap:4px;align-items:center}
+.chip button{all:unset;cursor:pointer;padding:0 6px;color:var(--mut)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;font-size:13px}
+th,td{border:1px solid var(--line);padding:3px 7px;text-align:center;white-space:nowrap}
+th{background:#eef1f4;font-weight:600}td.l{text-align:left}
+td.fixed{font-style:italic;outline:1px dashed var(--mut);outline-offset:-3px}
+.ok{color:var(--grn);font-weight:600}.bad{color:var(--red);font-weight:600}.amb{color:var(--amb);font-weight:600}
+.w{padding:3px 8px;margin:2px 0;border-left:3px solid;background:#fafbfc}
+.w.r{border-color:var(--red)}.w.o{border-color:var(--amb)}
+.note{background:#fff7e0;border:1px solid #e8d38a;border-radius:4px;padding:8px 10px;margin-bottom:12px}
+.banner .w{margin-bottom:6px;background:#fff}
+.mut{color:var(--mut)}#msg{min-height:18px;color:var(--red);font-size:12px}
+.pool{border-top:1px solid var(--line);margin-top:12px;padding-top:6px}.pool:first-child{border-top:0;margin-top:0}
+</style>
+</head>
+<body>
+<h1>Rotations de salle (optimisation globale)</h1>
+<div class="note">Les semaines déjà pourvues dans la sandbox ne sont jamais modifiées. Vérifie à la main les repos de garde non saisis et les consultations résiduelles avant de valider.</div>
+<div id="banner" class="banner"></div>
+<div id="src" class="mut" style="margin-bottom:10px"></div>
+
+<section>
+  <h2>Règles de rotation</h2>
+  <div class="row" id="p-general"></div>
+</section>
+
+<section>
+  <h2>Groupes de médecins et salles</h2>
+  <div id="pools-box"></div>
+  <datalist id="dl"></datalist>
+  <div id="msg"></div>
+</section>
+
+<section>
+  <h2>Quotas et historique</h2>
+  <div class="mut" style="margin-bottom:6px">« Déjà fait » : semaines en salle avant le début de la sandbox. « Juste avant » : nombre de semaines consécutives en salle qui précèdent la sandbox (0 à 3), pour respecter le repos à la frontière.</div>
+  <div class="scroll" id="quotas"></div>
+</section>
+
+<section>
+  <h2>Récurrences</h2>
+  <div class="mut" style="margin-bottom:6px">BOX : présent en box à ce créneau, jamais posté en salle (hors seuil de disponibilité). Salle : couvre le médecin en BOX, dans la même salle.</div>
+  <div class="scroll" id="rules"></div>
+</section>
+
+<section>
+  <div class="row">
+    <button id="b-run">Optimiser</button>
+    <button id="b-stop" class="ghost" disabled>Annuler</button>
+    <button id="b-send" disabled>Envoyer vers la sandbox</button>
+    <span id="status" class="mut"></span>
+  </div>
+</section>
+<div id="out"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+//  0. UTILITAIRES
+// ═══════════════════════════════════════════════════════════════════════════════
+const $=s=>document.querySelector(s);
+const norm=s=>s==null?'':String(s).trim().toUpperCase();
+const JOURS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];
+const CRENEAUX=JOURS.flatMap(j=>[j+'_matin',j+'_aprem']);
+const BOX_COLS=['BOX1','BOX2','BOX3','BOX4','BOX5','BOX6','BOX7','BOX8','BOX9'];
+// Toutes les colonnes de poste du planning (sert à mesurer l'occupation d'un médecin)
+const POST=['C_Periph','C_Cogn','C_sup','C_int1','C_int2','HDJ1','HDJ2','HDJ3','HDJ_int1','HDJ_int2',
+  'UNV1','UNV2','UNV_int1','UNV_int2','USI1','USI2','USI_int1','USI_int2',
+  'BIPv','BIPng','BIP_int','SAU','Garde','Garde_int','Astr','Astr_int',...BOX_COLS];
+const SEUIL_FIXE=6;   // cellules dans les colonnes d'une salle sur une semaine => le médecin y est déjà posté
+const PRE=3;          // semaines précédant la sandbox prises en compte pour le repos
+const HIGHS_BASES=['vendor/','https://cdn.jsdelivr.net/npm/highs@1.15.4/build/']; // essayés dans l'ordre
+
+const parse=d=>{const [y,m,j]=d.split('-').map(Number);return new Date(y,m-1,j);};
+const fmt=t=>`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+const wd=d=>(parse(d).getDay()+6)%7;
+const monday=d=>{const t=parse(d);t.setDate(t.getDate()-wd(d));return fmt(t);};
+const nextDay=d=>{const t=parse(d);t.setDate(t.getDate()+1);return fmt(t);};
+const cat=c=>/^(USI|UNV)/.test(c)?'USI/UNV':/^C_/.test(c)?'C':/^HDJ/.test(c)?'HDJ':/^(BIP|SAU)/.test(c)?'BIP':/^BOX/.test(c)?'BOX':/^(Garde|Astr)/.test(c)?'Garde':'autre';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  1. CONFIGURATION (valeurs par défaut — à modifier ici si besoin)
+// ═══════════════════════════════════════════════════════════════════════════════
+// Un « groupe » = des médecins + des salles. Chaque groupe est optimisé séparément avec le même moteur.
+// Pour ajouter C_Periph / C_Cogn / HDJ plus tard : ajouter un groupe dans `pools`, rien d'autre.
+//   salles[].cols : colonnes du planning ; min/max : postes à pourvoir par semaine
+//   salles[].pen  : pénalité par semaine si la spécialité du médecin n'est pas souhaitée dans cette salle
+//   pen (groupe)  : idem au niveau du groupe (spécialité -> pénalité)
+const DEFAULTS={
+  repos:2,                  // repos minimal entre deux passages (semaines)
+  passageMin:2,             // 2 = pas de passage isolé d'une seule semaine ; 1 = aucun minimum
+  passageMax:3,             // durée de passage souhaitée (semaines)
+  passageCap:4,             // plafond absolu
+  penaliteDepassement:0.3,  // coût par fenêtre dépassant passageMax
+  seuil:90,                 // % minimal de créneaux libres dans la semaine pour être éligible
+  tempsMax:30,              // secondes
+  pools:[{
+    id:'VASC',label:'USI / UNV',
+    salles:[
+      {id:'USI',cols:['USI1','USI2'],min:2,max:2,color:'#f6c6dd',pen:{}},
+      {id:'UNV',cols:['UNV1','UNV2'],min:1,max:2,color:'#f3e2ad',pen:{}}
+    ],
+    membres:['AYW','AND','NB','HL','FF','AT','BL','IP'],
+    remplacants:['AYW','AND','NB','HL','FF','AT'],
+    pen:{}
+  }],
+  quotas:{BL:0.5,IP:0.5},
+  avant:{},
+  fin:{},
+  rules:{Mardi_matin:{FF:'BOX',AT:'Salle'}}
+};
+const LS='rotations_v2_params';
+const SCALAR=['repos','passageMin','passageMax','passageCap','penaliteDepassement','seuil','tempsMax','quotas','avant','fin','rules'];
+function loadP(){
+  const P=structuredClone(DEFAULTS);
+  try{
+    const s=JSON.parse(localStorage.getItem(LS)||'null');
+    if(s){
+      SCALAR.forEach(k=>{if(s[k]!==undefined)P[k]=s[k];});
+      P.pools.forEach(p=>{const q=s.pools&&s.pools[p.id];if(!q)return;
+        if(q.membres)p.membres=q.membres;if(q.remplacants)p.remplacants=q.remplacants;
+        if(q.salles)p.salles.forEach(r=>{const z=q.salles[r.id];if(z){if(z.min!=null)r.min=z.min;if(z.max!=null)r.max=z.max;}});});
+    }
+  }catch(e){}
+  return P;
+}
+function saveP(){
+  try{
+    const s={};SCALAR.forEach(k=>s[k]=P[k]);s.pools={};
+    P.pools.forEach(p=>{s.pools[p.id]={membres:p.membres,remplacants:p.remplacants,salles:Object.fromEntries(p.salles.map(r=>[r.id,{min:r.min,max:r.max}]))};});
+    localStorage.setItem(LS,JSON.stringify(s));
+  }catch(e){}
+}
+let P=loadP();
+let D={rows:[],absences:[],cols:[],medecins:[],spec:{}};
+let C=null,RES=null,running=false,lastSent=new Map();
+const q=m=>Number(P.quotas[m]??1);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  2. PRÉPARATION DES DONNÉES (semaines, occupation, semaines déjà pourvues)
+// ═══════════════════════════════════════════════════════════════════════════════
+function prepare(){
+  const W0=[];
+  const slots=D.rows.filter(r=>r.date&&wd(r.date)<5)
+    .sort((a,b)=>(a.date+a.heure).localeCompare(b.date+b.heure))
+    .map(r=>({r,key:r.date+'_'+r.heure,cr:JOURS[wd(r.date)]+(r.heure==='09:00:00'?'_matin':'_aprem')}));
+  if(!slots.length)return{err:'Aucune ligne de planning reçue : ouvre ce générateur depuis l\'onglet sandbox de Neuroplanning.'};
+  const absent=new Map();
+  D.absences.forEach(a=>D.cols.forEach(c=>{if(a[c]&&String(a[c]).trim()){const k=a.date+'_'+a.heure;if(!absent.has(k))absent.set(k,new Set());absent.get(k).add(norm(c));}}));
+  const repos=new Map();
+  D.rows.forEach(r=>{const g=norm(r.Garde);if(!g)return;const k=nextDay(r.date)+'_'+r.heure;if(!repos.has(k))repos.set(k,new Set());repos.get(k).add(g);});
+  const wk=new Map();slots.forEach((s,i)=>{const m=monday(s.r.date);if(!wk.has(m))wk.set(m,[]);wk.get(m).push(i);});
+  const weeks=[...wk.entries()].map(([mon,ix])=>({mon,ix}));
+  // couverture des absences
+  const first=slots[0].r.date,last=slots[slots.length-1].r.date;
+  const ad=D.absences.map(a=>a.date).filter(Boolean).sort();
+  if(!ad.length)W0.push({l:'r',m:'Aucune ligne d\'absences reçue : tous les médecins seront considérés disponibles.'});
+  else if(ad[ad.length-1]<last||ad[0]>first)W0.push({l:'r',m:`Les absences reçues couvrent du ${ad[0]} au ${ad[ad.length-1]}, mais la sandbox va du ${first} au ${last} : les congés hors de cette plage sont ignorés. Dans l'index, envoie absencesData (et non currentFilteredAbs).`});
+  const Cx={slots,absent,repos,weeks,W0,spec:D.spec,cache:{},fixed:{},others:{}};
+  // semaines déjà pourvues, par groupe
+  P.pools.forEach(p=>{
+    Cx.fixed[p.id]=weeks.map(()=>({}));Cx.others[p.id]=weeks.map(()=>({}));
+    const colRoom={};p.salles.forEach(r=>r.cols.forEach(c=>colRoom[c]=r.id));
+    const cols=Object.keys(colRoom);
+    weeks.forEach((w,wi)=>{
+      const cnt={};
+      w.ix.forEach(i=>cols.forEach(c=>{const v=norm(slots[i].r[c]);if(!v)return;const o=(cnt[v]??={});o[colRoom[c]]=(o[colRoom[c]]||0)+1;}));
+      Object.entries(cnt).forEach(([v,byRoom])=>{
+        const tot=Object.values(byRoom).reduce((a,b)=>a+b,0);if(tot<SEUIL_FIXE)return;
+        const room=Object.entries(byRoom).sort((a,b)=>b[1]-a[1])[0][0];
+        if(p.membres.includes(v))Cx.fixed[p.id][wi][v]=room;
+        else Cx.others[p.id][wi][room]=(Cx.others[p.id][wi][room]||0)+1;
+      });
+    });
+  });
+  return{ctx:Cx};
+}
+// part de créneaux libres d'un médecin sur une semaine (BOX récurrents exclus, absences et postes comptés)
+function freeOf(m,wi){
+  const k=m+'|'+wi;if(C.cache[k]!==undefined)return C.cache[k];
+  const w=C.weeks[wi];let occ=0;
+  w.ix.forEach(i=>{const s=C.slots[i];let o=false; // un créneau n'est compté qu'une fois (absent ET posté = 1)
+    POST.forEach(c=>{if(norm(s.r[c])===m){if(BOX_COLS.includes(c)&&P.rules[s.cr]?.[m]==='BOX')return;o=true;}});
+    if(C.absent.get(s.key)?.has(m))o=true;
+    if(o)occ++;});
+  return C.cache[k]=(w.ix.length-occ)/w.ix.length;
+}
+function wkInfo(m,wi){
+  const cats={};let abs=0;
+  C.weeks[wi].ix.forEach(i=>{const s=C.slots[i];
+    POST.forEach(c=>{if(norm(s.r[c])===m){if(BOX_COLS.includes(c)&&P.rules[s.cr]?.[m]==='BOX')return;const k=cat(c);cats[k]=(cats[k]||0)+1;}});
+    if(C.absent.get(s.key)?.has(m))abs++;});
+  return{pct:freeOf(m,wi),cats,abs};
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  3. MODÈLE LINÉAIRE EN NOMBRES ENTIERS + EXPORT AU FORMAT LP (lu par HiGHS)
+// ═══════════════════════════════════════════════════════════════════════════════
+class Model{
+  constructor(){this.lb=[];this.ub=[];this.int=[];this.c=[];this.rows=[];}
+  v(lb,ub,integer,cost){this.lb.push(lb);this.ub.push(ub);this.int.push(!!integer);this.c.push(cost||0);return this.lb.length-1;}
+  fixedVar(k){return this.lb[k]===this.ub[k];}
+  con(co,lo,hi){if(Object.keys(co).length)this.rows.push({co,lo,hi});}
+  // contrainte de règle : sans variable libre => ignorée ; avec variable figée => assouplie (coût) pour ne jamais rendre le modèle infaisable
+  rule(co,hi,cost){
+    const ks=Object.keys(co).map(Number),nf=ks.filter(k=>this.fixedVar(k)).length;
+    if(nf===ks.length)return;
+    if(nf>0){const s=this.v(0,50,false,cost);co=Object.assign({},co,{[s]:-1});}
+    this.con(co,-Infinity,hi);
+  }
+  toLP(){
+    const num=a=>String(Number(Math.abs(a).toPrecision(10)));
+    const expr=co=>{const p=[];Object.entries(co).forEach(([k,a],i)=>{p.push((a<0?'-':'+')+' '+num(a)+' x'+k);if(i%8===7)p.push('\n  ');});return p.join(' ');};
+    const obj={};this.c.forEach((a,k)=>{if(a!==0)obj[k]=a;});
+    const o=['Minimize',' obj: '+(Object.keys(obj).length?expr(obj):'0 x0'),'Subject To'];
+    this.rows.forEach((r,i)=>{
+      const e=expr(r.co);
+      if(r.lo===r.hi)o.push(` r${i}: ${e} = ${num(r.lo)}${r.lo<0?'':''}`.replace(/= (\d)/,'= $1'));
+      else{if(r.lo>-Infinity)o.push(` r${i}a: ${e} >= ${(r.lo<0?'-':'')+num(r.lo)}`);if(r.hi<Infinity)o.push(` r${i}b: ${e} <= ${(r.hi<0?'-':'')+num(r.hi)}`);}
+    });
+    o.push('Bounds');
+    this.lb.forEach((l,k)=>o.push(` ${l<0?'-':''}${num(l)} <= x${k} <= ${this.ub[k]<0?'-':''}${num(this.ub[k])}`));
+    const g=[];this.int.forEach((t,k)=>{if(t)g.push(' x'+k);});
+    if(g.length){o.push('General');o.push(...g);}
+    o.push('End');return o.join('\n');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  4. SOLVEUR (HiGHS en WebAssembly, dans un Worker pour ne pas figer la page)
+// ═══════════════════════════════════════════════════════════════════════════════
+const WORKER_SRC=[
+ "let highs=null;",
+ "self.onmessage=async(e)=>{const {id,bases,lp,options}=e.data;",
+ " try{",
+ "  if(!highs){const errs=[];",
+ "   for(const b of bases){try{importScripts(b+'highs.js');highs=await Module({locateFile:f=>b+f});break;}catch(x){errs.push(b+' : '+(x&&x.message||x));highs=null;}}",
+ "   if(!highs)throw new Error('HiGHS introuvable. '+errs.join(' | '));}",
+ "  if(lp==null){postMessage({id,ok:true});return;}",
+ "  const sol=highs.solve(lp,options);postMessage({id,ok:true,sol});",
+ " }catch(err){postMessage({id,ok:false,error:String(err&&err.message||err)});}",
+ "};"
+].join('\n');
+let worker=null,seq=0;const pending=new Map();
+function getWorker(){
+  if(worker)return worker;
+  worker=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:'text/javascript'})));
+  worker.onmessage=e=>{const p=pending.get(e.data.id);if(!p)return;pending.delete(e.data.id);e.data.ok?p.res(e.data):p.rej(new Error(e.data.error));};
+  worker.onerror=e=>{pending.forEach(p=>p.rej(new Error('Erreur du calcul : '+(e.message||'worker'))));pending.clear();};
+  return worker;
+}
+function solveLP(lp,options){
+  return new Promise((res,rej)=>{
+    const id=++seq;pending.set(id,{res,rej});
+    getWorker().postMessage({id,bases:HIGHS_BASES.map(b=>new URL(b,location.href).href),lp,options});
+  });
+}
+function cancelSolve(){
+  if(worker){worker.terminate();worker=null;}
+  pending.forEach(p=>p.rej(new Error('Calcul annulé.')));pending.clear();
+}
+const val=(sol,k)=>{const c=sol.Columns&&sol.Columns['x'+k];return c?c.Primal:0;};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  5. ÉTAPE 1 — QUI EST EN SALLE, SEMAINE PAR SEMAINE (un modèle par groupe)
+// ═══════════════════════════════════════════════════════════════════════════════
+function buildStage1(pool,busy){
+  const M=new Model(),Wn=C.weeks.length,X=new Map(),key=(m,w)=>m+'|'+w;
+  const seat=C.weeks.map(()=>[]);const lam=0.05;
+  const specPen=m=>pool.pen?.[C.spec[m]]||0;
+  pool.membres.forEach(m=>{
+    for(let w=-PRE;w<0;w++)if((P.fin[m]||0)>=-w)X.set(key(m,w),M.v(1,1,true,0));      // passage en cours avant la sandbox
+    for(let w=0;w<Wn;w++){
+      const fx=C.fixed[pool.id][w][m],bz=busy[m]&&busy[m][w];
+      if(bz)X.set(key(m,w),M.v(1,1,true,0));                                          // déjà en salle dans un autre groupe
+      else if(fx){const k=M.v(1,1,true,0);X.set(key(m,w),k);seat[w].push(k);}         // déjà posté dans la sandbox
+      else if(q(m)>0&&freeOf(m,w)>=P.seuil/100-1e-9){const k=M.v(0,1,true,specPen(m)-lam);X.set(key(m,w),k);seat[w].push(k);}
+    }
+  });
+  const T=(co,m,w,a)=>{const k=X.get(key(m,w));if(k!==undefined)co[k]=(co[k]||0)+a;};
+  // postes de chaque semaine : min..max (moins les places prises par des personnes hors groupe)
+  const U=[];
+  for(let w=0;w<Wn;w++){
+    let mn=0,mx=0;pool.salles.forEach(r=>{const o=C.others[pool.id][w][r.id]||0;mn+=Math.max(0,r.min-o);mx+=Math.max(0,r.max-o);});
+    const nfix=seat[w].filter(k=>M.fixedVar(k)).length;mx=Math.max(mx,nfix);
+    const co={};seat[w].forEach(k=>co[k]=1);
+    M.con(Object.assign({},co),-Infinity,mx);
+    if(mn>0){const u=M.v(0,mn,false,100);U[w]=u;co[u]=1;M.con(co,mn,Infinity);}
+  }
+  pool.membres.forEach(m=>{
+    const cap=P.passageCap,mx=P.passageMax;
+    // plafond absolu
+    for(let w=-PRE;w+cap<Wn;w++){const co={};for(let k=0;k<=cap;k++)T(co,m,w+k,1);M.rule(co,cap,30);}
+    // dépassement du maximum souhaité : pénalité
+    if(mx<cap)for(let w=-PRE;w+mx<Wn;w++){const co={};for(let k=0;k<=mx;k++)T(co,m,w+k,1);
+      if(Object.keys(co).length>mx){const z=M.v(0,1,false,P.penaliteDepassement);co[z]=-1;M.rule(co,mx,30);}}
+    // pas de passage isolé
+    if(P.passageMin>=2)for(let w=0;w<Wn-1;w++){const co={};T(co,m,w,1);if(!Object.keys(co).length)continue;T(co,m,w-1,-1);T(co,m,w+1,-1);M.rule(co,0,10);}
+    // repos minimal : en salle en w, pas en w+1  =>  pas en salle avant w+repos
+    for(let w=-PRE;w<Wn-2;w++)for(let k=2;k<=P.repos;k++)if(w+k<Wn){const co={};T(co,m,w,1);T(co,m,w+1,-1);T(co,m,w+k,1);M.rule(co,1,30);}
+  });
+  // équité : semaines / quota, écart max-min minimal
+  const eq=pool.membres.filter(m=>q(m)>0&&[...Array(Wn).keys()].some(w=>X.has(key(m,w))));
+  if(eq.length>=2){
+    const tmax=M.v(0,1e4,false,1),tmin=M.v(0,1e4,false,-1);
+    eq.forEach(m=>{const co={};for(let w=0;w<Wn;w++)T(co,m,w,1/q(m));const h=(P.avant[m]||0)/q(m);
+      M.con(Object.assign({},co,{[tmax]:-1}),-Infinity,-h);
+      const c2={};Object.keys(co).forEach(k=>c2[k]=-co[k]);c2[tmin]=1;M.con(c2,-Infinity,h);});
+  }
+  return{M,X,U,key};
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  6. ÉTAPE 2 — QUI VA DANS QUELLE SALLE (petit modèle, passages cohérents, équité par salle)
+// ═══════════════════════════════════════════════════════════════════════════════
+function buildStage2(pool,present){
+  const M=new Model(),Wn=C.weeks.length,S=new Map(),rooms=pool.salles,SHORT=[100,60,40];
+  const sk=(m,r,w)=>m+'|'+r+'|'+w,mem=new Set();
+  for(let w=0;w<Wn;w++){
+    present[w].forEach(m=>{
+      mem.add(m);const fr=C.fixed[pool.id][w][m],co={};
+      rooms.forEach(r=>{const lb=fr?(fr===r.id?1:0):0,ub=fr?lb:1,k=M.v(lb,ub,true,r.pen?.[C.spec[m]]||0);S.set(sk(m,r.id,w),k);co[k]=1;});
+      M.con(co,1,1);
+    });
+    rooms.forEach((r,ri)=>{
+      const vars=present[w].map(m=>S.get(sk(m,r.id,w)));if(!vars.length)return;
+      const o=C.others[pool.id][w][r.id]||0,mx=Math.max(0,r.max-o),mn=Math.max(0,r.min-o);
+      const over=M.v(0,10,false,1000),c1={};vars.forEach(k=>c1[k]=1);c1[over]=-1;M.con(c1,-Infinity,mx);
+      if(mn>0){const sh=M.v(0,mn,false,SHORT[ri]??30),c2={};vars.forEach(k=>c2[k]=1);c2[sh]=1;M.con(c2,mn,Infinity);}
+    });
+  }
+  // rester dans la même salle pendant un passage
+  for(let w=0;w<Wn-1;w++)present[w].forEach(m=>{if(!present[w+1].includes(m))return;
+    rooms.forEach(r=>{const a=S.get(sk(m,r.id,w)),b=S.get(sk(m,r.id,w+1));if(M.fixedVar(a)&&M.fixedVar(b))return;const sw=M.v(0,1,false,0.5);M.con({[a]:1,[b]:-1,[sw]:-1},-Infinity,0);});});
+  // équité par salle (semaines dans la salle / quota)
+  if(rooms.length>1)rooms.forEach(r=>{
+    const ms=[...mem].filter(m=>q(m)>0);if(ms.length<2)return;
+    const tmax=M.v(0,1e4,false,0.5),tmin=M.v(0,1e4,false,-0.5);
+    ms.forEach(m=>{const co={};for(let w=0;w<Wn;w++)if(present[w].includes(m))co[S.get(sk(m,r.id,w))]=1/q(m);
+      M.con(Object.assign({},co,{[tmax]:-1}),-Infinity,0);const c2={};Object.keys(co).forEach(k=>c2[k]=-co[k]);c2[tmin]=1;M.con(c2,-Infinity,0);});
+  });
+  return{M,S,sk};
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  7. ORCHESTRATION
+// ═══════════════════════════════════════════════════════════════════════════════
+function bestCol(w,m,cols){
+  let best=null,bn=0;cols.forEach(c=>{let n=0;C.weeks[w].ix.forEach(i=>{if(norm(C.slots[i].r[c])===m)n++;});if(n>bn){bn=n;best=c;}});return best;
+}
+async function optimize(){
+  if(running)return;
+  if(!D.rows.length){RES={W:[{l:'r',m:'Aucune donnée reçue : ouvre ce générateur depuis l\'onglet sandbox de Neuroplanning.'}]};renderResult();return;}
+  const prep=prepare();if(prep.err){RES={W:[{l:'r',m:prep.err}]};renderResult();return;}
+  C=prep.ctx;const Wn=C.weeks.length;
+  running=true;$('#b-run').disabled=true;$('#b-stop').disabled=false;$('#b-send').disabled=true;
+  const t0=Date.now(),tick=setInterval(()=>{$('#status').dataset.t=Math.round((Date.now()-t0)/1000);$('#status').textContent=$('#status').dataset.msg+' ('+$('#status').dataset.t+' s)';},500);
+  const say=m=>{$('#status').dataset.msg=m;$('#status').textContent=m;};
+  const W=[...C.W0],busy={};
+  const planSeats=C.weeks.map(()=>({seats:{},fixedCols:new Set()}));
+  try{
+    for(const pool of P.pools){
+      say(`${pool.label} — étape 1/2 : qui est en salle chaque semaine`);
+      const b1=buildStage1(pool,busy);
+      const s1=await solveLP(b1.M.toLP(),{output_flag:false,time_limit:P.tempsMax,mip_rel_gap:0.005});
+      const st=s1.sol.Status;
+      if(/infeasible/i.test(st))throw new Error(`${pool.label} : modèle infaisable (${st}). Vérifie les semaines déjà pourvues et les règles.`);
+      if(/time limit/i.test(st))W.push({l:'o',m:`${pool.label} : limite de temps atteinte (${P.tempsMax} s) — meilleure solution trouvée, optimalité non prouvée. Augmente le temps de calcul pour tenter d'améliorer.`});
+      const present=C.weeks.map(()=>[]);
+      for(let w=0;w<Wn;w++)pool.membres.forEach(m=>{const k=b1.X.get(b1.key(m,w));
+        if(k!==undefined&&!(busy[m]&&busy[m][w])&&val(s1.sol,k)>0.5)present[w].push(m);});
+      for(let w=0;w<Wn;w++)if(b1.U[w]!==undefined){const u=Math.round(val(s1.sol,b1.U[w]));
+        if(u>0)W.push({l:'r',m:`${pool.label} · semaine du ${C.weeks[w].mon} : ${u} poste(s) sans médecin disponible.`});}
+      say(`${pool.label} — étape 2/2 : attribution aux salles`);
+      const b2=buildStage2(pool,present);
+      const s2=await solveLP(b2.M.toLP(),{output_flag:false,time_limit:Math.min(20,P.tempsMax),mip_rel_gap:0.005});
+      if(/infeasible/i.test(s2.sol.Status))throw new Error(`${pool.label} : attribution aux salles infaisable (${s2.sol.Status}).`);
+      for(let w=0;w<Wn;w++){
+        const byRoom={};pool.salles.forEach(r=>byRoom[r.id]=[]);
+        present[w].forEach(m=>{const r=pool.salles.find(r=>val(s2.sol,b2.S.get(b2.sk(m,r.id,w)))>0.5)||pool.salles[0];byRoom[r.id].push(m);});
+        pool.salles.forEach(r=>{
+          const free=[...r.cols],rest=[];
+          byRoom[r.id].forEach(m=>{
+            if(C.fixed[pool.id][w][m]){const c=bestCol(w,m,r.cols);
+              if(c&&free.includes(c)){planSeats[w].seats[c]=m;planSeats[w].fixedCols.add(c);free.splice(free.indexOf(c),1);return;}
+              rest.push([m,true]);}else rest.push([m,false]);});
+          rest.forEach(([m,fx])=>{const c=free.shift();
+            if(!c){W.push({l:'r',m:`${pool.label} · semaine du ${C.weeks[w].mon} : plus de place en ${r.id} pour ${m}.`});return;}
+            planSeats[w].seats[c]=m;if(fx)planSeats[w].fixedCols.add(c);});
+        });
+        present[w].forEach(m=>{(busy[m]??={})[w]=1;});
+      }
+      pool.membres.forEach(m=>{for(let w=0;w<Wn;w++)if(C.fixed[pool.id][w][m])(busy[m]??={})[w]=1;});
+    }
+    RES={W0:W,ctx:C,plan:C.weeks.map((w,wi)=>({mon:w.mon,ix:w.ix,seats:planSeats[wi].seats,fixedCols:planSeats[wi].fixedCols})),solveSec:Math.round((Date.now()-t0)/1000)};
+    finalize();
+    say(`Terminé en ${RES.solveSec} s.`);
+  }catch(err){
+    RES={W:[{l:'r',m:err.message}]};say('');
+  }finally{
+    clearInterval(tick);running=false;$('#b-run').disabled=false;$('#b-stop').disabled=true;
+  }
+  renderResult();updateSend();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  8. INJECTION DANS LES CRÉNEAUX (absences, repos de garde, BOX) + CONTRÔLES + BILAN
+// ═══════════════════════════════════════════════════════════════════════════════
+const colInfo=()=>{const m={};P.pools.forEach(p=>p.salles.forEach(r=>r.cols.forEach(c=>m[c]={pool:p,room:r})));return m;};
+function inject(){
+  const {slots,absent,repos}=C,W=[],edits={},CI=colInfo();
+  const ov=(i,c)=>edits[i]?.[c]??slots[i].r[c];
+  const posted=(i,m)=>POST.some(c=>norm(ov(i,c))===m);
+  const free=(i,m)=>!absent.get(slots[i].key)?.has(m)&&!repos.get(slots[i].key)?.has(m)&&!posted(i,m);
+  const put=(i,room,m,pref)=>{const c=[pref,...room.cols].find(x=>x&&norm(ov(i,x))==='');if(!c)return false;(edits[i]??={})[c]=m;return true;};
+  const tot={};RES.plan.forEach(w=>Object.values(w.seats).forEach(m=>{if(m)tot[m]=(tot[m]||0)+1;}));
+  const load=m=>((tot[m]||0)+(P.avant[m]||0))/(q(m)||Infinity);
+  RES.plan.forEach((w,wi)=>{
+    const inWeek=new Set(Object.values(w.seats).filter(Boolean));
+    w.ix.forEach(i=>{const s0=slots[i],k=s0.key,lbl=`${w.mon} · ${s0.cr.replace('_',' ')}`;
+      Object.entries(w.seats).forEach(([col,m])=>{
+        if(!m||w.fixedCols.has(col))return;
+        const ci=CI[col];if(!ci)return;const room=ci.room,pool=ci.pool;
+        if(room.cols.some(c=>norm(ov(i,c))===m))return;
+        if(absent.get(k)?.has(m)){W.push({l:'r',m:`${lbl} · ${room.id} : ${m} absent, case laissée vide.`});return;}
+        if(repos.get(k)?.has(m)){
+          const rep=pool.remplacants.filter(v=>!inWeek.has(v)&&free(i,v)&&q(v)>0).sort((a,b)=>load(a)-load(b))[0];
+          if(rep&&put(i,room,rep,col))W.push({l:'o',m:`${lbl} · ${room.id} : ${m} en repos de garde, remplaçant proposé ${rep}.`});
+          else W.push({l:'r',m:`${lbl} · ${room.id} : ${m} en repos de garde, aucun remplaçant disponible.`});return;}
+        if(P.rules[s0.cr]?.[m]==='BOX'){
+          const cov=Object.keys(P.rules[s0.cr]).filter(x=>P.rules[s0.cr][x]==='Salle'&&free(i,x))[0];
+          if(!(cov&&put(i,room,cov,col)))W.push({l:'r',m:`${lbl} · ${room.id} : BOX de ${m} non couvert.`});return;}
+        if(!put(i,room,m,col))W.push({l:'r',m:`${lbl} · ${room.id} : plus de place pour ${m} (cases déjà remplies).`});
+      });});});
+  const list=[];
+  Object.entries(edits).forEach(([i,o])=>Object.entries(o).forEach(([col,value])=>{const r=slots[i].r;list.push({id:r.id,date:r.date,heure:r.heure,col,value});}));
+  return{W,edits:list};
+}
+// passages, repos, postes : contrôle de la grille (y compris après modifications manuelles)
+function checkRules(pool){
+  const W=[],Wn=C.weeks.length,pres={};
+  pool.membres.forEach(m=>pres[m]=Array(Wn).fill(0));
+  const cols=new Set(pool.salles.flatMap(r=>r.cols));
+  RES.plan.forEach((w,wi)=>Object.entries(w.seats).forEach(([c,m])=>{if(m&&cols.has(c)&&pres[m])pres[m][wi]=1;}));
+  Object.entries(pres).forEach(([m,a])=>{
+    const runs=[];let i=0;while(i<Wn){if(a[i]){let j=i;while(j<Wn&&a[j])j++;runs.push([i,j-1]);i=j;}else i++;}
+    runs.forEach(([s,e],ri)=>{const n=e-s+1,lbl=`${m} · ${C.weeks[s].mon} → ${C.weeks[e].mon}`;
+      if(n>P.passageCap)W.push({l:'r',m:`${lbl} : passage de ${n} semaines (plafond ${P.passageCap}).`});
+      else if(n>P.passageMax)W.push({l:'o',m:`${lbl} : passage de ${n} semaines (souhaité ${P.passageMax}).`});
+      if(P.passageMin>=2&&n<2&&s>0&&e<Wn-1)W.push({l:'o',m:`${lbl} : passage isolé d'une semaine.`});
+      if(ri>0){const rest=s-runs[ri-1][1]-1;if(rest<P.repos)W.push({l:'r',m:`${m} · repos de ${rest} semaine(s) avant le ${C.weeks[s].mon} (minimum ${P.repos}).`});}});
+  });
+  return W;
+}
+function finalize(){
+  const inj=inject();
+  RES.edits=inj.edits;RES.W=[...RES.W0,...inj.W];
+  RES.bilan={};
+  P.pools.forEach(pool=>{
+    RES.W.push(...checkRules(pool));
+    const cnt={};pool.membres.forEach(m=>{cnt[m]={};pool.salles.forEach(r=>cnt[m][r.id]=0);});
+    RES.plan.forEach(w=>Object.entries(w.seats).forEach(([c,m])=>{const ci=colInfo()[c];if(m&&ci&&ci.pool===pool&&cnt[m])cnt[m][ci.room.id]++;}));
+    RES.plan.forEach((w,wi)=>{pool.salles.forEach(r=>{const n=r.cols.filter(c=>w.seats[c]).length;
+      if(n<r.min)RES.W.push({l:'r',m:`${pool.label} · semaine du ${w.mon} : ${r.id} ${n}/${r.min} poste(s) pourvu(s).`});});});
+    const rows=pool.membres.map(m=>{const tot=Object.values(cnt[m]).reduce((a,b)=>a+b,0)+(P.avant[m]||0);return{m,by:cnt[m],avant:P.avant[m]||0,tot,q:q(m),r:q(m)>0?tot/q(m):null};});
+    const rs=rows.filter(b=>b.r!=null&&b.tot>0).map(b=>b.r),mean=rs.reduce((a,b)=>a+b,0)/(rs.length||1);
+    RES.bilan[pool.id]={rows,mean,sd:Math.sqrt(rs.reduce((a,b)=>a+(b-mean)**2,0)/(rs.length||1))};
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  9. INTERFACE
+// ═══════════════════════════════════════════════════════════════════════════════
+const GENERAL=[['repos','Repos minimal entre deux passages (sem.)',0,6,1],['passageMax','Durée de passage souhaitée (sem.)',1,8,1],
+  ['passageCap','Plafond absolu (sem.)',1,8,1],['penaliteDepassement','Pénalité au-delà du souhaité',0,5,0.1],
+  ['seuil','Disponibilité minimale par semaine (%)',50,100,5],['tempsMax','Temps de calcul maximum (s)',5,600,5]];
+function chips(el,pool,key,after){
+  el.innerHTML='';
+  pool[key].forEach(m=>{const s=document.createElement('span');s.className='chip';s.textContent=m;
+    const b=document.createElement('button');b.textContent='×';b.setAttribute('aria-label','Retirer '+m);
+    b.onclick=()=>{pool[key]=pool[key].filter(x=>x!==m);saveP();chips(el,pool,key,after);after&&after();};s.append(b);el.append(s);});
+  const i=document.createElement('input');i.type='text';i.setAttribute('list','dl');i.placeholder='Ajouter…';i.size=8;
+  i.onkeydown=e=>{if(e.key!=='Enter')return;const v=norm(i.value);if(!v)return;
+    if(D.medecins.length&&!D.medecins.includes(v)){$('#msg').textContent=`« ${v} » ne figure pas dans la liste des neurologues.`;return;}
+    $('#msg').textContent='';if(!pool[key].includes(v))pool[key].push(v);saveP();chips(el,pool,key,after);after&&after();};
+  el.append(i);
+}
+const allMembers=()=>[...new Set(P.pools.flatMap(p=>p.membres))];
+function renderQuotas(){
+  const ms=allMembers();
+  $('#quotas').innerHTML='<table><tr><th>Médecin</th><th>Spécialité</th><th>Quota</th><th>Déjà fait</th><th>Juste avant</th></tr>'+
+    ms.map(m=>`<tr><td class="l">${m}</td><td class="mut">${D.spec[m]||'–'}</td>
+      <td><input type="number" step="0.25" min="0" data-k="quotas" data-m="${m}" value="${q(m)}"></td>
+      <td><input type="number" step="1" min="0" data-k="avant" data-m="${m}" value="${P.avant[m]||0}"></td>
+      <td><input type="number" step="1" min="0" max="3" data-k="fin" data-m="${m}" value="${P.fin[m]||0}"></td></tr>`).join('')+'</table>';
+  $('#quotas').querySelectorAll('input').forEach(e=>e.onchange=()=>{P[e.dataset.k][e.dataset.m]=Number(e.value);saveP();});
+  const t=['<table><tr><th></th>'+ms.map(m=>`<th>${m}</th>`).join('')+'</tr>'];
+  CRENEAUX.forEach(cr=>t.push(`<tr><td class="l">${cr}</td>`+ms.map(m=>{const v=P.rules[cr]?.[m]||'';
+    return `<td><select data-cr="${cr}" data-m="${m}"><option value=""></option><option${v==='BOX'?' selected':''}>BOX</option><option${v==='Salle'?' selected':''}>Salle</option></select></td>`;}).join('')+'</tr>'));
+  $('#rules').innerHTML=t.join('')+'</table>';
+  $('#rules').querySelectorAll('[data-cr]').forEach(e=>e.onchange=()=>{const o=P.rules[e.dataset.cr]??={};if(e.value)o[e.dataset.m]=e.value;else delete o[e.dataset.m];saveP();});
+}
+function renderParams(){
+  const g=$('#p-general');
+  g.innerHTML=GENERAL.map(([k,l,mn,mx,st])=>`<label>${l}<input type="number" data-g="${k}" min="${mn}" max="${mx}" step="${st}" value="${P[k]}"></label>`).join('')+
+    `<label>Durée minimale d'un passage<select data-g="passageMin"><option value="1"${P.passageMin<2?' selected':''}>aucune</option><option value="2"${P.passageMin>=2?' selected':''}>2 semaines</option></select></label>
+     <button class="ghost" id="b-reset">Valeurs par défaut</button>`;
+  g.querySelectorAll('[data-g]').forEach(e=>e.onchange=()=>{P[e.dataset.g]=Number(e.value);saveP();});
+  $('#b-reset').onclick=()=>{try{localStorage.removeItem(LS);}catch(e){}P=loadP();renderParams();};
+  $('#pools-box').innerHTML=P.pools.map(p=>`<div class="pool"><h3>${p.label}</h3>
+    <div class="row">${p.salles.map(r=>`<label>${r.id} : postes minimum<input type="number" min="0" max="${r.cols.length}" data-pool="${p.id}" data-room="${r.id}" data-f="min" value="${r.min}"></label>
+      <label>${r.id} : postes maximum<input type="number" min="0" max="${r.cols.length}" data-pool="${p.id}" data-room="${r.id}" data-f="max" value="${r.max}"></label>`).join('')}</div>
+    <div class="mut" style="margin:8px 0 4px">Médecins en rotation</div><div class="chips" id="c-${p.id}-m"></div>
+    <div class="mut" style="margin:8px 0 4px">Remplaçants possibles (repos de garde)</div><div class="chips" id="c-${p.id}-r"></div></div>`).join('');
+  $('#pools-box').querySelectorAll('input[data-room]').forEach(e=>e.onchange=()=>{
+    const p=P.pools.find(x=>x.id===e.dataset.pool),r=p.salles.find(x=>x.id===e.dataset.room);r[e.dataset.f]=Number(e.value);saveP();});
+  P.pools.forEach(p=>{chips($('#c-'+p.id+'-m'),p,'membres',renderQuotas);chips($('#c-'+p.id+'-r'),p,'remplacants');});
+  $('#dl').innerHTML=D.medecins.map(m=>`<option value="${m}">`).join('');
+  renderQuotas();
+}
+function poolHTML(pool){
+  const R=RES,CI=colInfo(),Wn=R.plan.length;
+  const roomOf=(wi,m)=>{for(const [c,v] of Object.entries(R.plan[wi].seats))if(v===m&&CI[c]&&CI[c].pool===pool)return{room:CI[c].room,fixed:R.plan[wi].fixedCols.has(c)};return null;};
+  const head='<tr><th>Semaine du</th>'+pool.membres.map(m=>`<th>${m}</th>`).join('')+'</tr>';
+  const rows=R.plan.map((w,wi)=>`<tr><td class="l">${w.mon}</td>`+pool.membres.map(m=>{
+    const ro=roomOf(wi,m);if(ro)return`<td class="${ro.fixed?'fixed':''}" style="background:${ro.room.color}">${ro.room.id}</td>`;
+    const f=freeOf(m,wi);return`<td class="${f<P.seuil/100-1e-9?'bad':'mut'}">${Math.round(f*100)}%</td>`;}).join('')+'</tr>').join('');
+  const opts=[...new Set([...pool.membres,...pool.remplacants])];
+  const seatCols=pool.salles.flatMap(r=>r.cols.map(c=>({c,r})));
+  const grid=R.plan.map((w,wi)=>{
+    const dup=seatCols.map(({c})=>w.seats[c]).filter(Boolean);
+    const info=seatCols.filter(({c})=>w.seats[c]).map(({c})=>{const m=w.seats[c],x=wkInfo(m,wi),bad=x.pct<P.seuil/100-1e-9||dup.filter(d=>d===m).length>1;
+      const det=Object.entries(x.cats).map(([k,n])=>`${k}×${n}`).concat(x.abs?[`abs×${x.abs}`]:[]).join(', ');
+      return`<div><span class="${bad?'bad':''}">${c} · ${m} ${Math.round(x.pct*100)} %</span> <span class="mut">(${det||'libre'})</span></div>`;}).join('');
+    return`<tr><td class="l">${w.mon}</td>`+seatCols.map(({c,r})=>{const fx=w.fixedCols.has(c);
+      return`<td style="background:${r.color}"><select data-w="${wi}" data-col="${c}"${fx?' disabled':''}>${['',...new Set([...opts,w.seats[c]].filter(Boolean))].map(o=>`<option${o===(w.seats[c]||'')?' selected':''}>${o}</option>`).join('')}</select></td>`;}).join('')+`<td class="l">${info}</td></tr>`;}).join('');
+  const B=R.bilan[pool.id];
+  const bil=B.rows.map(x=>{const ok=x.r==null||x.tot===0||Math.abs(x.r-B.mean)<=B.sd+1e-9;
+    return`<tr><td class="l">${x.m}</td>${pool.salles.map(r=>`<td>${x.by[r.id]}</td>`).join('')}<td>${x.avant}</td><td>${x.tot}</td><td>${x.q}</td><td class="${ok?'ok':'bad'}">${x.r==null?'–':x.r.toFixed(2)}</td></tr>`;}).join('');
+  return`<section><h2>${pool.label} — répartition par semaine</h2><div class="scroll"><table>${head}${rows}</table></div>
+    <div class="mut" style="margin-top:4px">Cases en italique avec bordure : semaine déjà pourvue dans la sandbox (non modifiée). Pourcentage : disponibilité du médecin non retenu (rouge sous le seuil).</div></section>
+    <section><h2>${pool.label} — ajuster à la main</h2><div class="scroll"><table><tr><th>Semaine du</th>${seatCols.map(({c})=>`<th>${c}</th>`).join('')}<th>Disponibilité</th></tr>${grid}</table></div>
+    <div class="mut" style="margin-top:4px">Chaque modification recalcule les contrôles et le bilan (sans réoptimiser le reste).</div></section>
+    <section><h2>${pool.label} — bilan d'équilibrage</h2><div class="scroll"><table><tr><th>Médecin</th>${pool.salles.map(r=>`<th>${r.id}</th>`).join('')}<th>Déjà fait</th><th>Total</th><th>Quota</th><th>Total / quota</th></tr>${bil}</table></div>
+    <div class="mut" style="margin-top:4px">Vert : dans la moyenne ± 1 écart-type (${B.mean.toFixed(2)} ± ${B.sd.toFixed(2)}).</div></section>`;
+}
+function renderResult(){
+  const R=RES;
+  if(!R){$('#out').innerHTML='';return;}
+  const wl=a=>a.slice(0,300).map(w=>`<div class="w ${w.l}">${w.m}</div>`).join('')+(a.length>300?`<div class="mut">… ${a.length-300} autres</div>`:'');
+  if(!R.plan){$('#out').innerHTML=`<section>${wl(R.W)}</section>`;return;}
+  const reds=R.W.filter(w=>w.l==='r'),ambs=R.W.filter(w=>w.l==='o');
+  $('#out').innerHTML=P.pools.map(poolHTML).join('')+
+    `<section><h2>À arbitrer (${reds.length})</h2>${wl(reds)||'<div class="mut">Aucun échec de postage.</div>'}</section>
+     <section><h2>Ajustements automatiques et alertes (${ambs.length})</h2>${wl(ambs)||'<div class="mut">Aucun.</div>'}</section>`;
+}
+function updateSend(){
+  const n=RES?.edits?RES.edits.length:0;
+  $('#b-send').disabled=!(RES&&RES.plan&&(n||lastSent.size)&&host());
+  if(RES&&RES.plan)$('#sum')?.remove();
+}
+$('#b-run').onclick=optimize;
+$('#b-stop').onclick=()=>{cancelSolve();};
+$('#b-send').onclick=()=>{
+  const out=[],now=new Map();
+  RES.edits.forEach(e=>{now.set(e.id+'|'+e.col,e);out.push(e);});
+  // cases envoyées précédemment et qui ne sont plus dans le plan : on les vide
+  lastSent.forEach((e,k)=>{if(!now.has(k))out.push({id:e.id,date:e.date,heure:e.heure,col:e.col,value:null});});
+  host()?.postMessage({type:'rotations:edits',edits:out},location.origin);
+  lastSent=now;
+  $('#status').textContent=`${RES.edits.length} case(s) envoyée(s) vers la sandbox (en attente de sauvegarde).`;
+};
+$('#out').onchange=e=>{
+  const s=e.target.closest('select[data-w]');if(!s||!RES||!RES.plan)return;
+  const w=RES.plan[+s.dataset.w];if(s.value)w.seats[s.dataset.col]=s.value;else delete w.seats[s.dataset.col];
+  finalize();renderResult();updateSend();
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  10. ÉCHANGE AVEC INDEX (même protocole que l'ancien générateur)
+// ═══════════════════════════════════════════════════════════════════════════════
+const host=()=>window.opener||(window.parent!==window?window.parent:null);
+window.addEventListener('message',e=>{
+  if(e.origin!==location.origin||e.data?.type!=='rotations:init')return;
+  const d=e.data,neu=Array.isArray(d.neurologues)?d.neurologues:[];
+  D={rows:d.rows||[],absences:d.absences||[],cols:d.medecins||[],medecins:(d.medecins||[]).map(norm),spec:{}};
+  neu.forEach(n=>{if(n&&n.initiales&&n.specialite)D.spec[norm(n.initiales)]=String(n.specialite).toLowerCase();});
+  RES=null;lastSent=new Map();$('#out').innerHTML='';
+  const ds=D.rows.map(r=>r.date).filter(Boolean).sort();
+  $('#src').textContent=`${D.rows.length} lignes de sandbox${ds.length?` (du ${ds[0]} au ${ds[ds.length-1]})`:''}, ${D.absences.length} lignes d'absences, ${D.cols.length} neurologues${neu.length?', spécialités reçues':''}.`;
+  renderParams();
+  try{const pr=prepare();$('#banner').innerHTML=pr.ctx?pr.ctx.W0.map(w=>`<div class="w ${w.l}">${w.m}</div>`).join(''):'';}catch(x){}
+});
+renderParams();
+host()?.postMessage({type:'rotations:ready'},location.origin);
+</script>
+</body>
+</html>
