@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rotations de salle (multi-groupes)</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#1d2733;--mut:#667385;--line:#d9dee5;--acc:#1f6f78;--red:#c0392b;--amb:#b9770e;--grn:#2e7d4f}
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+h1{font-size:18px;margin:0 0 12px}h2{font-size:15px;margin:0 0 8px}h3{font-size:13px;margin:12px 0 6px}
+section{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin-bottom:12px}
+.row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+label{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:3px}
+input,select,button{font:inherit;color:inherit}
+input[type=number],input[type=text],select{border:1px solid var(--line);border-radius:4px;padding:4px 6px;background:#fff}
+input[type=number]{width:84px}
+button{border:1px solid var(--acc);background:var(--acc);color:#fff;border-radius:4px;padding:6px 12px;cursor:pointer}
+button.ghost{background:#fff;color:var(--acc)}button:disabled{opacity:.4;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{background:#e8eef2;border-radius:12px;padding:2px 4px 2px 10px;display:inline-flex;gap:4px;align-items:center}
+.chip button{all:unset;cursor:pointer;padding:0 6px;color:var(--mut)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;font-size:13px}
+th,td{border:1px solid var(--line);padding:3px 7px;text-align:center;white-space:nowrap}
+th{background:#eef1f4;font-weight:600}td.l{text-align:left}
+td.fixed{font-style:italic;outline:1px dashed var(--mut);outline-offset:-3px}
+.ok{color:var(--grn);font-weight:600}.bad{color:var(--red);font-weight:600}.amb{color:var(--amb);font-weight:600}
+.w{padding:3px 8px;margin:2px 0;border-left:3px solid;background:#fafbfc}
+.w.r{border-color:var(--red)}.w.o{border-color:var(--amb)}
+.note{background:#fff7e0;border:1px solid #e8d38a;border-radius:4px;padding:8px 10px;margin-bottom:12px}
+.banner .w{margin-bottom:6px;background:#fff}
+.mut{color:var(--mut)}#msg{min-height:18px;color:var(--red);font-size:12px}
+progress{vertical-align:middle}.pool{border-top:1px solid var(--line);margin-top:12px;padding-top:6px}.pool:first-child{border-top:0;margin-top:0}
+</style>
+</head>
+<body>
+<h1>Rotations de salle — USI/UNV, C, HDJ (optimisation globale)</h1>
+<div class="note">Les semaines déjà pourvues dans la sandbox ne sont jamais modifiées. Vérifie à la main les repos de garde non saisis et les consultations résiduelles avant de valider.</div>
+<div id="banner" class="banner"></div>
+<div id="src" class="mut" style="margin-bottom:10px"></div>
+
+<section>
+  <h2>Règles de rotation</h2>
+  <div class="row" id="p-general"></div>
+</section>
+
+<section>
+  <h2>Groupes de médecins et salles</h2>
+  <div class="mut" style="margin-bottom:6px">Un groupe = des salles qui partagent la même durée de passage. Un médecin membre de plusieurs groupes (mixte) est placé là où il est le plus utile ; l'équité porte sur son total toutes salles confondues.</div>
+  <div id="prof-box" style="margin-bottom:6px"></div>
+  <div id="pools-box"></div>
+  <datalist id="dl"></datalist>
+  <div id="msg"></div>
+</section>
+
+<section>
+  <h2>Quotas et historique</h2>
+  <div class="mut" style="margin-bottom:6px">« Déjà fait » : semaines en salle avant le début de la sandbox. « Juste avant » : nombre de semaines consécutives en salle qui précèdent la sandbox (0 à 3), pour respecter le repos à la frontière.</div>
+  <div class="scroll" id="quotas"></div>
+</section>
+
+<section>
+  <h2>Récurrences</h2>
+  <div class="mut" style="margin-bottom:6px">BOX : présent en box à ce créneau, jamais posté en salle (hors seuil de disponibilité). Salle : couvre le médecin en BOX, dans la même salle.</div>
+  <div class="scroll" id="rules"></div>
+</section>
+
+<section>
+  <div class="row">
+    <button id="b-run">Optimiser</button>
+    <button id="b-stop" class="ghost" disabled>Annuler</button>
+    <button id="b-send" disabled>Envoyer vers la sandbox</button>
+    <progress id="prog" max="100" value="0" hidden style="width:200px"></progress>
+    <span id="status" class="mut"></span>
+  </div>
+</section>
+<div id="out"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+//  0. UTILITAIRES
+// ═══════════════════════════════════════════════════════════════════════════════
+const $=s=>document.querySelector(s);
+const norm=s=>s==null?'':String(s).trim().toUpperCase();
+const JOURS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];
+const CRENEAUX=JOURS.flatMap(j=>[j+'_matin',j+'_aprem']);
+const BOX_COLS=['BOX1','BOX2','BOX3','BOX4','BOX5','BOX6','BOX7','BOX8','BOX9'];
+// Toutes les colonnes de poste du planning (sert à mesurer l'occupation d'un médecin)
+const POST=['C_Periph','C_Cogn','C_sup','C_int1','C_int2','HDJ1','HDJ2','HDJ3','HDJ_int1','HDJ_int2',
+  'UNV1','UNV2','UNV_int1','UNV_int2','USI1','USI2','USI_int1','USI_int2',
+  'BIPv','BIPng','BIP_int','SAU','Garde','Garde_int','Astr','Astr_int',...BOX_COLS];
+const SEUIL_FIXE=6;   // cellules dans les colonnes d'une salle sur une semaine => le médecin y est déjà posté
+const PRE=3;          // semaines précédant la sandbox prises en compte pour le repos
+const HIGHS_BASES=['vendor/','https://cdn.jsdelivr.net/npm/highs@1.15.4/build/']; // essayés dans l'ordre
+
+const parse=d=>{const [y,m,j]=d.split('-').map(Number);return new Date(y,m-1,j);};
+const fmt=t=>`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+const wd=d=>(parse(d).getDay()+6)%7;
+const monday=d=>{const t=parse(d);t.setDate(t.getDate()-wd(d));return fmt(t);};
+const nextDay=d=>{const t=parse(d);t.setDate(t.getDate()+1);return fmt(t);};
+const cat=c=>/^(USI|UNV)/.test(c)?'USI/UNV':/^C_/.test(c)?'C':/^HDJ/.test(c)?'HDJ':/^(BIP|SAU)/.test(c)?'BIP':/^BOX/.test(c)?'BOX':/^(Garde|Astr)/.test(c)?'Garde':'autre';
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  1. CONFIGURATION (valeurs par défaut — à modifier ici si besoin)
+// ═══════════════════════════════════════════════════════════════════════════════
+// Un « groupe » = une famille de salles qui partagent la même durée de passage + les médecins éligibles.
+// TOUS les groupes sont optimisés ENSEMBLE dans un seul modèle : un médecin membre de plusieurs groupes (mixte)
+// est placé là où il est le plus utile, et l'équité porte sur son total toutes salles confondues.
+//   salles[].cols : colonnes du planning ; min = postes obligatoires ; max = postes souhaités (min..max : les postes au-dessus du min sont « facultatifs »)
+//   salles[].pen / pen (groupe) : pénalité par semaine si la spécialité du médecin n'est pas souhaitée
+//   pmin / psou / pcap : durée minimale / souhaitée (au-delà : pénalité) / plafond absolu d'un passage, en semaines
+//   opt : priorité des postes facultatifs (plus élevé = rempli en premier ; le plus bas est sacrifié en premier)
+//   alt : pénalité quand un médecin fait deux passages successifs dans la même salle du groupe (alternance USI/UNV)
+//   fam : famille d'équilibre — un médecin présent dans 2 familles est incité à les répartir à parts égales
+const DEFAULTS={
+  repos:2,                  // repos minimal entre deux passages (semaines), quelle que soit la salle
+  penaliteDepassement:0.3,  // coût par fenêtre dépassant la durée souhaitée
+  seuil:90,                 // % minimal de créneaux libres dans la semaine pour être éligible
+  tempsMax:60,              // secondes
+  ecart:1,                  // écart à l'optimum toléré (%) : l'optimisation s'arrête quand il est atteint
+  pools:[
+    {id:'VASC',label:'USI / UNV',fam:'V',pmin:2,psou:3,pcap:4,opt:2,alt:2,
+     salles:[
+      {id:'USI',cols:['USI1','USI2'],min:2,max:2,color:'#f6c6dd',pen:{}},
+      {id:'UNV',cols:['UNV1','UNV2'],min:1,max:2,color:'#f3e2ad',pen:{}}],
+     membres:['AYW','AND','NB','HL','FF','AT','BL','IP'],
+     remplacants:['AYW','AND','NB','HL','FF','AT'],   // vide = tous les membres du groupe
+     pen:{}},
+    {id:'C',label:'Consultations C',fam:'G',pmin:3,psou:4,pcap:5,opt:3,alt:0.3,
+     salles:[
+      {id:'C_Periph',cols:['C_Periph'],min:1,max:1,color:'#cfe3f5',pen:{}},
+      {id:'C_Cogn',cols:['C_Cogn'],min:0,max:1,color:'#d3ecd0',pen:{}}],   // C_Cogn = poste facultatif par défaut
+     membres:[],remplacants:[],pen:{}},
+    {id:'HDJ',label:'HDJ',fam:'G',pmin:1,psou:2,pcap:3,opt:4,alt:0,
+     salles:[{id:'HDJ',cols:['HDJ1','HDJ2'],min:1,max:2,color:'#e6d4f2',pen:{}}],
+     membres:[],remplacants:[],pen:{}}
+  ],
+  quotas:{BL:0.5,IP:0.5},   // total toutes salles / quota = équité entre tous les médecins
+  avant:{},
+  fin:{},
+  rules:{Mardi_matin:{FF:'BOX',AT:'Salle'}}
+};
+const LS='rotations_v3_params';
+const SCALAR=['repos','penaliteDepassement','seuil','tempsMax','ecart','quotas','avant','fin','rules'];
+const POOLF=['pmin','psou','pcap','opt','alt'];
+const PEN_REQ=100,BAL=0.3,LAM=0.02;   // coût d'un poste obligatoire vide ; déséquilibre d'un mixte entre familles ; petit bonus de présence
+function loadP(){
+  const P=structuredClone(DEFAULTS);
+  try{
+    const s=JSON.parse(localStorage.getItem(LS)||'null');
+    if(s){
+      SCALAR.forEach(k=>{if(s[k]!==undefined)P[k]=s[k];});
+      P.pools.forEach(p=>{const q=s.pools&&s.pools[p.id];if(!q)return;
+        if(q.membres)p.membres=q.membres;if(q.remplacants)p.remplacants=q.remplacants;
+        POOLF.forEach(f=>{if(q[f]!=null)p[f]=q[f];});
+        if(q.salles)p.salles.forEach(r=>{const z=q.salles[r.id];if(z){if(z.min!=null)r.min=z.min;if(z.max!=null)r.max=z.max;}});});
+    }
+  }catch(e){}
+  return P;
+}
+function saveP(){
+  try{
+    const s={};SCALAR.forEach(k=>s[k]=P[k]);s.pools={};
+    P.pools.forEach(p=>{s.pools[p.id]={membres:p.membres,remplacants:p.remplacants,salles:Object.fromEntries(p.salles.map(r=>[r.id,{min:r.min,max:r.max}]))};POOLF.forEach(f=>s.pools[p.id][f]=p[f]);});
+    localStorage.setItem(LS,JSON.stringify(s));
+  }catch(e){}
+}
+let P=loadP();
+let D={rows:[],absences:[],cols:[],medecins:[],spec:{},profil:{}};
+let C=null,RES=null,running=false,lastSent=new Map();
+const q=m=>Number(P.quotas[m]??1);
+const activePools=()=>P.pools.filter(p=>p.membres.length);
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  2. PRÉPARATION DES DONNÉES (semaines, occupation, semaines déjà pourvues)
+// ═══════════════════════════════════════════════════════════════════════════════
+function prepare(){
+  const W0=[];
+  const slots=D.rows.filter(r=>r.date&&wd(r.date)<5)
+    .sort((a,b)=>(a.date+a.heure).localeCompare(b.date+b.heure))
+    .map(r=>({r,key:r.date+'_'+r.heure,cr:JOURS[wd(r.date)]+(r.heure==='09:00:00'?'_matin':'_aprem')}));
+  if(!slots.length)return{err:'Aucune ligne de planning reçue : ouvre ce générateur depuis l\'onglet sandbox de Neuroplanning.'};
+  const absent=new Map();
+  D.absences.forEach(a=>D.cols.forEach(c=>{if(a[c]&&String(a[c]).trim()){const k=a.date+'_'+a.heure;if(!absent.has(k))absent.set(k,new Set());absent.get(k).add(norm(c));}}));
+  const repos=new Map();
+  D.rows.forEach(r=>{const g=norm(r.Garde);if(!g)return;const k=nextDay(r.date)+'_'+r.heure;if(!repos.has(k))repos.set(k,new Set());repos.get(k).add(g);});
+  const wk=new Map();slots.forEach((s,i)=>{const m=monday(s.r.date);if(!wk.has(m))wk.set(m,[]);wk.get(m).push(i);});
+  const weeks=[...wk.entries()].map(([mon,ix])=>({mon,ix}));
+  // couverture des absences
+  const first=slots[0].r.date,last=slots[slots.length-1].r.date;
+  const ad=D.absences.map(a=>a.date).filter(Boolean).sort();
+  if(!ad.length)W0.push({l:'r',m:'Aucune ligne d\'absences reçue : tous les médecins seront considérés disponibles.'});
+  else if(ad[ad.length-1]<last||ad[0]>first)W0.push({l:'r',m:`Les absences reçues couvrent du ${ad[0]} au ${ad[ad.length-1]}, mais la sandbox va du ${first} au ${last} : les congés hors de cette plage sont ignorés. Dans l'index, envoie absencesData (et non currentFilteredAbs).`});
+  const Cx={slots,absent,repos,weeks,W0,spec:D.spec,cache:{},fixed:{},others:{}};
+  // semaines déjà pourvues, par groupe
+  P.pools.forEach(p=>{
+    Cx.fixed[p.id]=weeks.map(()=>({}));Cx.others[p.id]=weeks.map(()=>({}));
+    const colRoom={};p.salles.forEach(r=>r.cols.forEach(c=>colRoom[c]=r.id));
+    const cols=Object.keys(colRoom);
+    weeks.forEach((w,wi)=>{
+      const cnt={};
+      w.ix.forEach(i=>cols.forEach(c=>{const v=norm(slots[i].r[c]);if(!v)return;const o=(cnt[v]??={});o[colRoom[c]]=(o[colRoom[c]]||0)+1;}));
+      Object.entries(cnt).forEach(([v,byRoom])=>{
+        const tot=Object.values(byRoom).reduce((a,b)=>a+b,0);if(tot<SEUIL_FIXE)return;
+        const room=Object.entries(byRoom).sort((a,b)=>b[1]-a[1])[0][0];
+        if(p.membres.includes(v))Cx.fixed[p.id][wi][v]=room;
+        else Cx.others[p.id][wi][room]=(Cx.others[p.id][wi][room]||0)+1;
+      });
+    });
+  });
+  return{ctx:Cx};
+}
+// part de créneaux libres d'un médecin sur une semaine (BOX récurrents exclus, absences et postes comptés)
+function freeOf(m,wi){
+  const k=m+'|'+wi;if(C.cache[k]!==undefined)return C.cache[k];
+  const w=C.weeks[wi];let occ=0;
+  w.ix.forEach(i=>{const s=C.slots[i];let o=false; // un créneau n'est compté qu'une fois (absent ET posté = 1)
+    POST.forEach(c=>{if(norm(s.r[c])===m){if(BOX_COLS.includes(c)&&P.rules[s.cr]?.[m]==='BOX')return;o=true;}});
+    if(C.absent.get(s.key)?.has(m))o=true;
+    if(o)occ++;});
+  return C.cache[k]=(w.ix.length-occ)/w.ix.length;
+}
+function wkInfo(m,wi){
+  const cats={};let abs=0;
+  C.weeks[wi].ix.forEach(i=>{const s=C.slots[i];
+    POST.forEach(c=>{if(norm(s.r[c])===m){if(BOX_COLS.includes(c)&&P.rules[s.cr]?.[m]==='BOX')return;const k=cat(c);cats[k]=(cats[k]||0)+1;}});
+    if(C.absent.get(s.key)?.has(m))abs++;});
+  return{pct:freeOf(m,wi),cats,abs};
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  3. MODÈLE LINÉAIRE EN NOMBRES ENTIERS + EXPORT AU FORMAT LP (lu par HiGHS)
+// ═══════════════════════════════════════════════════════════════════════════════
+class Model{
+  constructor(){this.lb=[];this.ub=[];this.int=[];this.c=[];this.rows=[];}
+  v(lb,ub,integer,cost){this.lb.push(lb);this.ub.push(ub);this.int.push(!!integer);this.c.push(cost||0);return this.lb.length-1;}
+  fixedVar(k){return this.lb[k]===this.ub[k];}
+  con(co,lo,hi){if(Object.keys(co).length)this.rows.push({co,lo,hi});}
+  // contrainte de règle : sans variable libre => ignorée ; avec variable figée => assouplie (coût) pour ne jamais rendre le modèle infaisable
+  rule(co,hi,cost){
+    const ks=Object.keys(co).map(Number),nf=ks.filter(k=>this.fixedVar(k)).length;
+    if(nf===ks.length)return;
+    if(nf>0){const s=this.v(0,50,false,cost);co=Object.assign({},co,{[s]:-1});}
+    this.con(co,-Infinity,hi);
+  }
+  toLP(){
+    const num=a=>String(Number(Math.abs(a).toPrecision(10)));
+    const expr=co=>{const p=[];Object.entries(co).forEach(([k,a],i)=>{p.push((a<0?'-':'+')+' '+num(a)+' x'+k);if(i%8===7)p.push('\n  ');});return p.join(' ');};
+    const obj={};this.c.forEach((a,k)=>{if(a!==0)obj[k]=a;});
+    const o=['Minimize',' obj: '+(Object.keys(obj).length?expr(obj):'0 x0'),'Subject To'];
+    this.rows.forEach((r,i)=>{
+      const e=expr(r.co);
+      if(r.lo===r.hi)o.push(` r${i}: ${e} = ${num(r.lo)}${r.lo<0?'':''}`.replace(/= (\d)/,'= $1'));
+      else{if(r.lo>-Infinity)o.push(` r${i}a: ${e} >= ${(r.lo<0?'-':'')+num(r.lo)}`);if(r.hi<Infinity)o.push(` r${i}b: ${e} <= ${(r.hi<0?'-':'')+num(r.hi)}`);}
+    });
+    o.push('Bounds');
+    this.lb.forEach((l,k)=>o.push(` ${l<0?'-':''}${num(l)} <= x${k} <= ${this.ub[k]<0?'-':''}${num(this.ub[k])}`));
+    const g=[];this.int.forEach((t,k)=>{if(t)g.push(' x'+k);});
+    if(g.length){o.push('General');o.push(...g);}
+    o.push('End');return o.join('\n');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  4. SOLVEUR (HiGHS en WebAssembly, dans un Worker pour ne pas figer la page)
+// ═══════════════════════════════════════════════════════════════════════════════
+const WORKER_SRC=[
+ "let highs=null;",
+ "self.onmessage=async(e)=>{const {id,bases,lp,options}=e.data;",
+ " try{",
+ "  if(!highs){const errs=[];",
+ "   for(const b of bases){try{importScripts(b+'highs.js');highs=await Module({locateFile:f=>b+f});break;}catch(x){errs.push(b+' : '+(x&&x.message||x));highs=null;}}",
+ "   if(!highs)throw new Error('HiGHS introuvable. '+errs.join(' | '));}",
+ "  if(lp==null){postMessage({id,ok:true});return;}",
+ "  const sol=highs.solve(lp,options);postMessage({id,ok:true,sol});",
+ " }catch(err){postMessage({id,ok:false,error:String(err&&err.message||err)});}",
+ "};"
+].join('\n');
+let worker=null,seq=0;const pending=new Map();
+function getWorker(){
+  if(worker)return worker;
+  worker=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:'text/javascript'})));
+  worker.onmessage=e=>{const p=pending.get(e.data.id);if(!p)return;pending.delete(e.data.id);e.data.ok?p.res(e.data):p.rej(new Error(e.data.error));};
+  worker.onerror=e=>{pending.forEach(p=>p.rej(new Error('Erreur du calcul : '+(e.message||'worker'))));pending.clear();};
+  return worker;
+}
+function solveLP(lp,options){
+  return new Promise((res,rej)=>{
+    const id=++seq;pending.set(id,{res,rej});
+    getWorker().postMessage({id,bases:HIGHS_BASES.map(b=>new URL(b,location.href).href),lp,options});
+  });
+}
+function cancelSolve(){
+  if(worker){worker.terminate();worker=null;}
+  pending.forEach(p=>p.rej(new Error('Calcul annulé.')));pending.clear();
+}
+const val=(sol,k)=>{const c=sol.Columns&&sol.Columns['x'+k];return c?c.Primal:0;};
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  5. ÉTAPE 1 — QUI EST EN SALLE, SEMAINE PAR SEMAINE (UN SEUL MODÈLE POUR TOUS LES GROUPES)
+// ═══════════════════════════════════════════════════════════════════════════════
+// Variable x(médecin, groupe, semaine) = 1 si le médecin est dans une salle de ce groupe cette semaine.
+// Elle n'existe que si le médecin est membre du groupe ET assez disponible (seuil) : les profils (vascu, général, HDJ, mixte)
+// ne sont donc que des appartenances à des groupes. Les semaines déjà pourvues dans la sandbox sont des variables figées à 1.
+function buildJoint(pools){
+  const M=new Model(),Wn=C.weeks.length,X=new Map(),F=new Map(),meta=[];
+  const key=(m,p,w)=>m+'|'+p+'|'+w,fkey=(m,w)=>m+'|'+w;
+  const members=[...new Set(pools.flatMap(p=>p.membres))];
+  const specPen=(m,p)=>p.pen?.[C.spec[m]]||0;
+  // semaines juste avant la sandbox (« Juste avant ») : variables figées à 1, communes à tous les groupes
+  members.forEach(m=>{for(let w=-PRE;w<0;w++)if((P.fin[m]||0)>=-w)F.set(fkey(m,w),M.v(1,1,true,0));});
+  const seat=new Map();
+  pools.forEach(p=>{
+    seat.set(p.id,C.weeks.map(()=>[]));
+    p.membres.forEach(m=>{for(let w=0;w<Wn;w++){
+      const fx=C.fixed[p.id][w][m];let k;
+      if(fx)k=M.v(1,1,true,0);                                                             // déjà posté dans la sandbox
+      else if(q(m)>0&&freeOf(m,w)>=P.seuil/100-1e-9)k=M.v(0,1,true,specPen(m,p)-LAM);        // libre : le solveur décide
+      else continue;
+      X.set(key(m,p.id,w),k);seat.get(p.id)[w].push(k);meta[k]={m,p,w};
+    }});
+  });
+  const T=(co,m,p,w,a)=>{const k=w<0?F.get(fkey(m,w)):X.get(key(m,p.id,w));if(k!==undefined)co[k]=(co[k]||0)+a;};
+  const Tany=(co,m,w,a)=>{if(w<0)T(co,m,null,w,a);else pools.forEach(p=>T(co,m,p,w,a));};
+  // postes de chaque semaine et de chaque groupe : min obligatoire (trou très cher), max souhaité (trou facultatif, prix = priorité du groupe)
+  pools.forEach(p=>{
+    for(let w=0;w<Wn;w++){
+      let mn=0,mx=0;p.salles.forEach(r=>{const o=C.others[p.id][w][r.id]||0;mn+=Math.max(0,r.min-o);mx+=Math.max(0,r.max-o);});
+      const nfix=seat.get(p.id)[w].filter(k=>M.fixedVar(k)).length;mx=Math.max(mx,nfix,mn);
+      const co={};seat.get(p.id)[w].forEach(k=>co[k]=1);
+      M.con(Object.assign({},co),-Infinity,mx);
+      let u=null;
+      if(mn>0){u=M.v(0,mn,false,PEN_REQ);M.con(Object.assign({},co,{[u]:1}),mn,Infinity);}
+      if(mx>mn){const uo=M.v(0,mx-mn,false,p.opt);const c2=Object.assign({},co,{[uo]:1});if(u!==null)c2[u]=1;M.con(c2,mx,Infinity);}
+    }
+  });
+  // règles propres à chaque médecin, toutes salles confondues
+  members.forEach(m=>{
+    for(let w=0;w<Wn;w++){
+      const co={};pools.forEach(p=>T(co,m,p,w,1));
+      if(Object.keys(co).length>1)M.rule(co,1,30);                                          // une seule salle par semaine
+    }
+    for(let w=0;w<Wn-1;w++)pools.forEach(a=>pools.forEach(b=>{if(a===b)return;               // pas d'enchaînement direct de deux groupes (il faut le repos)
+      const ka=X.get(key(m,a.id,w)),kb=X.get(key(m,b.id,w+1));if(ka===undefined||kb===undefined)return;M.rule({[ka]:1,[kb]:1},1,30);}));
+    for(let w=-PRE;w<Wn-2;w++)for(let k=2;k<=P.repos;k++)if(w+k<Wn){                         // repos minimal : en salle en w, plus en w+1 => plus avant w+repos
+      const co={};Tany(co,m,w,1);Tany(co,m,w+1,-1);Tany(co,m,w+k,1);M.rule(co,1,30);}
+  });
+  // règles de durée de passage, propres à chaque groupe
+  pools.forEach(p=>p.membres.forEach(m=>{
+    const cap=Math.max(1,p.pcap),sou=Math.min(p.psou,cap),mn=p.pmin;
+    for(let w=-PRE;w+cap<Wn;w++){const co={};for(let k=0;k<=cap;k++)T(co,m,p,w+k,1);M.rule(co,cap,30);}      // plafond absolu
+    if(sou<cap)for(let w=-PRE;w+sou<Wn;w++){const co={};for(let k=0;k<=sou;k++)T(co,m,p,w+k,1);              // au-delà du souhaité : pénalité
+      if(Object.keys(co).length>sou){const z=M.v(0,1,false,P.penaliteDepassement);co[z]=-1;M.rule(co,sou,30);}}
+    if(mn>=2)for(let w=0;w<Wn;w++){if(!X.has(key(m,p.id,w)))continue;                                        // durée minimale : si un passage commence en w, il dure au moins mn semaines
+      for(let k=1;k<mn&&w+k<Wn;k++){const co={};T(co,m,p,w,1);T(co,m,p,w-1,-1);T(co,m,p,w+k,-1);M.rule(co,0,10);}}
+  }));
+  // équité GLOBALE : (déjà fait + total toutes salles) / quota, écart max-min minimal, pour tous les médecins
+  const mine=m=>{const co={};X.forEach((k,kk)=>{if(kk.startsWith(m+'|'))co[k]=1/q(m);});return co;};
+  const eq=members.filter(m=>q(m)>0&&Object.keys(mine(m)).length);
+  if(eq.length>=2){
+    const tmax=M.v(0,1e4,false,1),tmin=M.v(0,1e4,false,-1);
+    eq.forEach(m=>{const co=mine(m),h=(P.avant[m]||0)/q(m);
+      M.con(Object.assign({},co,{[tmax]:-1}),-Infinity,-h);
+      const c2={};Object.keys(co).forEach(k=>c2[k]=-co[k]);c2[tmin]=1;M.con(c2,-Infinity,h);});
+  }
+  // mixtes : répartition souple entre familles (ex. vasculaire / C+HDJ)
+  const fams=[...new Set(pools.map(p=>p.fam||p.id))];
+  if(fams.length>1)members.forEach(m=>{
+    const mf=fams.filter(f=>pools.some(p=>(p.fam||p.id)===f&&p.membres.includes(m)));
+    for(let i=0;i<mf.length;i++)for(let j=i+1;j<mf.length;j++){
+      const co={};X.forEach((k,kk)=>{if(!kk.startsWith(m+'|'))return;const f=meta[k].p.fam||meta[k].p.id;if(f===mf[i])co[k]=1;else if(f===mf[j])co[k]=-1;});
+      if(!Object.keys(co).length)continue;
+      const dv=M.v(0,1e4,false,BAL);
+      M.con(Object.assign({},co,{[dv]:-1}),-Infinity,0);
+      const c2={};Object.keys(co).forEach(k=>c2[k]=-co[k]);c2[dv]=-1;M.con(c2,-Infinity,0);
+    }
+  });
+  return{M,X,key};
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  6. ÉTAPE 2 — QUI VA DANS QUELLE SALLE (petit modèle, passages cohérents, équité par salle)
+// ═══════════════════════════════════════════════════════════════════════════════
+function buildStage2(pool,present){
+  const M=new Model(),Wn=C.weeks.length,S=new Map(),rooms=pool.salles,SHORT=[100,60,40];
+  const sk=(m,r,w)=>m+'|'+r+'|'+w,mem=new Set();
+  for(let w=0;w<Wn;w++){
+    present[w].forEach(m=>{
+      mem.add(m);const fr=C.fixed[pool.id][w][m],co={};
+      rooms.forEach(r=>{const lb=fr?(fr===r.id?1:0):0,ub=fr?lb:1,k=M.v(lb,ub,true,r.pen?.[C.spec[m]]||0);S.set(sk(m,r.id,w),k);co[k]=1;});
+      M.con(co,1,1);
+    });
+    rooms.forEach((r,ri)=>{
+      const vars=present[w].map(m=>S.get(sk(m,r.id,w)));if(!vars.length)return;
+      const o=C.others[pool.id][w][r.id]||0,mx=Math.max(0,r.max-o),mn=Math.max(0,r.min-o);
+      const over=M.v(0,10,false,1000),c1={};vars.forEach(k=>c1[k]=1);c1[over]=-1;M.con(c1,-Infinity,mx);
+      if(mn>0){const sh=M.v(0,mn,false,SHORT[ri]??30),c2={};vars.forEach(k=>c2[k]=1);c2[sh]=1;M.con(c2,mn,Infinity);}
+    });
+  }
+  // rester dans la même salle pendant un passage
+  for(let w=0;w<Wn-1;w++)present[w].forEach(m=>{if(!present[w+1].includes(m))return;
+    rooms.forEach(r=>{const a=S.get(sk(m,r.id,w)),b=S.get(sk(m,r.id,w+1));if(M.fixedVar(a)&&M.fixedVar(b))return;const sw=M.v(0,1,false,0.5);M.con({[a]:1,[b]:-1,[sw]:-1},-Infinity,0);});});
+  // alternance : deux passages successifs d'un même médecin dans ce groupe ne doivent pas être dans la même salle (ex. USI puis UNV)
+  if(rooms.length>1&&(pool.alt||0)>0)mem.forEach(m=>{
+    const starts=[];let s0=-1;
+    for(let w=0;w<=Wn;w++){const on=w<Wn&&present[w].includes(m);if(on&&s0<0)s0=w;if(!on&&s0>=0){starts.push(s0);s0=-1;}}
+    for(let k=1;k<starts.length;k++)rooms.forEach(r=>{
+      const a=S.get(sk(m,r.id,starts[k-1])),b=S.get(sk(m,r.id,starts[k]));
+      if(M.fixedVar(a)&&M.fixedVar(b))return;
+      const z=M.v(0,1,false,pool.alt);M.con({[a]:1,[b]:1,[z]:-1},-Infinity,1);});
+  });
+  // équité par salle (semaines dans la salle / quota)
+  if(rooms.length>1)rooms.forEach(r=>{
+    const ms=[...mem].filter(m=>q(m)>0);if(ms.length<2)return;
+    const tmax=M.v(0,1e4,false,0.5),tmin=M.v(0,1e4,false,-0.5);
+    ms.forEach(m=>{const co={};for(let w=0;w<Wn;w++)if(present[w].includes(m))co[S.get(sk(m,r.id,w))]=1/q(m);
+      M.con(Object.assign({},co,{[tmax]:-1}),-Infinity,0);const c2={};Object.keys(co).forEach(k=>c2[k]=-co[k]);c2[tmin]=1;M.con(c2,-Infinity,0);});
+  });
+  return{M,S,sk};
+}
+
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  7. ORCHESTRATION
+// ═══════════════════════════════════════════════════════════════════════════════
+function bestCol(w,m,cols){
+  let best=null,bn=0;cols.forEach(c=>{let n=0;C.weeks[w].ix.forEach(i=>{if(norm(C.slots[i].r[c])===m)n++;});if(n>bn){bn=n;best=c;}});return best;
+}
+async function optimize(){
+  if(running)return;
+  if(!D.rows.length){RES={W:[{l:'r',m:'Aucune donnée reçue : ouvre ce générateur depuis l\'onglet sandbox de Neuroplanning.'}]};renderResult();return;}
+  const prep=prepare();if(prep.err){RES={W:[{l:'r',m:prep.err}]};renderResult();return;}
+  C=prep.ctx;const Wn=C.weeks.length,pools=activePools();
+  if(!pools.length){RES={W:[{l:'r',m:'Aucun groupe n\'a de médecins : ajoute des médecins dans au moins un groupe (ou applique les profils).'}]};renderResult();return;}
+  running=true;$('#b-run').disabled=true;$('#b-stop').disabled=false;$('#b-send').disabled=true;
+  const prog=$('#prog');prog.hidden=false;prog.value=0;
+  const t0=Date.now(),say=m=>{$('#status').dataset.msg=m;$('#status').textContent=m;};
+  const tick=setInterval(()=>{const t=(Date.now()-t0)/1000;prog.value=Math.min(100,100*t/P.tempsMax);
+    $('#status').textContent=($('#status').dataset.msg||'')+` (${Math.round(t)} s, au plus ${P.tempsMax} s — s'arrête plus tôt si le résultat est jugé optimal)`;},500);
+  const W=[...C.W0];
+  const planSeats=C.weeks.map(()=>({seats:{},fixedCols:new Set()}));
+  try{
+    say('Optimisation globale : qui est en salle chaque semaine, tous groupes ensemble');
+    const b1=buildJoint(pools);
+    const s1=await solveLP(b1.M.toLP(),{output_flag:false,time_limit:P.tempsMax,mip_rel_gap:P.ecart/100});
+    const st=s1.sol.Status;
+    if(/infeasible/i.test(st))throw new Error(`Modèle infaisable (${st}). Vérifie les semaines déjà pourvues et les règles.`);
+    if(!s1.sol.Columns||!Object.keys(s1.sol.Columns).length)throw new Error(`Aucune solution trouvée (${st}). Augmente le temps de calcul.`);
+    if(/time limit/i.test(st))W.push({l:'o',m:`Limite de temps atteinte (${P.tempsMax} s) : meilleure solution trouvée, optimalité non prouvée. Augmente le temps de calcul ou l'écart toléré pour comparer.`});
+    for(const pool of pools){
+      const present=C.weeks.map(()=>[]);
+      for(let w=0;w<Wn;w++)pool.membres.forEach(m=>{const k=b1.X.get(b1.key(m,pool.id,w));if(k!==undefined&&val(s1.sol,k)>0.5)present[w].push(m);});
+      say(`${pool.label} — attribution aux salles`);
+      const b2=buildStage2(pool,present);
+      const s2=await solveLP(b2.M.toLP(),{output_flag:false,time_limit:Math.min(20,P.tempsMax),mip_rel_gap:0.005});
+      if(/infeasible/i.test(s2.sol.Status))throw new Error(`${pool.label} : attribution aux salles infaisable (${s2.sol.Status}).`);
+      for(let w=0;w<Wn;w++){
+        const byRoom={};pool.salles.forEach(r=>byRoom[r.id]=[]);
+        present[w].forEach(m=>{const r=pool.salles.find(r=>val(s2.sol,b2.S.get(b2.sk(m,r.id,w)))>0.5)||pool.salles[0];byRoom[r.id].push(m);});
+        pool.salles.forEach(r=>{
+          const free=[...r.cols],rest=[];
+          byRoom[r.id].forEach(m=>{
+            if(C.fixed[pool.id][w][m]){const c=bestCol(w,m,r.cols);
+              if(c&&free.includes(c)){planSeats[w].seats[c]=m;planSeats[w].fixedCols.add(c);free.splice(free.indexOf(c),1);return;}
+              rest.push([m,true]);}else rest.push([m,false]);});
+          rest.forEach(([m,fx])=>{const c=free.shift();
+            if(!c){W.push({l:'r',m:`${pool.label} · semaine du ${C.weeks[w].mon} : plus de place en ${r.id} pour ${m}.`});return;}
+            planSeats[w].seats[c]=m;if(fx)planSeats[w].fixedCols.add(c);});
+        });
+      }
+    }
+    RES={W0:W,ctx:C,plan:C.weeks.map((w,wi)=>({mon:w.mon,ix:w.ix,seats:planSeats[wi].seats,fixedCols:planSeats[wi].fixedCols})),solveSec:Math.round((Date.now()-t0)/1000)};
+    finalize();
+    say(`Terminé en ${RES.solveSec} s.`);
+  }catch(err){
+    RES={W:[{l:'r',m:err.message}]};say('');
+  }finally{
+    clearInterval(tick);prog.hidden=true;running=false;$('#b-run').disabled=false;$('#b-stop').disabled=true;
+  }
+  renderResult();updateSend();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  8. INJECTION DANS LES CRÉNEAUX (absences, repos de garde, BOX) + CONTRÔLES + BILAN
+// ═══════════════════════════════════════════════════════════════════════════════
+const colInfo=()=>{const m={};P.pools.forEach(p=>p.salles.forEach(r=>r.cols.forEach(c=>m[c]={pool:p,room:r})));return m;};
+function inject(){
+  const {slots,absent,repos}=C,W=[],edits={},CI=colInfo();
+  const ov=(i,c)=>edits[i]?.[c]??slots[i].r[c];
+  const posted=(i,m)=>POST.some(c=>norm(ov(i,c))===m);
+  const free=(i,m)=>!absent.get(slots[i].key)?.has(m)&&!repos.get(slots[i].key)?.has(m)&&!posted(i,m);
+  const put=(i,room,m,pref)=>{const c=[pref,...room.cols].find(x=>x&&norm(ov(i,x))==='');if(!c)return false;(edits[i]??={})[c]=m;return true;};
+  const tot={};RES.plan.forEach(w=>Object.values(w.seats).forEach(m=>{if(m)tot[m]=(tot[m]||0)+1;}));
+  const load=m=>((tot[m]||0)+(P.avant[m]||0))/(q(m)||Infinity);
+  RES.plan.forEach((w,wi)=>{
+    const inWeek=new Set(Object.values(w.seats).filter(Boolean));
+    w.ix.forEach(i=>{const s0=slots[i],k=s0.key,lbl=`${w.mon} · ${s0.cr.replace('_',' ')}`;
+      Object.entries(w.seats).forEach(([col,m])=>{
+        if(!m||w.fixedCols.has(col))return;
+        const ci=CI[col];if(!ci)return;const room=ci.room,pool=ci.pool;
+        if(room.cols.some(c=>norm(ov(i,c))===m))return;
+        if(absent.get(k)?.has(m)){W.push({l:'r',m:`${lbl} · ${room.id} : ${m} absent, case laissée vide.`});return;}
+        if(repos.get(k)?.has(m)){
+          const rep=(pool.remplacants.length?pool.remplacants:pool.membres).filter(v=>!inWeek.has(v)&&free(i,v)&&q(v)>0).sort((a,b)=>load(a)-load(b))[0];
+          if(rep&&put(i,room,rep,col))W.push({l:'o',m:`${lbl} · ${room.id} : ${m} en repos de garde, remplaçant proposé ${rep}.`});
+          else W.push({l:'r',m:`${lbl} · ${room.id} : ${m} en repos de garde, aucun remplaçant disponible.`});return;}
+        if(P.rules[s0.cr]?.[m]==='BOX'){
+          const cov=Object.keys(P.rules[s0.cr]).filter(x=>P.rules[s0.cr][x]==='Salle'&&free(i,x))[0];
+          if(!(cov&&put(i,room,cov,col)))W.push({l:'r',m:`${lbl} · ${room.id} : BOX de ${m} non couvert.`});return;}
+        if(!put(i,room,m,col))W.push({l:'r',m:`${lbl} · ${room.id} : plus de place pour ${m} (cases déjà remplies).`});
+      });});});
+  const list=[];
+  Object.entries(edits).forEach(([i,o])=>Object.entries(o).forEach(([col,value])=>{const r=slots[i].r;list.push({id:r.id,date:r.date,heure:r.heure,col,value});}));
+  return{W,edits:list};
+}
+
+
+
+// passages, repos, alternance, postes : contrôle de la grille (y compris après modifications manuelles)
+function checkRules(pools){
+  const W=[],Wn=C.weeks.length,CI=colInfo(),pres={};
+  RES.plan.forEach((w,wi)=>Object.entries(w.seats).forEach(([c,m])=>{if(!m||!CI[c])return;(pres[m]??=Array(Wn).fill(null));if(!pres[m][wi])pres[m][wi]={pool:CI[c].pool,room:CI[c].room.id};}));
+  Object.entries(pres).forEach(([m,a])=>{
+    const runs=[];let i=0;
+    while(i<Wn){if(a[i]){let j=i;while(j<Wn&&a[j]&&a[j].pool===a[i].pool)j++;runs.push({pool:a[i].pool,s:i,e:j-1,room:a[i].room});i=j;}else i++;}
+    runs.forEach((r,ri)=>{const n=r.e-r.s+1,p=r.pool,lbl=`${m} · ${p.label} · ${C.weeks[r.s].mon} → ${C.weeks[r.e].mon}`;
+      if(n>p.pcap)W.push({l:'r',m:`${lbl} : passage de ${n} semaines (plafond ${p.pcap}).`});
+      else if(n>p.psou)W.push({l:'o',m:`${lbl} : passage de ${n} semaines (souhaité ${p.psou}).`});
+      if(p.pmin>=2&&n<p.pmin&&r.s>0&&r.e<Wn-1)W.push({l:'o',m:`${lbl} : passage de ${n} semaine(s) (minimum ${p.pmin}).`});
+      if(ri>0){const rest=r.s-runs[ri-1].e-1;if(rest<P.repos)W.push({l:'r',m:`${m} · repos de ${rest} semaine(s) avant le ${C.weeks[r.s].mon} (minimum ${P.repos}${runs[ri-1].pool!==p?', enchaînement '+runs[ri-1].pool.label+' → '+p.label:''}).`});}});
+    // alternance des salles d'un même groupe (ex. USI puis UNV)
+    pools.forEach(p=>{if(p.salles.length<2||!(p.alt>0))return;
+      const rr=runs.filter(r=>r.pool===p);
+      for(let k=1;k<rr.length;k++)if(rr[k].room===rr[k-1].room)W.push({l:'o',m:`${m} · ${p.label} : deux passages successifs en ${rr[k].room} (${C.weeks[rr[k-1].s].mon}, puis ${C.weeks[rr[k].s].mon}) — pas d'alternance.`});});
+  });
+  return W;
+}
+function finalize(){
+  const inj=inject(),pools=activePools(),CI=colInfo();
+  RES.edits=inj.edits;RES.W=[...RES.W0,...inj.W];
+  RES.W.push(...checkRules(pools));
+  // postes vides : obligatoires = à arbitrer (rouge) ; facultatifs = avertissement groupé par salle (orange)
+  pools.forEach(pool=>pool.salles.forEach(r=>{
+    const opt=[];
+    RES.plan.forEach(w=>{const n=r.cols.filter(c=>w.seats[c]).length;
+      if(n<r.min)RES.W.push({l:'r',m:`${pool.label} · semaine du ${w.mon} : ${r.id} ${n}/${r.min} poste(s) obligatoire(s) pourvu(s).`});
+      else if(n<r.max)opt.push(w.mon);});
+    if(opt.length)RES.W.push({l:'o',m:`${r.id} : poste facultatif non pourvu (${opt.length} semaine(s) : ${opt.slice(0,8).join(', ')}${opt.length>8?'…':''}). Ordre de sacrifice : priorité la plus basse d'abord — à arbitrer à la main.`});
+  }));
+  // bilan d'équilibrage GLOBAL (toutes salles)
+  const members=[...new Set(pools.flatMap(p=>p.membres))],rooms=pools.flatMap(p=>p.salles);
+  const cnt={};members.forEach(m=>{cnt[m]={};rooms.forEach(r=>cnt[m][r.id]=0);});
+  RES.plan.forEach(w=>Object.entries(w.seats).forEach(([c,m])=>{const ci=CI[c];if(m&&ci&&cnt[m])cnt[m][ci.room.id]++;}));
+  const rows=members.map(m=>{const tot=Object.values(cnt[m]).reduce((a,b)=>a+b,0)+(P.avant[m]||0);return{m,by:cnt[m],avant:P.avant[m]||0,tot,q:q(m),r:q(m)>0?tot/q(m):null};});
+  const rs=rows.filter(b=>b.r!=null&&b.tot>0).map(b=>b.r),mean=rs.reduce((a,b)=>a+b,0)/(rs.length||1);
+  RES.bilan={rows,rooms,mean,sd:Math.sqrt(rs.reduce((a,b)=>a+(b-mean)**2,0)/(rs.length||1))};
+}
+
+
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  9. INTERFACE
+// ═══════════════════════════════════════════════════════════════════════════════
+const GENERAL=[['repos','Repos minimal entre deux passages (sem.)',0,6,1],['penaliteDepassement','Pénalité au-delà du souhaité',0,5,0.1],
+  ['seuil','Disponibilité minimale par semaine (%)',50,100,5],['tempsMax','Temps de calcul maximum (s)',5,900,5],['ecart','Écart à l\'optimum toléré (%)',0,20,0.5]];
+const POOL_LABELS={pmin:'Durée minimale de passage (sem.)',psou:'Durée souhaitée (sem.)',pcap:'Plafond absolu (sem.)',opt:'Priorité des postes facultatifs',alt:'Pénalité sans alternance de salle'};
+function chips(el,pool,key,after){
+  el.innerHTML='';
+  pool[key].forEach(m=>{const s=document.createElement('span');s.className='chip';s.textContent=m;
+    const b=document.createElement('button');b.textContent='×';b.setAttribute('aria-label','Retirer '+m);
+    b.onclick=()=>{pool[key]=pool[key].filter(x=>x!==m);saveP();chips(el,pool,key,after);after&&after();};s.append(b);el.append(s);});
+  const i=document.createElement('input');i.type='text';i.setAttribute('list','dl');i.placeholder='Ajouter…';i.size=8;
+  i.onkeydown=e=>{if(e.key!=='Enter')return;const v=norm(i.value);if(!v)return;
+    if(D.medecins.length&&!D.medecins.includes(v)){$('#msg').textContent=`« ${v} » ne figure pas dans la liste des neurologues.`;return;}
+    $('#msg').textContent='';if(!pool[key].includes(v))pool[key].push(v);saveP();chips(el,pool,key,after);after&&after();};
+  el.append(i);
+}
+const allMembers=()=>[...new Set(P.pools.flatMap(p=>p.membres))];
+const PROFIL_POOLS={vascu:['VASC'],general:['C','HDJ'],hdj:['HDJ'],mixte:['VASC','C','HDJ']};
+function applyProfils(){
+  const add=(p,m)=>{if(!p.membres.includes(m))p.membres.push(m);};
+  Object.entries(D.profil).forEach(([m,pr])=>{(PROFIL_POOLS[pr]||[]).forEach(id=>{const p=P.pools.find(x=>x.id===id);if(p)add(p,m);});
+    if(pr==='mixte'&&P.quotas[m]===undefined)P.quotas[m]=0.5;});
+  saveP();renderParams();
+}
+function renderQuotas(){
+  const ms=allMembers();
+  $('#quotas').innerHTML='<table><tr><th>Médecin</th><th>Spécialité</th><th>Quota</th><th>Déjà fait</th><th>Juste avant</th></tr>'+
+    ms.map(m=>`<tr><td class="l">${m}</td><td class="mut">${D.spec[m]||'–'}</td>
+      <td><input type="number" step="0.25" min="0" data-k="quotas" data-m="${m}" value="${q(m)}"></td>
+      <td><input type="number" step="1" min="0" data-k="avant" data-m="${m}" value="${P.avant[m]||0}"></td>
+      <td><input type="number" step="1" min="0" max="3" data-k="fin" data-m="${m}" value="${P.fin[m]||0}"></td></tr>`).join('')+'</table>';
+  $('#quotas').querySelectorAll('input').forEach(e=>e.onchange=()=>{P[e.dataset.k][e.dataset.m]=Number(e.value);saveP();});
+  const t=['<table><tr><th></th>'+ms.map(m=>`<th>${m}</th>`).join('')+'</tr>'];
+  CRENEAUX.forEach(cr=>t.push(`<tr><td class="l">${cr}</td>`+ms.map(m=>{const v=P.rules[cr]?.[m]||'';
+    return `<td><select data-cr="${cr}" data-m="${m}"><option value=""></option><option${v==='BOX'?' selected':''}>BOX</option><option${v==='Salle'?' selected':''}>Salle</option></select></td>`;}).join('')+'</tr>'));
+  $('#rules').innerHTML=t.join('')+'</table>';
+  $('#rules').querySelectorAll('[data-cr]').forEach(e=>e.onchange=()=>{const o=P.rules[e.dataset.cr]??={};if(e.value)o[e.dataset.m]=e.value;else delete o[e.dataset.m];saveP();});
+}
+function renderParams(){
+  const g=$('#p-general');
+  g.innerHTML=GENERAL.map(([k,l,mn,mx,st])=>`<label>${l}<input type="number" data-g="${k}" min="${mn}" max="${mx}" step="${st}" value="${P[k]}"></label>`).join('')+
+    `<button class="ghost" id="b-reset">Valeurs par défaut</button>`;
+  const np=Object.keys(D.profil).length;
+  $('#prof-box').innerHTML=np?`<button class="ghost" id="b-prof">Remplir les groupes depuis les profils (${np} neurologues)</button> <span class="mut">vascu → USI/UNV · général → C + HDJ · HDJ → HDJ · mixte → les trois (quota 0,5 si non renseigné). Ajoute seulement, ne retire personne.</span>`:'<span class="mut">Aucun profil reçu de l\'index : remplis les groupes à la main (ou ajoute un champ « profil » aux neurologues).</span>';
+  if(np)$('#b-prof').onclick=applyProfils;
+  g.querySelectorAll('[data-g]').forEach(e=>e.onchange=()=>{P[e.dataset.g]=Number(e.value);saveP();});
+  $('#b-reset').onclick=()=>{try{localStorage.removeItem(LS);}catch(e){}P=loadP();renderParams();};
+  $('#pools-box').innerHTML=P.pools.map(p=>`<div class="pool"><h3>${p.label}</h3>
+    <div class="row">${POOLF.map(f=>`<label>${POOL_LABELS[f]}<input type="number" min="0" max="20" step="${f==='alt'?0.1:1}" data-pool="${p.id}" data-pf="${f}" value="${p[f]}"></label>`).join('')}</div>
+    <div class="row" style="margin-top:8px">${p.salles.map(r=>`<label>${r.id} : postes minimum<input type="number" min="0" max="${r.cols.length}" data-pool="${p.id}" data-room="${r.id}" data-f="min" value="${r.min}"></label>
+      <label>${r.id} : postes maximum<input type="number" min="0" max="${r.cols.length}" data-pool="${p.id}" data-room="${r.id}" data-f="max" value="${r.max}"></label>`).join('')}</div>
+    <div class="mut" style="margin:8px 0 4px">Médecins en rotation</div><div class="chips" id="c-${p.id}-m"></div>
+    <div class="mut" style="margin:8px 0 4px">Remplaçants possibles (repos de garde) — vide = tous les membres du groupe</div><div class="chips" id="c-${p.id}-r"></div></div>`).join('');
+  $('#pools-box').querySelectorAll('input[data-pf]').forEach(e=>e.onchange=()=>{P.pools.find(x=>x.id===e.dataset.pool)[e.dataset.pf]=Number(e.value);saveP();});
+  $('#pools-box').querySelectorAll('input[data-room]').forEach(e=>e.onchange=()=>{
+    const p=P.pools.find(x=>x.id===e.dataset.pool),r=p.salles.find(x=>x.id===e.dataset.room);r[e.dataset.f]=Number(e.value);saveP();});
+  P.pools.forEach(p=>{chips($('#c-'+p.id+'-m'),p,'membres',renderQuotas);chips($('#c-'+p.id+'-r'),p,'remplacants');});
+  $('#dl').innerHTML=D.medecins.map(m=>`<option value="${m}">`).join('');
+  renderQuotas();
+}
+function poolHTML(pool){
+  const R=RES,CI=colInfo(),Wn=R.plan.length;
+  const roomOf=(wi,m)=>{for(const [c,v] of Object.entries(R.plan[wi].seats))if(v===m&&CI[c]&&CI[c].pool===pool)return{room:CI[c].room,fixed:R.plan[wi].fixedCols.has(c)};return null;};
+  const head='<tr><th>Semaine du</th>'+pool.membres.map(m=>`<th>${m}</th>`).join('')+'</tr>';
+  const rows=R.plan.map((w,wi)=>`<tr><td class="l">${w.mon}</td>`+pool.membres.map(m=>{
+    const ro=roomOf(wi,m);if(ro)return`<td class="${ro.fixed?'fixed':''}" style="background:${ro.room.color}">${ro.room.id}</td>`;
+    const f=freeOf(m,wi);return`<td class="${f<P.seuil/100-1e-9?'bad':'mut'}">${Math.round(f*100)}%</td>`;}).join('')+'</tr>').join('');
+  const opts=[...new Set([...pool.membres,...pool.remplacants])];
+  const seatCols=pool.salles.flatMap(r=>r.cols.map(c=>({c,r})));
+  const grid=R.plan.map((w,wi)=>{
+    const dup=seatCols.map(({c})=>w.seats[c]).filter(Boolean);
+    const info=seatCols.filter(({c})=>w.seats[c]).map(({c})=>{const m=w.seats[c],x=wkInfo(m,wi),bad=x.pct<P.seuil/100-1e-9||dup.filter(d=>d===m).length>1;
+      const det=Object.entries(x.cats).map(([k,n])=>`${k}×${n}`).concat(x.abs?[`abs×${x.abs}`]:[]).join(', ');
+      return`<div><span class="${bad?'bad':''}">${c} · ${m} ${Math.round(x.pct*100)} %</span> <span class="mut">(${det||'libre'})</span></div>`;}).join('');
+    return`<tr><td class="l">${w.mon}</td>`+seatCols.map(({c,r})=>{const fx=w.fixedCols.has(c);
+      return`<td style="background:${r.color}"><select data-w="${wi}" data-col="${c}"${fx?' disabled':''}>${['',...new Set([...opts,w.seats[c]].filter(Boolean))].map(o=>`<option${o===(w.seats[c]||'')?' selected':''}>${o}</option>`).join('')}</select></td>`;}).join('')+`<td class="l">${info}</td></tr>`;}).join('');
+  return`<section><h2>${pool.label} — répartition par semaine</h2><div class="scroll"><table>${head}${rows}</table></div>
+    <div class="mut" style="margin-top:4px">Cases en italique avec bordure : semaine déjà pourvue dans la sandbox (non modifiée). Pourcentage : disponibilité du médecin non retenu (rouge sous le seuil).</div></section>
+    <section><h2>${pool.label} — ajuster à la main</h2><div class="scroll"><table><tr><th>Semaine du</th>${seatCols.map(({c})=>`<th>${c}</th>`).join('')}<th>Disponibilité</th></tr>${grid}</table></div>
+    <div class="mut" style="margin-top:4px">Chaque modification recalcule les contrôles et le bilan (sans réoptimiser le reste).</div></section>`;
+}
+function bilanHTML(){
+  const B=RES.bilan,rooms=B.rooms;
+  const bil=B.rows.map(x=>{const ok=x.r==null||x.tot===0||Math.abs(x.r-B.mean)<=B.sd+1e-9;
+    return`<tr><td class="l">${x.m}</td>${rooms.map(r=>`<td>${x.by[r.id]}</td>`).join('')}<td>${x.avant}</td><td>${x.tot}</td><td>${x.q}</td><td class="${ok?'ok':'bad'}">${x.r==null?'–':x.r.toFixed(2)}</td></tr>`;}).join('');
+  return`<section><h2>Bilan d'équilibrage (toutes salles)</h2><div class="scroll"><table><tr><th>Médecin</th>${rooms.map(r=>`<th>${r.id}</th>`).join('')}<th>Déjà fait</th><th>Total</th><th>Quota</th><th>Total / quota</th></tr>${bil}</table></div>
+    <div class="mut" style="margin-top:4px">Vert : dans la moyenne ± 1 écart-type (${B.mean.toFixed(2)} ± ${B.sd.toFixed(2)}). Un total de 9 semaines vaut 9 semaines quelle que soit la salle.</div></section>`;
+}
+function renderResult(){
+  const R=RES;
+  if(!R){$('#out').innerHTML='';return;}
+  const wl=a=>a.slice(0,300).map(w=>`<div class="w ${w.l}">${w.m}</div>`).join('')+(a.length>300?`<div class="mut">… ${a.length-300} autres</div>`:'');
+  if(!R.plan){$('#out').innerHTML=`<section>${wl(R.W)}</section>`;return;}
+  const reds=R.W.filter(w=>w.l==='r'),ambs=R.W.filter(w=>w.l==='o');
+  $('#out').innerHTML=activePools().map(poolHTML).join('')+bilanHTML()+
+    `<section><h2>À arbitrer (${reds.length})</h2>${wl(reds)||'<div class="mut">Aucun échec de postage.</div>'}</section>
+     <section><h2>Ajustements automatiques et alertes (${ambs.length})</h2>${wl(ambs)||'<div class="mut">Aucun.</div>'}</section>`;
+}
+function updateSend(){
+  const n=RES?.edits?RES.edits.length:0;
+  $('#b-send').disabled=!(RES&&RES.plan&&(n||lastSent.size)&&host());
+  if(RES&&RES.plan)$('#sum')?.remove();
+}
+$('#b-run').onclick=optimize;
+$('#b-stop').onclick=()=>{cancelSolve();};
+$('#b-send').onclick=()=>{
+  const out=[],now=new Map();
+  RES.edits.forEach(e=>{now.set(e.id+'|'+e.col,e);out.push(e);});
+  // cases envoyées précédemment et qui ne sont plus dans le plan : on les vide
+  lastSent.forEach((e,k)=>{if(!now.has(k))out.push({id:e.id,date:e.date,heure:e.heure,col:e.col,value:null});});
+  host()?.postMessage({type:'rotations:edits',edits:out},location.origin);
+  lastSent=now;
+  $('#status').textContent=`${RES.edits.length} case(s) envoyée(s) vers la sandbox (en attente de sauvegarde).`;
+};
+$('#out').onchange=e=>{
+  const s=e.target.closest('select[data-w]');if(!s||!RES||!RES.plan)return;
+  const w=RES.plan[+s.dataset.w];if(s.value)w.seats[s.dataset.col]=s.value;else delete w.seats[s.dataset.col];
+  finalize();renderResult();updateSend();
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  10. ÉCHANGE AVEC INDEX (même protocole que l'ancien générateur)
+// ═══════════════════════════════════════════════════════════════════════════════
+const host=()=>window.opener||(window.parent!==window?window.parent:null);
+window.addEventListener('message',e=>{
+  if(e.origin!==location.origin||e.data?.type!=='rotations:init')return;
+  const d=e.data,neu=Array.isArray(d.neurologues)?d.neurologues:[];
+  D={rows:d.rows||[],absences:d.absences||[],cols:d.medecins||[],medecins:(d.medecins||[]).map(norm),spec:{},profil:{}};
+  neu.forEach(n=>{if(n&&n.initiales&&n.specialite)D.spec[norm(n.initiales)]=String(n.specialite).toLowerCase();
+    if(n&&n.initiales&&n.profil)D.profil[norm(n.initiales)]=String(n.profil).trim().toLowerCase().replace('é','e');});
+  RES=null;lastSent=new Map();$('#out').innerHTML='';
+  const ds=D.rows.map(r=>r.date).filter(Boolean).sort();
+  $('#src').textContent=`${D.rows.length} lignes de sandbox${ds.length?` (du ${ds[0]} au ${ds[ds.length-1]})`:''}, ${D.absences.length} lignes d'absences, ${D.cols.length} neurologues${neu.length?', spécialités reçues':''}.`;
+  renderParams();
+  try{const pr=prepare();$('#banner').innerHTML=pr.ctx?pr.ctx.W0.map(w=>`<div class="w ${w.l}">${w.m}</div>`).join(''):'';}catch(x){}
+});
+renderParams();
+host()?.postMessage({type:'rotations:ready'},location.origin);
+</script>
+</body>
+</html>
