@@ -32,6 +32,7 @@ td.fixed{font-style:italic;outline:1px dashed var(--mut);outline-offset:-3px}
 .note{background:#fff7e0;border:1px solid #e8d38a;border-radius:4px;padding:8px 10px;margin-bottom:12px}
 .banner .w{margin-bottom:6px;background:#fff}
 .mut{color:var(--mut)}#msg{min-height:18px;color:var(--red);font-size:12px}
+summary{cursor:pointer;list-style-position:inside}summary h2{display:inline}
 progress{vertical-align:middle}.pool{border-top:1px solid var(--line);margin-top:12px;padding-top:6px}.pool:first-child{border-top:0;margin-top:0}
 </style>
 </head>
@@ -641,6 +642,10 @@ function renderParams(){
   $('#dl').innerHTML=D.medecins.map(m=>`<option value="${m}">`).join('');
   renderQuotas();
 }
+const FOLD={};   // état ouvert/fermé de chaque fenêtre, conservé entre deux affichages
+const det=(id,titre,corps)=>`<section><details id="${id}"${FOLD[id]===false?'':' open'}><summary><h2>${titre}</h2></summary>${corps}</details></section>`;
+document.addEventListener('toggle',e=>{if(e.target.matches&&e.target.matches('details[id]'))FOLD[e.target.id]=e.target.open;},true);
+  
 function poolHTML(pool){
   const R=RES,CI=colInfo(),Wn=R.plan.length;
   const roomOf=(wi,m)=>{for(const [c,v] of Object.entries(R.plan[wi].seats))if(v===m&&CI[c]&&CI[c].pool===pool)return{room:CI[c].room,fixed:R.plan[wi].fixedCols.has(c)};return null;};
@@ -657,11 +662,15 @@ function poolHTML(pool){
       return`<div><span class="${bad?'bad':''}">${c} · ${m} ${Math.round(x.pct*100)} %</span> <span class="mut">(${det||'libre'})</span></div>`;}).join('');
     return`<tr><td class="l">${w.mon}</td>`+seatCols.map(({c,r})=>{const fx=w.fixedCols.has(c);
       return`<td style="background:${r.color}"><select data-w="${wi}" data-col="${c}"${fx?' disabled':''}>${['',...new Set([...opts,w.seats[c]].filter(Boolean))].map(o=>`<option${o===(w.seats[c]||'')?' selected':''}>${o}</option>`).join('')}</select></td>`;}).join('')+`<td class="l">${info}</td></tr>`;}).join('');
-  return`<section><h2>${pool.label} — répartition par semaine</h2><div class="scroll"><table>${head}${rows}</table></div>
-    <div class="mut" style="margin-top:4px">Cases en italique avec bordure : semaine déjà pourvue dans la sandbox (non modifiée). Pourcentage : disponibilité du médecin non retenu (rouge sous le seuil).</div></section>
-    <section><h2>${pool.label} — ajuster à la main</h2><div class="scroll"><table><tr><th>Semaine du</th>${seatCols.map(({c})=>`<th>${c}</th>`).join('')}<th>Disponibilité</th></tr>${grid}</table></div>
-    <div class="mut" style="margin-top:4px">Chaque modification recalcule les contrôles et le bilan (sans réoptimiser le reste).</div></section>`;
+  return det('d-'+pool.id+'-w',pool.label+' — répartition par semaine',
+      `<div class="scroll"><table>${head}${rows}</table></div>
+       <div class="mut" style="margin-top:4px">Cases en italique avec bordure : semaine déjà pourvue dans la sandbox (non modifiée). Pourcentage : disponibilité du médecin non retenu (rouge sous le seuil).</div>`)
+    +det('d-'+pool.id+'-a',pool.label+' — ajuster à la main',
+      `<div class="scroll"><table><tr><th>Semaine du</th>${seatCols.map(({c})=>`<th>${c}</th>`).join('')}<th>Disponibilité</th></tr>${grid}</table></div>
+       <div class="mut" style="margin-top:4px">Chaque modification recalcule les contrôles et le bilan (sans réoptimiser le reste).</div>`);
+  
 }
+  
 function bilanHTML(){
   const B=RES.bilan,rooms=B.rooms;
   const bil=B.rows.map(x=>{const ok=x.r==null||x.tot===0||Math.abs(x.r-B.mean)<=B.sd+1e-9;
@@ -669,13 +678,25 @@ function bilanHTML(){
   return`<section><h2>Bilan d'équilibrage (toutes salles)</h2><div class="scroll"><table><tr><th>Médecin</th>${rooms.map(r=>`<th>${r.id}</th>`).join('')}<th>Déjà fait</th><th>Total</th><th>Quota</th><th>Total / quota</th></tr>${bil}</table></div>
     <div class="mut" style="margin-top:4px">Vert : dans la moyenne ± 1 écart-type (${B.mean.toFixed(2)} ± ${B.sd.toFixed(2)}). Un total de 9 semaines vaut 9 semaines quelle que soit la salle.</div></section>`;
 }
+
+function globalHTML(){
+  const R=RES,CI=colInfo(),ms=[...new Set(activePools().flatMap(p=>p.membres))];
+  const roomOf=(wi,m)=>{for(const [c,v] of Object.entries(R.plan[wi].seats))if(v===m&&CI[c])return{room:CI[c].room,fixed:R.plan[wi].fixedCols.has(c)};return null;};
+  const head='<tr><th>Semaine du</th>'+ms.map(m=>`<th>${m}</th>`).join('')+'</tr>';
+  const rows=R.plan.map((w,wi)=>`<tr><td class="l">${w.mon}</td>`+ms.map(m=>{
+    const ro=roomOf(wi,m);if(ro)return`<td class="${ro.fixed?'fixed':''}" style="background:${ro.room.color}">${ro.room.id}</td>`;
+    const f=freeOf(m,wi);return`<td class="${f<P.seuil/100-1e-9?'bad':'mut'}">${Math.round(f*100)}%</td>`;}).join('')+'</tr>').join('');
+  return det('d-global','Vue d\'ensemble — tous les médecins',`<div class="scroll"><table>${head}${rows}</table></div>
+    <div class="mut" style="margin-top:4px">Salle (colorée) : où le médecin est posté. Pourcentage : sa disponibilité quand il n'est pas posté (rouge sous le seuil). Italique avec bordure : semaine déjà pourvue dans la sandbox.</div>`);
+}
+  
 function renderResult(){
   const R=RES;
   if(!R){$('#out').innerHTML='';return;}
   const wl=a=>a.slice(0,300).map(w=>`<div class="w ${w.l}">${w.m}</div>`).join('')+(a.length>300?`<div class="mut">… ${a.length-300} autres</div>`:'');
   if(!R.plan){$('#out').innerHTML=`<section>${wl(R.W)}</section>`;return;}
   const reds=R.W.filter(w=>w.l==='r'),ambs=R.W.filter(w=>w.l==='o');
-  $('#out').innerHTML=activePools().map(poolHTML).join('')+bilanHTML()+
+  $('#out').innerHTML=activePools().map(poolHTML).join('')+bilanHTML()+globalHTML()+
     `<section><h2>À arbitrer (${reds.length})</h2>${wl(reds)||'<div class="mut">Aucun échec de postage.</div>'}</section>
      <section><h2>Ajustements automatiques et alertes (${ambs.length})</h2>${wl(ambs)||'<div class="mut">Aucun.</div>'}</section>`;
 }
