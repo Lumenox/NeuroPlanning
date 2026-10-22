@@ -118,7 +118,7 @@ const cat=c=>/^(USI|UNV)/.test(c)?'USI/UNV':/^C_/.test(c)?'C':/^HDJ/.test(c)?'HD
 const DEFAULTS={
   repos:2,                  // repos minimal entre deux passages (semaines), quelle que soit la salle
   penaliteDepassement:0.3,  // coût par fenêtre dépassant la durée souhaitée
-  seuil:90,                 // % minimal de créneaux libres dans la semaine pour être éligible
+  seuil:70,                 // % minimal de créneaux libres dans la semaine pour être éligible (1 mercredi par semaine rabaisse quasi systé autour de 70%)
   tempsMax:60,              // secondes
   ecart:1,                  // écart à l'optimum toléré (%) : l'optimisation s'arrête quand il est atteint
   pools:[
@@ -126,19 +126,22 @@ const DEFAULTS={
      salles:[
       {id:'USI',cols:['USI1','USI2'],min:2,max:2,color:'#f6c6dd',pen:{}},
       {id:'UNV',cols:['UNV1','UNV2'],min:1,max:2,color:'#f3e2ad',pen:{}}],
-     membres:['AYW','AND','NB','HL','FF','AT','BL','IP'],
+     membres:['AYW','AND','NB','HL','FF','AT','BL','VP'],
      remplacants:['AYW','AND','NB','HL','FF','AT'],   // vide = tous les membres du groupe
      pen:{}},
     {id:'C',label:'Consultations C',fam:'G',pmin:3,psou:4,pcap:5,opt:3,alt:0.3,
      salles:[
       {id:'C_Periph',cols:['C_Periph'],min:1,max:1,color:'#cfe3f5',pen:{}},
       {id:'C_Cogn',cols:['C_Cogn'],min:0,max:1,color:'#d3ecd0',pen:{}}],   // C_Cogn = poste facultatif par défaut
-     membres:[],remplacants:[],pen:{}},
+     membres:['TG', 'AD', 'AG', 'BL', 'VP'],
+     remplacants:['TG', 'AD', 'AG'],
+     pen:{}},
     {id:'HDJ',label:'HDJ',fam:'G',pmin:1,psou:2,pcap:3,opt:4,alt:0,
      salles:[{id:'HDJ',cols:['HDJ1','HDJ2'],min:1,max:2,color:'#e6d4f2',pen:{}}],
-     membres:[],remplacants:[],pen:{}}
+     membres:['MZ', 'MB', 'EE','TG', 'AD', 'AG', 'BL', 'VP'],
+     remplacants:['MZ', 'MB', 'EE'],pen:{}}
   ],
-  quotas:{BL:0.5,IP:0.5},   // total toutes salles / quota = équité entre tous les médecins
+  quotas:{BL:0.5,VP:0.5},   // total toutes salles / quota = équité entre tous les médecins
   avant:{},
   fin:{},
   rules:{Mardi_matin:{FF:'BOX',AT:'Salle'}}
