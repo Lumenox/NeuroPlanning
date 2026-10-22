@@ -129,7 +129,7 @@ const DEFAULTS={
      membres:['AYW','AND','NB','HL','FF','AT','BL','VP'],
      remplacants:['AYW','AND','NB','HL','FF','AT'],   // vide = tous les membres du groupe
      pen:{}},
-    {id:'C',label:'Consultations C',fam:'G',pmin:3,psou:4,pcap:5,opt:3,alt:0.3,
+    {id:'C',label:'C Général',fam:'G',pmin:3,psou:4,pcap:5,opt:3,alt:0.3,
      salles:[
       {id:'C_Periph',cols:['C_Periph'],min:1,max:1,color:'#cfe3f5',pen:{}},
       {id:'C_Cogn',cols:['C_Cogn'],min:0,max:1,color:'#d3ecd0',pen:{}}],   // C_Cogn = poste facultatif par défaut
@@ -589,9 +589,20 @@ function chips(el,pool,key,after){
 const allMembers=()=>[...new Set(P.pools.flatMap(p=>p.membres))];
 const PROFIL_POOLS={vascu:['VASC'],general:['C','HDJ'],hdj:['HDJ'],mixte:['VASC','C','HDJ']};
 function applyProfils(){
+  console.log("Profils reçus :", D.profil);
+  console.log("Pools disponibles :", P.pools.map(p => p.id));
+  
   const add=(p,m)=>{if(!p.membres.includes(m))p.membres.push(m);};
-  Object.entries(D.profil).forEach(([m,pr])=>{(PROFIL_POOLS[pr]||[]).forEach(id=>{const p=P.pools.find(x=>x.id===id);if(p)add(p,m);});
-    if(pr==='mixte'&&P.quotas[m]===undefined)P.quotas[m]=0.5;});
+  
+  Object.entries(D.profil).forEach(([m,pr])=>{
+    console.log(`Traitement du médecin ${m} avec le profil ${pr}`);
+    (PROFIL_POOLS[pr]||[]).forEach(id=>{
+      const p=P.pools.find(x=>x.id===id);
+      console.log(` -> Recherche du pool ${id} :`, p ? "trouvé" : "NON TROUVÉ");
+      if(p)add(p,m);
+    });
+    if(pr==='mixte'&&P.quotas[m]===undefined)P.quotas[m]=0.5;
+  });
   saveP();renderParams();
 }
 function renderQuotas(){
