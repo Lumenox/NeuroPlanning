@@ -1055,7 +1055,7 @@ async function runPurge() {
   const btn = document.getElementById('btnRunPurge');
   btn.disabled = true;
   btn.textContent = '⏳ Purge en cours...';
-  const useEmpty = new Set();   // colonnes NOT NULL : on écrit '' au lieu de null
+  const useEmpty = new Set(['BOX1', 'BOX2']);   // colonnes NOT NULL (clé primaire) : on écrit '' d'emblée
   const ok = [], ko = [];
   for (const c of cells) {
     const write = value => supabaseClient
