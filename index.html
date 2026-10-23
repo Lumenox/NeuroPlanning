@@ -2303,12 +2303,15 @@ function updateBrushSuggestions() {
     });
   }
 }
-
+// Colonnes membres de la clé primaire de planning : NOT NULL, une cellule vide s'écrit ''
+const NOT_NULL_COLS = ['C_Periph','C_Cogn','C_sup','UNV1','UNV2','USI1','USI2','BIPv','BIPng','Garde','BOX1','BOX2'];
+	
 function applyBrushValue(row, colKey, td, isAbsence = false) {
   let val = document.getElementById('brush-value').value.trim();
   
   // Règle : si "vide", on injecte null
-  const finalValue = (val.toLowerCase() === 'vide' || val === '') ? null : val.toUpperCase();
+  const emptyVal = (!isAbsence && NOT_NULL_COLS.includes(colKey)) ? '' : null;
+  const finalValue = (val.toLowerCase() === 'vide' || val === '') ? emptyVal : val.toUpperCase();
 
   if (isAbsence) {
     if (!pendingEditsAbs[row.id]) pendingEditsAbs[row.id] = {};
@@ -4224,7 +4227,8 @@ function applySandboxColVisibility() {
 
 function applySandboxBrushValue(row, colKey, td) {
   let val = document.getElementById('brush-value').value.trim();
-  const finalValue = (val.toLowerCase() === 'vide' || val === '') ? null : val.toUpperCase();
+  const emptyVal = NOT_NULL_COLS.includes(colKey) ? '' : null;   //prend aussi en compte ici un pb avec supabase initial... des colonnes non nullable
+  const finalValue = (val.toLowerCase() === 'vide' || val === '') ? emptyVal : val.toUpperCase();
 
   if (!pendingEditsSandbox[row.id]) pendingEditsSandbox[row.id] = {};
   pendingEditsSandbox[row.id][colKey] = finalValue;
