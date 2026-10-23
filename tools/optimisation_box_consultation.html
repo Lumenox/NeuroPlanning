@@ -254,7 +254,7 @@
 		    <button id="btnClosePurge" type="button" class="text-rose-700 hover:text-rose-900 text-sm">✕</button>
 		  </div>
 		  <div id="purgeList" class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1"></div>
-		  <button id="btnRunPurge" class="text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg px-3 py-1.5">Purger la sélection…</button>
+		  <button id="btn" class="text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg px-3 py-1.5">Purger la sélection…</button>
 		</div>
 		
       <div class="overflow-x-auto">
@@ -1055,14 +1055,21 @@ async function runPurge() {
   const btn = document.getElementById('btnRunPurge');
   btn.disabled = true;
   btn.textContent = '⏳ Purge en cours...';
+  const useEmpty = new Set();   // colonnes NOT NULL : on écrit '' au lieu de null
   const ok = [], ko = [];
   for (const c of cells) {
-    const { data, error } = await supabaseClient
+    const write = value => supabaseClient
       .from('planning')
-      .update({ [c.col]: null })
+      .update({ [c.col]: value })
       .eq('id', c.id)
       .eq(c.col, c.raw)
       .select('id');
+
+    let { data, error } = await write(useEmpty.has(c.col) ? '' : null);
+    if (error && (error.code === '23502' || /not-null/i.test(error.message || ''))) {
+      useEmpty.add(c.col);
+      ({ data, error } = await write(''));
+    }
     if (error || !data?.length) {
       ko.push(c);
       if (error) console.warn('Purge échouée', c, error.message);
