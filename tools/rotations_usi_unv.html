@@ -31,7 +31,9 @@ td.USI{background:var(--usi)}td.UNV{background:var(--unv)}
 .w.r{border-color:var(--red)}.w.o{border-color:var(--amb)}
 .note{background:#fff7e0;border:1px solid #e8d38a;border-radius:4px;padding:8px 10px;margin-bottom:12px}
 .mut{color:var(--mut)}#msg{min-height:18px;color:var(--red);font-size:12px}
+details{margin:4px 0}summary{cursor:pointer}
 </style>
+  
 </head>
 <body>
 <h1>Répartition des postes USI / UNV</h1>
@@ -252,6 +254,32 @@ function weekInfo(ctx,w,m){
   return{pct:(w.ix.length-occ)/w.ix.length,cats,abs};
 }
   
+const FOLD={};
+document.addEventListener('toggle',e=>{if(e.target.matches&&e.target.matches('details[id]'))FOLD[e.target.id]=e.target.open;},true);
+const LOG_CATS=[
+  ['Calcul',/Limite de temps|Modèle infaisable|Aucune solution/],
+  ['Données d\'entrée',/absences reçues|Aucune ligne|Aucune donnée/],
+  ['Postes obligatoires non pourvus',/obligatoire/],
+  ['Cases déjà remplies (plus de place)',/plus de place/],
+  ['Médecin absent (case laissée vide)',/absent, case laissée vide/],
+  ['BOX non couvert',/BOX de/],
+  ['Repos de garde (remplaçant)',/repos de garde/],
+  ['Repos insuffisant entre passages',/repos de \d+ semaine/],
+  ['Passage au-delà du plafond',/\(plafond/],
+  ['Passage plus long que souhaité',/\(souhaité/],
+  ['Passage trop court',/passage de \d+ semaine\(s\) \(minimum/],
+  ['Pas d\'alternance de salle',/pas d'alternance/],
+  ['Postes facultatifs non pourvus',/facultatif/]
+];
+function logHTML(list,idp,vide){
+  if(!list.length)return`<div class="mut">${vide}</div>`;
+  const g={};
+  list.forEach(w=>{const c=(LOG_CATS.find(([,re])=>re.test(w.m))||['Autres'])[0];(g[c]??=[]).push(w);});
+  return[...LOG_CATS.map(c=>c[0]),'Autres'].filter(c=>g[c]).map(c=>{
+    const id='log-'+idp+'-'+c;
+    return`<details id="${id}"${FOLD[id]?' open':''}><summary><b>${c}</b> <span class="mut">(${g[c].length})</span></summary>${g[c].sort((a,b)=>a.m.localeCompare(b.m)).map(w=>`<div class="w ${w.l}">${w.m}</div>`).join('')}</details>`;}).join('');
+}
+  
 function renderResult(){
   const R=RES;if(!R||!R.plan){$('#out').innerHTML=R?`<section>${R.W.map(w=>`<div class="w ${w.l}">${w.m}</div>`).join('')}</section>`:'';return;}
   const seatCols=['USI1','USI2','UNV1','UNV2'],opts=[...new Set([...P.participants,...P.vasc])];
@@ -281,8 +309,8 @@ function renderResult(){
     </section>
     <section><h2>Bilan d'équilibrage (historique inclus)</h2><div class="scroll"><table><tr><th>Médecin</th><th>USI</th><th>UNV</th><th>Total</th><th>Quota</th><th>Total / quota</th></tr>${b}</table></div>
     <div class="mut" style="margin-top:4px">Vert : dans la moyenne ± 1 écart-type (${R.mean.toFixed(2)} ± ${R.sd.toFixed(2)}).</div></section>
-    <section><h2>À arbitrer (${reds.length})</h2>${wl(reds)||'<div class="mut">Aucun échec de postage.</div>'}</section>
-    <section><h2>Ajustements automatiques (${ambs.length})</h2>${wl(ambs)||'<div class="mut">Aucun.</div>'}</section>`;
+    `<section><h2>À arbitrer (${reds.length})</h2>${logHTML(reds,'r','Aucun échec de postage.')}</section>
+     <section><h2>Ajustements automatiques et alertes (${ambs.length})</h2>${logHTML(ambs,'o','Aucun.')}</section>`;
 }
 $('#b-sim').onclick=()=>{
   if(!D.rows.length){RES={W:[{l:'r',m:'Aucune donnée reçue : ouvre ce générateur depuis l\'onglet sandbox de Neuroplanning.'}]};renderResult();return;}
