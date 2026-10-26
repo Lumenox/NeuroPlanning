@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Remplacement d'un médecin absent</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#1d2733;--mut:#667385;--line:#d9dee5;--acc:#1f6f78;--red:#c0392b;--amb:#b9770e;--grn:#2e7d4f}
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+h1{font-size:18px;margin:0 0 12px}h2{font-size:15px;margin:0 0 8px}h3{font-size:13px;margin:12px 0 6px}
+section{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin-bottom:12px}
+.row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+label{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:3px}
+label.inl{flex-direction:row;align-items:center;gap:6px;font-size:13px;color:var(--ink)}
+input,select,button{font:inherit;color:inherit}
+input[type=number],input[type=text],input[type=date],select{border:1px solid var(--line);border-radius:4px;padding:4px 6px;background:#fff}
+input[type=number]{width:78px}
+button{border:1px solid var(--acc);background:var(--acc);color:#fff;border-radius:4px;padding:6px 12px;cursor:pointer}
+button.ghost{background:#fff;color:var(--acc)}button:disabled{opacity:.4;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;font-size:13px}
+th,td{border:1px solid var(--line);padding:3px 7px;text-align:center;white-space:nowrap}
+th{background:#eef1f4;font-weight:600}td.l{text-align:left}
+.ok{color:var(--grn);font-weight:600}.bad{color:var(--red);font-weight:600}.amb{color:var(--amb);font-weight:600}
+.w{padding:3px 8px;margin:2px 0;border-left:3px solid;background:#fafbfc}
+.w.r{border-color:var(--red)}.w.o{border-color:var(--amb)}
+.note{background:#fff7e0;border:1px solid #e8d38a;border-radius:4px;padding:8px 10px;margin-bottom:12px}
+.mut{color:var(--mut)}#msg{min-height:18px;color:var(--red);font-size:12px;margin-top:6px}
+summary{cursor:pointer;list-style-position:inside}summary h2,summary h3{display:inline}
+details{margin:4px 0}
+.cat-Salle{background:#d3ecd0}.cat-BIP{background:#cfe3f5}.cat-Garde{background:#f6c6dd}.cat-Astr{background:#f3e2ad}.cat-BOX{background:#e6d4f2}
+td.msgs{text-align:left;white-space:normal;min-width:260px}
+</style>
+</head>
+<body>
+<h1>Remplacement d'un médecin absent — réaffectation des postes</h1>
+<div class="note">Étape 1 : on identifie les postes du médecin absent sur la période M. Étape 2 : on propose des remplaçants, modifiables un par un avec recalcul en direct. Tout ce qui est hors de M reste gelé. Les box ne sont jamais réaffectés : ils sont listés pour que la consultation soit prévenue et reprogrammée.</div>
+<div id="src" class="mut" style="margin-bottom:10px"></div>
+
+<section>
+  <h2>Période M et médecin absent</h2>
+  <div class="row">
+    <label>Médecin absent<select id="sick"></select></label>
+    <label>Du<input type="date" id="d1"></label>
+    <label>Au (inclus)<input type="date" id="d2"></label>
+    <label>Poids de l'équité<input type="number" id="w-eq" min="0" max="10" step="0.1"></label>
+    <label>Poids de la continuité<input type="number" id="w-cont" min="0" max="10" step="0.1"></label>
+    <button id="b-an">1. Identifier les postes à remplacer</button>
+    <button id="b-prop" class="ghost" disabled>2. Proposer des remplaçants</button>
+    <button id="b-send" disabled>Envoyer vers la sandbox</button>
+  </div>
+  <div id="msg"></div>
+  <div id="status" class="mut"></div>
+</section>
+
+<section>
+  <details>
+    <summary><h2>Quotas par catégorie</h2></summary>
+    <div class="note" style="margin-top:8px">Seuls les quotas de salle existent pour l'instant (repris de l'outil de rotations s'ils sont enregistrés). Pour BIP/SAU, garde et astreinte, aucun quota n'est déclaré : valeur 1 par défaut pour tous, et l'équité est calculée sur l'ensemble de la période P (parties gelées comprises). Un quota à 0 exclut le médecin de la catégorie. Salle : en semaines (10 demi-journées = 1 semaine). BIP/SAU : en demi-journées. Garde et astreinte : en nombre de dates.</div>
+    <div class="scroll" id="quotas"></div>
+  </details>
+</section>
+
+<div id="ph1"></div>
+<div id="out"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+//  0. UTILITAIRES ET CONSTANTES
+// ═══════════════════════════════════════════════════════════════════════════════
+const $=s=>document.querySelector(s);
+const norm=s=>s==null?'':String(s).trim().toUpperCase();
+const BOX_COLS=['BOX1','BOX2','BOX3','BOX4','BOX5','BOX6','BOX7','BOX8','BOX9'];
+// Toutes les colonnes de poste du planning (même liste que l'outil de rotations)
+const POST=['C_Periph','C_Cogn','C_sup','C_int1','C_int2','HDJ1','HDJ2','HDJ3','HDJ_int1','HDJ_int2',
+  'UNV1','UNV2','UNV_int1','UNV_int2','USI1','USI2','USI_int1','USI_int2',
+  'BIPv','BIPng','BIP_int','SAU','Garde','Garde_int','Astr','Astr_int',...BOX_COLS];
+const SEUIL_FIXE=6;          // cellules d'une salle dans la semaine => le médecin est « en passage » cette semaine-là
+const REPOS_PASSAGE=2;       // repos minimal entre deux passages (semaines), contrôle d'alerte seulement
+const PEN_VIDE=100;          // coût d'un poste laissé vide
+const GRP=2;                 // coût par cellule pour un remplaçant hors du groupe de la salle
+const NOUVEAU=5;             // coût par cellule pour un médecin qui n'a aucun poste de cette catégorie sur P
+const CATS=['Salle','BIP','Garde','Astr'];
+const LAB={Salle:'Salle',BIP:'BIP/SAU',Garde:'Garde',Astr:'Astreinte',BOX:'Box'};
+
+const parse=d=>{const [y,m,j]=d.split('-').map(Number);return new Date(y,m-1,j);};
+const fmt=t=>`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+const add=(d,n)=>{const t=parse(d);t.setDate(t.getDate()+n);return fmt(t);};
+const nextDay=d=>add(d,1), prevDay=d=>add(d,-1);
+const wd=d=>(parse(d).getDay()+6)%7;                       // 0 = lundi … 6 = dimanche
+const monday=d=>add(d,-wd(d));
+// Catégorie d'une colonne. Les colonnes « _int » (internes) sont hors périmètre => null.
+const catOf=c=>/_int/.test(c)?null:/^(USI|UNV|C_|HDJ)/.test(c)?'Salle':/^(BIP|SAU)/.test(c)?'BIP':c==='Garde'?'Garde':c==='Astr'?'Astr':/^BOX/.test(c)?'BOX':null;
+
+// Groupes de salles (sert au classement des remplaçants : membres du groupe d'abord). Reprend l'outil de rotations s'il a enregistré ses réglages.
+let OLD={};try{OLD=JSON.parse(localStorage.getItem('rotations_v3_params')||'null')||{};}catch(e){}
+const POOLS=[
+  {id:'VASC',label:'USI / UNV',pcap:4,psou:3,cols:['USI1','USI2','UNV1','UNV2'],membres:['AYW','AND','NB','HL','FF','AT','BL','VP']},
+  {id:'C',label:'C Général',pcap:5,psou:4,cols:['C_Periph','C_Cogn','C_sup'],membres:['TG','AD','AG','BL','VP']},
+  {id:'HDJ',label:'HDJ',pcap:3,psou:2,cols:['HDJ1','HDJ2','HDJ3'],membres:['MZ','MB','EE','TG','AD','AG','BL','VP']}];
+POOLS.forEach(p=>{const m=OLD.pools&&OLD.pools[p.id]&&OLD.pools[p.id].membres;if(Array.isArray(m)&&m.length)p.membres=m;});
+const poolOfCol=c=>POOLS.find(p=>p.cols.includes(c));
+const SALLEQ=Object.assign({BL:0.5,VP:0.5},OLD.quotas||{});
+
+// Réglages propres à cet outil
+const LSK='remplacement_v1';
+function loadPR(){
+  const d={quotas:{Salle:{},BIP:{},Garde:{},Astr:{}},wEq:1,wCont:1};
+  try{const s=JSON.parse(localStorage.getItem(LSK)||'null');
+    if(s){CATS.forEach(c=>{if(s.quotas&&s.quotas[c])d.quotas[c]=s.quotas[c];});if(s.wEq!=null)d.wEq=s.wEq;if(s.wCont!=null)d.wCont=s.wCont;}}catch(e){}
+  return d;
+}
+const PR=loadPR();
+const savePR=()=>{try{localStorage.setItem(LSK,JSON.stringify(PR));}catch(e){}};
+// Quota d'un médecin dans une catégorie (1 par défaut ; salle : repris de l'outil de rotations)
+const q=(cat,m)=>{const v=PR.quotas[cat]&&PR.quotas[cat][m];if(v!=null)return Number(v);return cat==='Salle'?Number(SALLEQ[m]??1):1;};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  1. ÉTAT
+// ═══════════════════════════════════════════════════════════════════════════════
+let D={rows:[],absences:[],cols:[],medecins:[]};
+let C=null;                  // contexte : créneaux triés, absences, index par date, semaines
+let SICK='',D1='',D2='';     // médecin absent et période M
+let blocks=[];               // postes à remplacer, regroupés en blocs contigus
+let assign=new Map();        // « indexCréneau|colonne » -> médecin choisi ('' = vide). Absent de la table = valeur d'origine du planning.
+let phase=0;                 // 0 rien, 1 postes identifiés, 2 propositions faites
+let viderBox=false,lastSent=new Map(),HAB={};
+const FOLD={};
+const isM=d=>!!SICK&&d>=D1&&d<=D2;
+
+function build(){
+  const S=D.rows.filter(r=>r.date).sort((a,b)=>(a.date+(a.heure||'')).localeCompare(b.date+(b.heure||''))).map((r,i)=>({r,i,key:r.date+'_'+r.heure}));
+  const absent=new Map();
+  D.absences.forEach(a=>{if(!a.date)return;D.cols.forEach(c=>{if(a[c]&&String(a[c]).trim()){const k=a.date+'_'+a.heure;if(!absent.has(k))absent.set(k,new Set());absent.get(k).add(norm(c));}});});
+  const byDate=new Map(),weeks=new Map();
+  S.forEach(s=>{(byDate.get(s.r.date)||byDate.set(s.r.date,[]).get(s.r.date)).push(s.i);
+    const m=monday(s.r.date);(weeks.get(m)||weeks.set(m,[]).get(m)).push(s.i);});
+  C={S,absent,byDate,weeks,mons:[...weeks.keys()].sort(),first:S.length?S[0].r.date:'',last:S.length?S[S.length-1].r.date:''};
+}
+// valeur effective d'une cellule (choix en cours, sinon planning d'origine)
+const ov=(i,c)=>{const k=i+'|'+c;return assign.has(k)?assign.get(k):C.S[i].r[c];};
+const nv=(i,c)=>norm(ov(i,c));
+const cr=s=>s.r.heure==='09:00:00'?'matin':'aprem';
+const cellLabel=x=>`${C.S[x.i].r.date} ${cr(C.S[x.i])} · ${x.col}`;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  2. RÈGLES DURES (disponibilité d'un médecin pour une cellule)
+// ═══════════════════════════════════════════════════════════════════════════════
+const absentAt=(i,m)=>!!(C.absent.get(C.S[i].key)&&C.absent.get(C.S[i].key).has(m))||(m===SICK&&isM(C.S[i].r.date));
+const postedElse=(i,m,col)=>{for(const c of POST)if(c!==col&&nv(i,c)===m)return c;return null;};
+const hasGarde=(date,m)=>(C.byDate.get(date)||[]).some(i=>nv(i,'Garde')===m);
+// le lendemain d'une garde doit être libre toute la journée : renvoie la raison si ce n'est pas le cas
+function dayBusy(date,m){for(const i of C.byDate.get(date)||[]){if(absentAt(i,m))return 'absent';const c=POST.find(c=>nv(i,c)===m);if(c)return c;}return null;}
+// garde du vendredi ou du samedi <=> pas d'astreinte le même week-end (dans les deux sens)
+function wkConflict(col,d,m){
+  const mon=monday(d);
+  if(col==='Garde'&&(wd(d)===4||wd(d)===5))for(const k of [5,6]){const dd=add(mon,k);if((C.byDate.get(dd)||[]).some(i=>nv(i,'Astr')===m))return `astreinte le ${dd} : incompatible avec une garde du vendredi/samedi`;}
+  if(col==='Astr'&&(wd(d)===5||wd(d)===6))for(const k of [4,5]){const dd=add(mon,k);if(hasGarde(dd,m))return `garde le ${dd} : incompatible avec l'astreinte du week-end`;}
+  return null;
+}
+// liste des violations (toutes « rouges ») si le médecin m occupe la cellule (i, col)
+function viol(i,col,m){
+  const o=[];if(!m)return o;const d=C.S[i].r.date;
+  if(m===SICK&&isM(d))o.push({l:'r',m:`${m} est le médecin absent (période M)`});
+  else if(absentAt(i,m))o.push({l:'r',m:'absent (absences saisies)'});
+  const oc=postedElse(i,m,col);
+  if(oc)o.push({l:'r',m:BOX_COLS.includes(oc)?`en ${oc} à ce créneau : consultation à reprogrammer`:`déjà posté en ${oc} à ce créneau`});
+  if(hasGarde(prevDay(d),m))o.push({l:'r',m:'repos de garde (garde la veille)'});
+  if(col==='Garde'){const nd=nextDay(d),b=dayBusy(nd,m);if(b)o.push({l:'r',m:`lendemain (${nd}) non libre : ${b} — repos de garde impossible`});}
+  const w=wkConflict(col,d,m);if(w)o.push({l:'r',m:w});
+  return o;
+}
+// alertes « orange » (non bloquantes)
+function warn(x,m,cat){
+  const o=[];if(!m)return o;
+  if(cat==='Salle'){const p=poolOfCol(x.col);if(p&&!p.membres.includes(m))o.push(`${m} hors du groupe ${p.label}`);}
+  if(HAB[cat]&&!(HAB[cat][m]>0))o.push(`${m} n'a aucun poste « ${LAB[cat]} » sur P`);
+  return o;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  3. COMPTAGES POUR L'ÉQUITÉ (sur toute la période P)
+// ═══════════════════════════════════════════════════════════════════════════════
+// Salle : 0,1 semaine par demi-journée ; BIP/SAU : 1 par demi-journée ; Garde et astreinte : 1 par date distincte.
+function counts(useAssign){
+  const out={};CATS.forEach(c=>out[c]={});const seen=new Set();
+  C.S.forEach(s=>POST.forEach(c=>{
+    const cat=catOf(c);if(!cat||cat==='BOX')return;
+    const v=norm(useAssign?ov(s.i,c):s.r[c]);if(!v)return;
+    if(cat==='Garde'||cat==='Astr'){const k=cat+'|'+v+'|'+s.r.date;if(seen.has(k))return;seen.add(k);}
+    out[cat][v]=(out[cat][v]||0)+(cat==='Salle'?0.1:1);}));
+  return out;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  4. ÉTAPE 1 — IDENTIFIER LES POSTES DU MÉDECIN ABSENT DANS M
+// ═══════════════════════════════════════════════════════════════════════════════
+// deux cellules d'une même colonne sont contiguës s'il n'y a entre elles que des lignes de week-end
+function contiguous(a,b){if(b===a+1)return true;for(let k=a+1;k<b;k++)if(wd(C.S[k].r.date)<5)return false;return b>a;}
+function analyze(){
+  const prev=new Map(blocks.map(b=>[b.id,b.status]));
+  blocks=[];assign=new Map();
+  const cells=[];
+  C.S.forEach(s=>{if(!isM(s.r.date))return;POST.forEach(c=>{const cat=catOf(c);if(cat&&norm(s.r[c])===SICK)cells.push({i:s.i,col:c,cat});});});
+  const byCol={};cells.forEach(x=>(byCol[x.col]??=[]).push(x));
+  Object.entries(byCol).forEach(([col,arr])=>{
+    arr.sort((a,b)=>a.i-b.i);const cat=arr[0].cat;let cur=null;
+    arr.forEach(x=>{
+      const date=C.S[x.i].r.date,last=cur&&cur.cells[cur.cells.length-1];
+      // garde et astreinte : un bloc = une date ; autres postes : demi-journées contiguës
+      const adj=cur&&((cat==='Garde'||cat==='Astr')?C.S[last.i].r.date===date:contiguous(last.i,x.i));
+      if(adj)cur.cells.push(x);else{cur={cat,col,cells:[x]};blocks.push(cur);}
+    });
+  });
+  blocks.sort((a,b)=>a.cells[0].i-b.cells[0].i);
+  blocks.forEach(b=>{const s=C.S[b.cells[0].i];b.id=b.col+'|'+s.r.date+'|'+s.r.heure;
+    b.status=b.cat==='BOX'?'box':(prev.get(b.id)==='gere'?'gere':'reaffecter');});
+  HAB=counts(false);phase=1;
+  applyBox();
+}
+function applyBox(){
+  blocks.filter(b=>b.cat==='BOX').forEach(b=>b.cells.forEach(x=>{const k=x.i+'|'+x.col;if(viderBox)assign.set(k,'');else assign.delete(k);}));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  5. ÉTAPE 2 — PROPOSITIONS (programmation dynamique par bloc)
+// ═══════════════════════════════════════════════════════════════════════════════
+// coût d'un changement de remplaçant entre deux cellules consécutives : milieu de journée > changement de jour > changement de semaine
+const transCost=(i1,i2)=>{const a=C.S[i1].r.date,b=C.S[i2].r.date;return PR.wCont*(a===b?3:monday(a)===monday(b)?1.5:0.5);};
+const cands=(x,b)=>D.medecins.filter(m=>m!==SICK&&q(b.cat,m)>0&&!viol(x.i,x.col,m).length);
+function proposeBlock(b){
+  const cnt=counts(true)[b.cat],cells=b.cells,n=cells.length,pool=b.cat==='Salle'?poolOfCol(b.col):null;
+  // coût par cellule d'un remplaçant : charge actuelle / quota (répartie sur le bloc), hors groupe, médecin sans poste de ce type
+  const cost=m=>{let c=PR.wEq*((cnt[m]||0)/q(b.cat,m))/n;if(pool&&!pool.membres.includes(m))c+=GRP;if(!(HAB[b.cat]&&HAB[b.cat][m]>0))c+=NOUVEAU;return c;};
+  const cl=cells.map(x=>[...cands(x,b).map(m=>({m,c:cost(m)})),{m:'',c:PEN_VIDE}]);
+  const dp=[],bp=[];
+  for(let k=0;k<n;k++){dp[k]=[];bp[k]=[];
+    cl[k].forEach((o,j)=>{
+      if(k===0){dp[k][j]=o.c;bp[k][j]=-1;return;}
+      let best=Infinity,bi=-1;
+      cl[k-1].forEach((p,pj)=>{const t=(o.m&&p.m&&o.m!==p.m)?transCost(cells[k-1].i,cells[k].i):0;const v=dp[k-1][pj]+t;if(v<best){best=v;bi=pj;}});
+      dp[k][j]=best+o.c;bp[k][j]=bi;});}
+  let j=0;dp[n-1].forEach((v,jj)=>{if(v<dp[n-1][j])j=jj;});
+  for(let k=n-1;k>=0;k--){assign.set(cells[k].i+'|'+cells[k].col,cl[k][j].m);j=bp[k][j];}
+}
+function proposeAll(){
+  assign=new Map();
+  const act=blocks.filter(b=>b.status==='reaffecter');
+  act.forEach(b=>b.cells.forEach(x=>assign.set(x.i+'|'+x.col,'')));      // on retire d'abord le malade de ces cellules
+  // blocs les plus contraints (peu de candidats) d'abord
+  act.map(b=>({b,n:b.cells.reduce((s,x)=>s+cands(x,b).length,0)/b.cells.length})).sort((a,c)=>a.n-c.n).forEach(o=>proposeBlock(o.b));
+  applyBox();phase=2;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  6. CONTRÔLES GLOBAUX (recalculés à chaque modification)
+// ═══════════════════════════════════════════════════════════════════════════════
+function passageW(){
+  const W=[],tm={},Wn=C.mons.length;
+  assign.forEach((v,k)=>{const m=norm(v);if(!m)return;const p=k.indexOf('|'),i=+k.slice(0,p),c=k.slice(p+1);if(catOf(c)!=='Salle')return;(tm[m]??=new Set()).add(C.mons.indexOf(monday(C.S[i].r.date)));});
+  POOLS.forEach(p=>Object.entries(tm).forEach(([m,tw])=>{
+    const a=C.mons.map(mon=>{let n=0;C.weeks.get(mon).forEach(i=>p.cols.forEach(c=>{if(nv(i,c)===m)n++;}));return n>=SEUIL_FIXE;});
+    const runs=[];for(let w=0;w<Wn;){if(a[w]){let e=w;while(e<Wn&&a[e])e++;runs.push([w,e-1]);w=e;}else w++;}
+    runs.forEach(([s,e],ri)=>{
+      if(![...tw].some(w=>w>=s&&w<=e))return;
+      const n=e-s+1,lbl=`${m} · ${p.label} · ${C.mons[s]} → ${C.mons[e]}`;
+      if(n>p.pcap)W.push({l:'r',m:`${lbl} : passage de ${n} semaines (plafond ${p.pcap}).`});
+      else if(n>p.psou)W.push({l:'o',m:`${lbl} : passage de ${n} semaines (souhaité ${p.psou}).`});
+      if(ri>0){const rest=s-runs[ri-1][1]-1;if(rest<REPOS_PASSAGE)W.push({l:'o',m:`${lbl} : seulement ${rest} semaine(s) de repos avant ce passage (minimum ${REPOS_PASSAGE}).`});}
+    });
+  }));
+  return W;
+}
+function issues(){
+  const R=[],O=[];
+  blocks.forEach(b=>b.cells.forEach(x=>{
+    const k=x.i+'|'+x.col,lbl=cellLabel(x);
+    if(b.cat==='BOX'){O.push({l:'o',m:`${lbl} : box de ${SICK} à reprogrammer — prévenir la consultation${viderBox?' (case vidée dans le planning)':' (case laissée au nom du malade)'}.`});return;}
+    if(b.status==='gere'){O.push({l:'o',m:`${lbl} : laissé à ${SICK}, à gérer à la main.`});return;}
+    if(!assign.has(k))return;
+    const m=norm(assign.get(k));
+    if(!m){R.push({l:'r',m:`${lbl} : poste non pourvu.`});return;}
+    viol(x.i,x.col,m).forEach(v=>R.push({l:'r',m:`${lbl} · ${m} : ${v.m}.`}));
+    warn(x,m,b.cat).forEach(w=>O.push({l:'o',m:`${lbl} : ${w}.`}));
+  }));
+  passageW().forEach(w=>(w.l==='r'?R:O).push(w));
+  return{R,O};
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  7. AFFICHAGE
+// ═══════════════════════════════════════════════════════════════════════════════
+const det=(id,titre,corps)=>`<section><details id="${id}"${FOLD[id]===false?'':' open'}><summary><h2>${titre}</h2></summary>${corps}</details></section>`;
+document.addEventListener('toggle',e=>{if(e.target.matches&&e.target.matches('details[id]'))FOLD[e.target.id]=e.target.open;},true);
+const range=b=>{const f=C.S[b.cells[0].i],l=C.S[b.cells[b.cells.length-1].i];return`${f.r.date} ${cr(f)}`+(b.cells.length>1?` → ${l.r.date} ${cr(l)}`:'');};
+
+function renderQuotas(){
+  $('#quotas').innerHTML='<table><tr><th>Médecin</th>'+CATS.map(c=>`<th>${LAB[c]}</th>`).join('')+'</tr>'+
+    D.medecins.map(m=>`<tr><td class="l">${m}</td>`+CATS.map(c=>`<td><input type="number" step="0.25" min="0" data-c="${c}" data-m="${m}" value="${q(c,m)}"></td>`).join('')+'</tr>').join('')+'</table>';
+  $('#quotas').querySelectorAll('input').forEach(e=>e.onchange=()=>{PR.quotas[e.dataset.c][e.dataset.m]=Number(e.value);savePR();if(phase>=2)renderAll();});
+}
+function ph1HTML(){
+  if(!phase)return'';
+  const tot={};blocks.forEach(b=>tot[b.cat]=(tot[b.cat]||0)+b.cells.length);
+  if(!blocks.length)return`<section><h2>Étape 1 — postes à remplacer</h2><div class="mut">${SICK} n'a aucun poste du périmètre entre le ${D1} et le ${D2}.</div></section>`;
+  const resume=Object.entries(tot).map(([c,n])=>`${LAB[c]} : ${n} cellule(s)`).join(' · ');
+  const rows=blocks.map((b,bi)=>`<tr><td>${bi+1}</td><td class="cat-${b.cat}">${LAB[b.cat]}</td><td>${b.col}</td><td class="l">${range(b)}</td><td>${b.cells.length}</td><td>`+
+    (b.cat==='BOX'?'<span class="mut">à reprogrammer par un humain</span>':`<select data-b="${bi}"><option value="reaffecter"${b.status==='reaffecter'?' selected':''}>Réaffecter</option><option value="gere"${b.status==='gere'?' selected':''}>Je gère à la main</option></select>`)+'</td></tr>').join('');
+  const boxes=blocks.filter(b=>b.cat==='BOX').flatMap(b=>b.cells.map(x=>`<tr><td class="l">${C.S[x.i].r.date}</td><td>${cr(C.S[x.i])}</td><td>${x.col}</td></tr>`)).join('');
+  return det('d-ph1',`Étape 1 — postes de ${SICK} du ${D1} au ${D2}`,
+    `<div class="mut" style="margin-bottom:6px">${resume}</div><div class="scroll"><table><tr><th>#</th><th>Catégorie</th><th>Poste</th><th>Période</th><th>Cellules</th><th>Statut</th></tr>${rows}</table></div>`+
+    (boxes?`<h3>Box à signaler à la consultation</h3><div class="scroll"><table><tr><th>Date</th><th>Créneau</th><th>Box</th></tr>${boxes}</table></div>
+      <label class="inl" style="margin-top:6px"><input type="checkbox" id="c-box"${viderBox?' checked':''}> Vider les box de ${SICK} dans le planning</label>
+      <div class="w o">Dans tous les cas, il faut prévenir la consultation pour reprogrammer les patients.</div>`:''));
+}
+function propHTML(){
+  return blocks.map((b,bi)=>{
+    if(b.cat==='BOX')return'';
+    if(b.status==='gere')return`<div class="mut" style="margin:6px 0">${LAB[b.cat]} · ${b.col} · ${range(b)} : laissé à ${SICK} (à gérer à la main).</div>`;
+    const rows=b.cells.map(x=>{
+      const k=x.i+'|'+x.col,cur=assign.has(k)?norm(assign.get(k)):'';
+      const opts=['',...new Set([...D.medecins,cur].filter(Boolean))].map(m=>{
+        const v=m?viol(x.i,x.col,m):[];
+        return`<option value="${m}"${m===cur?' selected':''} title="${v.map(z=>z.m).join(' ; ')}">${m||'— vide —'}${v.length?' ⚠':''}</option>`;}).join('');
+      const msgs=(cur?viol(x.i,x.col,cur).map(v=>`<div class="bad">${v.m}</div>`).concat(warn(x,cur,b.cat).map(w=>`<div class="amb">${w}</div>`)):[`<div class="bad">poste non pourvu</div>`]).join('');
+      return`<tr><td class="l">${C.S[x.i].r.date}</td><td>${cr(C.S[x.i])}</td><td><select data-k="${k}">${opts}</select></td><td class="msgs">${msgs}</td></tr>`;}).join('');
+    const rem=new Set(b.cells.map(x=>norm(assign.get(x.i+'|'+x.col))).filter(Boolean));
+    return`<h3 class="cat-${b.cat}" style="padding:2px 6px">${LAB[b.cat]} · ${b.col} · ${range(b)} <span class="mut">(${rem.size} remplaçant(s))</span></h3>
+      <div class="scroll"><table><tr><th>Date</th><th>Créneau</th><th>Remplaçant</th><th>Contrôles</th></tr>${rows}</table></div>`;}).join('');
+}
+function bilanHTML(){
+  const c0=counts(false),c1=counts(true),nf=(cat,x)=>cat==='Salle'?x.toFixed(1):String(Math.round(x));
+  return det('d-bilan','Bilan d\'équité sur la période P (par catégorie)',CATS.map(cat=>{
+    const ms=[...new Set([...Object.keys(c0[cat]),...Object.keys(c1[cat])])].filter(m=>q(cat,m)>0||m===SICK).sort();
+    const el=ms.filter(m=>m!==SICK&&q(cat,m)>0);
+    const rs=el.map(m=>(c1[cat][m]||0)/q(cat,m)),mean=rs.reduce((a,b)=>a+b,0)/(rs.length||1),sd=Math.sqrt(rs.reduce((a,b)=>a+(b-mean)**2,0)/(rs.length||1));
+    const rows=ms.map(m=>{const a=c0[cat][m]||0,b=c1[cat][m]||0,r=b/(q(cat,m)||Infinity),sick=m===SICK,ok=Math.abs(r-mean)<=sd+1e-9;
+      return`<tr><td class="l">${m}${sick?' <span class="mut">(absent M)</span>':''}</td><td>${nf(cat,a)}</td><td>${nf(cat,b)}</td><td>${(b-a>=0?'+':'')+nf(cat,b-a)}</td><td>${q(cat,m)}</td><td class="${sick?'mut':ok?'ok':'bad'}">${r.toFixed(2)}</td></tr>`;}).join('');
+    return`<h3>${LAB[cat]}</h3><div class="scroll"><table><tr><th>Médecin</th><th>Avant</th><th>Après</th><th>Δ</th><th>Quota</th><th>Après / quota</th></tr>${rows}</table></div>
+      <div class="mut">Vert : dans la moyenne ± 1 écart-type (${mean.toFixed(2)} ± ${sd.toFixed(2)}), médecin absent exclu du calcul.</div>`;}).join(''));
+}
+function renderAll(){
+  const y=window.scrollY;
+  $('#ph1').innerHTML=ph1HTML();
+  if(phase>=2){
+    const {R,O}=issues(),wl=a=>a.slice(0,300).map(w=>`<div class="w ${w.l}">${w.m}</div>`).join('')+(a.length>300?`<div class="mut">… ${a.length-300} autres</div>`:'');
+    $('#out').innerHTML=det('d-prop','Étape 2 — propositions de remplacement',propHTML()||'<div class="mut">Aucun poste à réaffecter.</div>')+bilanHTML()+
+      `<section><h2>À arbitrer (${R.length})</h2>${R.length?wl(R):'<div class="mut">Rien.</div>'}</section>
+       <section><h2>Alertes (${O.length})</h2>${O.length?wl(O):'<div class="mut">Rien.</div>'}</section>`;
+  }else $('#out').innerHTML='';
+  window.scrollTo(0,y);
+  $('#b-prop').disabled=phase<1;updateSend();
+}
+function buildEdits(){
+  const out=[];
+  assign.forEach((v,k)=>{const p=k.indexOf('|'),i=+k.slice(0,p),col=k.slice(p+1),s=C.S[i];
+    if(norm(v)===norm(s.r[col]))return;
+    out.push({id:s.r.id,date:s.r.date,heure:s.r.heure,col,value:v||null,orig:s.r[col]??null});});
+  return out;
+}
+const host=()=>window.opener||(window.parent!==window?window.parent:null);
+function updateSend(){$('#b-send').disabled=!(C&&phase>=1&&(buildEdits().length||lastSent.size)&&host());}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  8. ÉVÉNEMENTS
+// ═══════════════════════════════════════════════════════════════════════════════
+function readTop(){
+  SICK=norm($('#sick').value);D1=$('#d1').value;D2=$('#d2').value;
+  PR.wEq=Number($('#w-eq').value);PR.wCont=Number($('#w-cont').value);savePR();
+  if(!C||!C.S.length){$('#msg').textContent='Aucune donnée reçue : ouvre cet outil depuis l\'onglet sandbox de Neuroplanning.';return false;}
+  if(!SICK||!D1||!D2){$('#msg').textContent='Choisis le médecin absent et les dates de début et de fin.';return false;}
+  if(D1>D2){$('#msg').textContent='La date de début est postérieure à la date de fin.';return false;}
+  if(D2<C.first||D1>C.last){$('#msg').textContent=`La période M est en dehors de la sandbox (${C.first} → ${C.last}).`;return false;}
+  $('#msg').textContent='';return true;
+}
+$('#b-an').onclick=()=>{if(!readTop())return;analyze();$('#status').textContent=`${blocks.length} bloc(s) de postes identifié(s). Vérifie les statuts puis lance l'étape 2.`;renderAll();};
+$('#b-prop').onclick=()=>{if(!readTop())return;if(phase<1)analyze();proposeAll();$('#status').textContent='Propositions calculées : modifie librement les remplaçants, les contrôles se recalculent.';renderAll();};
+$('#ph1').onchange=e=>{
+  const s=e.target.closest('select[data-b]');
+  if(s){const b=blocks[+s.dataset.b];b.status=s.value;
+    if(phase>=2){if(b.status==='gere')b.cells.forEach(x=>assign.delete(x.i+'|'+x.col));else{b.cells.forEach(x=>assign.set(x.i+'|'+x.col,''));proposeBlock(b);}}
+    renderAll();return;}
+  if(e.target.id==='c-box'){viderBox=e.target.checked;applyBox();renderAll();}
+};
+$('#out').onchange=e=>{const s=e.target.closest('select[data-k]');if(!s)return;assign.set(s.dataset.k,s.value);renderAll();};
+$('#b-send').onclick=()=>{
+  const out=[],now=new Map();
+  buildEdits().forEach(e=>{const {orig,...pure}=e;now.set(e.id+'|'+e.col,e);out.push(pure);});
+  // cases envoyées précédemment et qui ne sont plus modifiées : on remet la valeur d'origine du planning
+  lastSent.forEach((e,k)=>{if(!now.has(k))out.push({id:e.id,date:e.date,heure:e.heure,col:e.col,value:e.orig});});
+  host()?.postMessage({type:'rotations:edits',edits:out},location.origin);
+  lastSent=now;
+  $('#status').textContent=`${out.length} case(s) envoyée(s) vers la sandbox (en attente de sauvegarde).`;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  9. ÉCHANGE AVEC L'INDEX (même protocole que l'outil de rotations)
+// ═══════════════════════════════════════════════════════════════════════════════
+window.addEventListener('message',e=>{
+  if(e.origin!==location.origin||!e.data||e.data.type!=='rotations:init')return;
+  const d=e.data;
+  D={rows:d.rows||[],absences:d.absences||[],cols:d.medecins||[],medecins:(d.medecins||[]).map(norm)};
+  blocks=[];assign=new Map();phase=0;lastSent=new Map();SICK='';
+  build();
+  $('#src').textContent=`${D.rows.length} lignes de sandbox${C.S.length?` (période P : du ${C.first} au ${C.last})`:''}, ${D.absences.length} lignes d'absences, ${D.medecins.length} neurologues.`;
+  $('#sick').innerHTML='<option value=""></option>'+D.medecins.map(m=>`<option>${m}</option>`).join('');
+  $('#d1').min=$('#d2').min=C.first;$('#d1').max=$('#d2').max=C.last;
+  $('#w-eq').value=PR.wEq;$('#w-cont').value=PR.wCont;
+  renderQuotas();renderAll();
+});
+$('#w-eq').value=PR.wEq;$('#w-cont').value=PR.wCont;
+host()?.postMessage({type:'rotations:ready'},location.origin);
+</script>
+</body>
+</html>
