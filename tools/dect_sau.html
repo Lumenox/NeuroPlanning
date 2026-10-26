@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DECT SAU — Neurotools</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:#0d1b2a; --navy-mid:#1a2d42; --navy-light:#243d55;
+    --teal:#2dd4bf; --white:#f0f4f8; --muted:#8aa0b5; --border:#1e3148;
+    --red:#f87171; --orange:#fbbf24; --green:#4ade80;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--navy); color:var(--white); font:14px/1.45 'Sora',system-ui,sans-serif; }
+  a { color:var(--teal); text-decoration:none; }
+  header { display:flex; align-items:center; gap:16px; padding:12px 24px; background:var(--navy-mid); border-bottom:1px solid var(--border); }
+  header h1 { font-size:16px; margin:0; font-weight:600; }
+  main { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); gap:20px; padding:20px 24px; align-items:start; }
+  @media (max-width:1000px){ main { grid-template-columns:1fr; } }
+  section { background:var(--navy-mid); border:1px solid var(--border); border-radius:8px; padding:14px 16px; }
+  section h2 { margin:0 0 10px; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+  .bar { display:flex; flex-wrap:wrap; gap:10px; align-items:end; }
+  label.f { display:flex; flex-direction:column; gap:3px; font-size:11px; color:var(--muted); }
+  input, select, textarea, button { font:inherit; color:var(--white); background:var(--navy); border:1px solid var(--border); border-radius:5px; padding:5px 8px; }
+  input[type=date] { font-family:'DM Mono',monospace; font-size:13px; }
+  button { cursor:pointer; background:var(--navy-light); }
+  button:hover { border-color:var(--teal); }
+  button.primary { background:var(--teal); color:#04211d; border-color:var(--teal); font-weight:600; }
+  .muted { color:var(--muted); font-size:12px; }
+  .alert { margin-top:10px; padding:8px 10px; border-radius:6px; font-size:12.5px; border:1px solid; }
+  .alert.warn { color:var(--orange); border-color:#fbbf2455; background:#fbbf2410; }
+  .alert.err  { color:var(--red);    border-color:#f8717155; background:#f8717110; }
+  table.t { width:100%; border-collapse:collapse; margin-top:10px; font-size:13px; }
+  table.t th { text-align:left; font-size:11px; color:var(--muted); font-weight:600; padding:4px 6px; position:sticky; top:0; background:var(--navy-mid); }
+  table.t td { padding:3px 6px; border-top:1px solid var(--border); vertical-align:middle; }
+  table.t td.mono, .mono { font-family:'DM Mono',monospace; }
+  tr.matin td { border-top:1px solid #2c4560; }
+  tr.bad td { background:#f8717112; }
+  tr.warn td { background:#fbbf2410; }
+  .chip { display:inline-block; padding:1px 7px; border:1px dashed var(--border); border-radius:10px; font-family:'DM Mono',monospace; font-size:12px; cursor:pointer; color:var(--muted); }
+  .chip:hover { border-color:var(--teal); color:var(--teal); }
+  .chip.empty { border:none; cursor:default; }
+  .tag { font-size:11px; padding:1px 6px; border-radius:4px; }
+  .tag.ok { color:var(--green); } .tag.bad { color:var(--red); } .tag.warn { color:var(--orange); }
+  td select { max-width:130px; } td input.dectin { width:80px; font-family:'DM Mono',monospace; }
+  td.over select { border-color:var(--teal); }
+  #mail { background:#fff; color:#111; border-radius:6px; padding:16px 18px; font-family:Calibri,'Segoe UI',sans-serif; font-size:14px; }
+  #mail table { border-collapse:collapse; margin:8px 0; }
+  #mail td { padding:1px 14px 1px 0; font-size:14px; }
+  #mail .miss { color:#c00; font-weight:700; }
+  #mail p { margin:8px 0; }
+  textarea { width:100%; resize:vertical; font-size:12.5px; }
+  /* login */
+  #auth { position:fixed; inset:0; background:var(--navy); display:flex; align-items:center; justify-content:center; z-index:10; }
+  #auth .box { background:var(--navy-mid); border:1px solid var(--border); border-radius:10px; padding:24px; width:320px; display:flex; flex-direction:column; gap:10px; }
+  #auth.hidden { display:none; }
+</style>
+</head>
+<body>
+
+<div id="auth" class="hidden">
+  <form class="box" onsubmit="doLogin(event)">
+    <strong>Connexion Neuroplanning</strong>
+    <input id="auth-login" placeholder="Identifiant ou email" autocomplete="username">
+    <input id="auth-pass" type="password" placeholder="Mot de passe" autocomplete="current-password">
+    <button class="primary">Se connecter</button>
+    <div id="auth-error" class="alert err" style="display:none"></div>
+  </form>
+</div>
+
+<header>
+  <a href="index_tools.html">← Neurotools</a>
+  <h1>DECT des avis SAU (non alerte)</h1>
+  <span class="muted" id="who"></span>
+</header>
+
+<main>
+  <div>
+    <section>
+      <h2>1 · Fenêtre temporelle</h2>
+      <div class="bar">
+        <label class="f">Du<input type="date" id="d-from"></label>
+        <label class="f">Au<input type="date" id="d-to"></label>
+        <button class="primary" onclick="load()">Calculer</button>
+        <button onclick="presetMonth(1)">Mois prochain</button>
+        <button onclick="presetMonth(0)">Ce mois</button>
+      </div>
+      <div class="muted" style="margin-top:8px">Week-ends et jours fériés ignorés. Les modifications faites ici (médecin, DECT) ne sont <b>pas</b> écrites dans Neuroplanning : elles servent uniquement au mail.</div>
+      <div id="msgs"></div>
+    </section>
+
+    <section style="margin-top:20px">
+      <h2>2 · Vérification</h2>
+      <div id="summary" class="muted">—</div>
+      <label style="display:flex;gap:6px;align-items:center;margin-top:6px;font-size:12.5px"><input type="checkbox" id="only-issues" onchange="render()"> N'afficher que les lignes à traiter</label>
+      <table class="t">
+        <thead><tr><th>Date</th><th>Heure</th><th>SAU</th><th>Médecin retenu</th><th>DECT</th><th>BIP v</th><th>BIP ng</th><th></th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <div>
+    <section style="position:sticky;top:12px">
+      <h2>3 · Mail</h2>
+      <label class="f">Introduction (<code>{mois}</code> = mois calculé)
+        <textarea id="intro" rows="3" oninput="renderMail()">Veuillez trouver ci-dessous la liste des DECT pour les avis (non alerte) pour le mois de {mois}, pour SAU et DAU.</textarea>
+      </label>
+      <label class="f" style="margin-top:8px">Formule finale
+        <textarea id="outro" rows="2" oninput="renderMail()">Amitiés,
+Rémy</textarea>
+      </label>
+      <div style="display:flex;gap:10px;align-items:center;margin:12px 0">
+        <button class="primary" onclick="copyMail()">Copier le mail</button>
+        <span id="copy-msg" class="muted"></span>
+      </div>
+      <div id="mail"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+/* ============================================================
+   CONFIG — mêmes identifiants que Neuroplanning.
+   Même origine GitHub Pages => la session Supabase est partagée
+   (localStorage), donc normalement pas de nouveau login.
+   ============================================================ */
+const SUPABASE_URL = 'https://yseaujinbdwxpcelsywr.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_7uC727-tO92zxGsAwCqBnA_E9oX_Xw8';
+const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { db: { schema: 'neuroplanning' } });
+
+const JOURS = ['dim.','lun.','mar.','mer.','jeu.','ven.','sam.'];
+const MOIS  = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+
+/* ---------- état ---------- */
+let neuro = [];          // lignes commun.neurologues
+let dectDb = {};         // INITIALES -> numéro (depuis Supabase)
+let dectOv = {};         // INITIALES -> numéro saisi dans l'outil (session)
+let slots  = [];         // lignes planning de la fenêtre (jours ouvrés)
+let ovr    = {};         // "date_heure" -> INITIALES choisies à la main
+let dectColumnMissing = false;
+
+/* ---------- utilitaires dates ---------- */
+const pad = n => String(n).padStart(2,'0');
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseISO = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
+const addDays = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+
+// Pâques (algorithme grégorien anonyme) -> jours fériés français calculés, plus de liste à tenir à jour
+function easter(y) {
+  const a=y%19, b=Math.floor(y/100), c=y%100, d=Math.floor(b/4), e=b%4, f=Math.floor((b+8)/25),
+        g=Math.floor((b-f+1)/3), h=(19*a+b-d-g+15)%30, i=Math.floor(c/4), k=c%4,
+        l=(32+2*e+2*i-h-k)%7, m=Math.floor((a+11*h+22*l)/451),
+        mo=Math.floor((h+l-7*m+114)/31), da=((h+l-7*m+114)%31)+1;
+  return new Date(y, mo-1, da);
+}
+const feriesCache = {};
+function feries(y) {
+  if (feriesCache[y]) return feriesCache[y];
+  const p = easter(y);
+  const s = new Set([`${y}-01-01`,`${y}-05-01`,`${y}-05-08`,`${y}-07-14`,`${y}-08-15`,`${y}-11-01`,`${y}-11-11`,`${y}-12-25`,
+    iso(addDays(p,1)), iso(addDays(p,39)), iso(addDays(p,50))]);
+  return feriesCache[y] = s;
+}
+const isFerie = d => feries(d.getFullYear()).has(iso(d));
+const isWeekend = d => d.getDay()===0 || d.getDay()===6;
+const fmtDate = d => `${JOURS[d.getDay()]} ${pad(d.getDate())}/${pad(d.getMonth()+1)}`;
+
+/* ---------- fenêtre par défaut : mois M (+offset), jusqu'au vendredi de la dernière semaine ---------- */
+function presetMonth(offset) {
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth()+offset, 1);
+  const last  = new Date(first.getFullYear(), first.getMonth()+1, 0);
+  const dowMon0 = (last.getDay()+6)%7;           // lundi=0
+  const end = addDays(last, 4 - dowMon0);        // vendredi de la semaine du dernier jour
+  document.getElementById('d-from').value = iso(first);
+  document.getElementById('d-to').value   = iso(end);
+  load();
+}
+
+/* ---------- auth ---------- */
+async function doLogin(e) {
+  e.preventDefault();
+  const err = document.getElementById('auth-error'); err.style.display='none';
+  let email = document.getElementById('auth-login').value.trim();
+  const pass = document.getElementById('auth-pass').value;
+  if (!email.includes('@')) {
+    const { data, error } = await _sb.schema('commun').rpc('get_email_from_hospital_id', { h_id: email });
+    if (error || !data) { err.textContent='Identifiant inconnu.'; err.style.display='block'; return; }
+    email = data;
+  }
+  const { error } = await _sb.auth.signInWithPassword({ email, password: pass });
+  if (error) { err.textContent='Mot de passe incorrect.'; err.style.display='block'; return; }
+  document.getElementById('auth').classList.add('hidden');
+  start();
+}
+
+/* ---------- chargement ---------- */
+async function loadNeuro() {
+  const { data, error } = await _sb.schema('commun').from('neurologues').select('*').order('initiales');
+  if (error) throw error;
+  neuro = data || [];
+  dectColumnMissing = neuro.length > 0 && !('dect' in neuro[0]);
+  dectDb = {};
+  neuro.forEach(m => {
+    const k = (m.initiales||'').trim().toUpperCase();
+    const v = m.dect == null ? '' : String(m.dect).trim();
+    if (k && v) dectDb[k] = v;
+  });
+}
+
+async function load() {
+  const from = document.getElementById('d-from').value, to = document.getElementById('d-to').value;
+  const msgs = document.getElementById('msgs'); msgs.innerHTML = '';
+  if (!from || !to || from > to) { msgs.innerHTML = '<div class="alert err">Fenêtre invalide.</div>'; return; }
+  try {
+    if (!neuro.length) await loadNeuro();
+    const { data, error } = await _sb.from('planning').select('*')
+      .gte('date', from).lte('date', to)
+      .order('date', { ascending:true }).order('heure', { ascending:true }).range(0, 999);
+    if (error) throw error;
+    slots = (data||[]).filter(r => { const d = parseISO(r.date); return !isWeekend(d) && !isFerie(d); });
+    ovr = {};
+    const notes = [];
+    if (dectColumnMissing) notes.push(['err','La colonne <code>dect</code> n\'existe pas encore dans <code>commun.neurologues</code> : aucun numéro ne sera trouvé.']);
+    if ((data||[]).length >= 1000) notes.push(['warn','1000 lignes atteintes : réduisez la fenêtre.']);
+    if (!slots.length) notes.push(['warn','Aucune ligne de planning sur cette fenêtre (jours ouvrés).']);
+    msgs.innerHTML = notes.map(([c,t]) => `<div class="alert ${c==='err'?'err':'warn'}">${t}</div>`).join('');
+    render();
+  } catch (e) {
+    msgs.innerHTML = `<div class="alert err">Erreur : ${esc(e.message||e)}</div>`;
+  }
+}
+
+/* ---------- résolution d'une ligne ---------- */
+const key = r => `${r.date}_${r.heure}`;
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function resolve(r) {
+  const o = ovr[key(r)];
+  const ini = (o !== undefined ? o : (r.SAU||'')).trim().toUpperCase();
+  const dect = ini ? (dectOv[ini] || dectDb[ini] || '') : '';
+  return { ini, dect, over: o !== undefined, status: !ini ? 'vide' : !dect ? 'nodect' : 'ok' };
+}
+
+/* ---------- tableau de vérification ---------- */
+function render() {
+  const only = document.getElementById('only-issues').checked;
+  const medecins = neuro.filter(m => m.fonction !== 'interne' && m.initiales).map(m => m.initiales.trim());
+  let nVide = 0, nNoDect = 0;
+  const missingIni = new Set();
+  let html = '';
+  slots.forEach(r => {
+    const x = resolve(r);
+    if (x.status==='vide') nVide++;
+    if (x.status==='nodect') { nNoDect++; missingIni.add(x.ini); }
+    if (only && x.status==='ok') return;
+    const d = parseISO(r.date);
+    const bip = v => { const t=(v||'').trim(); return t ? `<span class="chip" data-pick="${esc(t)}" data-key="${key(r)}" title="Utiliser ${esc(t)}">${esc(t)}</span>` : '<span class="chip empty">·</span>'; };
+    const opts = [`<option value="">${r.SAU ? 'Planning : '+esc(r.SAU) : '— à choisir —'}</option>`]
+      .concat(medecins.map(m => `<option value="${esc(m)}" ${x.over && x.ini===m.toUpperCase() ? 'selected':''}>${esc(m)}</option>`)).join('');
+    const dectCell = x.status==='vide' ? '' :
+      x.dect ? `<span class="mono">${esc(x.dect)}</span>` :
+      `<input class="dectin" data-ini="${esc(x.ini)}" placeholder="n° ?" title="Saisie locale pour ce mail (non enregistrée)">`;
+    const tag = x.status==='ok' ? '<span class="tag ok">✓</span>' :
+                x.status==='vide' ? '<span class="tag bad">SAU vide</span>' : '<span class="tag warn">DECT manquant</span>';
+    html += `<tr class="${r.heure.startsWith('09')?'matin':''} ${x.status==='vide'?'bad':x.status==='nodect'?'warn':''}">
+      <td class="mono">${fmtDate(d)}</td><td class="mono">${r.heure.slice(0,5)}</td>
+      <td class="mono">${esc(r.SAU||'')}</td>
+      <td class="${x.over?'over':''}"><select class="sel" data-key="${key(r)}">${opts}</select></td>
+      <td>${dectCell}</td><td>${bip(r.BIPv)}</td><td>${bip(r.BIPng)}</td><td>${tag}</td></tr>`;
+  });
+  document.getElementById('tbody').innerHTML = html || '<tr><td colspan="8" class="muted">Rien à afficher.</td></tr>';
+  const sum = document.getElementById('summary');
+  sum.innerHTML = slots.length
+    ? `${slots.length} créneaux · <span class="tag ${nVide?'bad':'ok'}">${nVide} SAU vide</span> · <span class="tag ${nNoDect?'warn':'ok'}">${nNoDect} DECT manquant</span>` +
+      (missingIni.size ? ` <span class="muted">(${[...missingIni].map(esc).join(', ')} : à renseigner dans <code>commun.neurologues.dect</code>)</span>` : '')
+    : '—';
+  renderMail();
+}
+
+/* événements délégués */
+document.getElementById('tbody').addEventListener('change', e => {
+  if (e.target.matches('select.sel')) {
+    const k = e.target.dataset.key;
+    if (e.target.value) ovr[k] = e.target.value; else delete ovr[k];
+    render();
+  } else if (e.target.matches('input.dectin')) {
+    const v = e.target.value.trim();
+    if (v) dectOv[e.target.dataset.ini] = v; else delete dectOv[e.target.dataset.ini];
+    render();
+  }
+});
+document.getElementById('tbody').addEventListener('click', e => {
+  const c = e.target.closest('.chip[data-pick]');
+  if (c) { ovr[c.dataset.key] = c.dataset.pick; render(); }
+});
+
+/* ---------- mail ---------- */
+function monthLabel() {
+  const from = document.getElementById('d-from').value;
+  if (!from) return '';
+  const d = addDays(parseISO(from), 6);          // la fenêtre démarre souvent en fin de semaine précédente
+  return `${MOIS[d.getMonth()]} ${d.getFullYear()}`;
+}
+function mailRows() {
+  // regroupe par semaine pour insérer une ligne vide entre les semaines
+  const rows = []; let lastWeek = null;
+  slots.forEach(r => {
+    const d = parseISO(r.date);
+    const wk = iso(addDays(d, -((d.getDay()+6)%7)));
+    if (lastWeek && wk !== lastWeek) rows.push(null);
+    lastWeek = wk;
+    rows.push({ date: fmtDate(d), heure: r.heure.slice(0,5), dect: resolve(r).dect });
+  });
+  return rows;
+}
+function renderMail() {
+  const intro = document.getElementById('intro').value.replace('{mois}', monthLabel());
+  const outro = document.getElementById('outro').value;
+  const nl = s => esc(s).replace(/\n/g,'<br>');
+  const tr = mailRows().map(r => r ? `<tr><td>${r.date}</td><td>${r.heure}</td><td>${r.dect ? esc(r.dect) : '<span class="miss">???</span>'}</td></tr>`
+                                   : '<tr><td colspan="3">&nbsp;</td></tr>').join('');
+  document.getElementById('mail').innerHTML =
+    `<p>Chers collègues,</p><p>${nl(intro)}</p><table>${tr}</table><p>${nl(outro)}</p>`;
+}
+function mailText() {
+  const intro = document.getElementById('intro').value.replace('{mois}', monthLabel());
+  const lines = mailRows().map(r => r ? `${r.date}\t${r.heure}\t${r.dect || '???'}` : '');
+  return `Chers collègues,\n\n${intro}\n\n${lines.join('\n')}\n\n${document.getElementById('outro').value}`;
+}
+async function copyMail() {
+  const msg = document.getElementById('copy-msg');
+  const manque = mailRows().filter(r => r && !r.dect).length;
+  if (manque && !confirm(`${manque} ligne(s) sans numéro (affichées « ??? »). Copier quand même ?`)) return;
+  const html = document.getElementById('mail').innerHTML;
+  try {
+    await navigator.clipboard.write([new ClipboardItem({
+      'text/html':  new Blob([`<div style="font-family:Calibri,sans-serif;font-size:11pt">${html}</div>`], {type:'text/html'}),
+      'text/plain': new Blob([mailText()], {type:'text/plain'})
+    })]);
+  } catch (_) {
+    const rg = document.createRange(); rg.selectNodeContents(document.getElementById('mail'));
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(rg);
+    document.execCommand('copy'); sel.removeAllRanges();
+  }
+  msg.textContent = 'Copié ✓'; setTimeout(() => msg.textContent = '', 2500);
+}
+
+/* ---------- démarrage ---------- */
+async function start() {
+  try {
+    await loadNeuro();
+    const { data: { session } } = await _sb.auth.getSession();
+    if (session) {
+      const { data: p } = await _sb.schema('commun').from('profiles').select('initiales').eq('id', session.user.id).single();
+      document.getElementById('who').textContent = p?.initiales ? `Connecté : ${p.initiales}` : '';
+    }
+  } catch (e) {
+    document.getElementById('msgs').innerHTML = `<div class="alert err">Erreur : ${esc(e.message||e)}</div>`;
+  }
+  presetMonth(1);
+}
+window.addEventListener('load', async () => {
+  const { data: { session } } = await _sb.auth.getSession();
+  if (session) start(); else document.getElementById('auth').classList.remove('hidden');
+});
+</script>
+</body>
+</html>
