@@ -34,7 +34,9 @@ td.fixed{font-style:italic;outline:1px dashed var(--mut);outline-offset:-3px}
 .mut{color:var(--mut)}#msg{min-height:18px;color:var(--red);font-size:12px}
 summary{cursor:pointer;list-style-position:inside}summary h2{display:inline}
 progress{vertical-align:middle}.pool{border-top:1px solid var(--line);margin-top:12px;padding-top:6px}.pool:first-child{border-top:0;margin-top:0}
+details{margin:4px 0}summary{cursor:pointer}
 </style>
+  
 </head>
 <body>
 <h1>Rotations de salle — USI/UNV, C, HDJ (optimisation globale)</h1>
@@ -690,6 +692,30 @@ function globalHTML(){
     <div class="mut" style="margin-top:4px">Salle (colorée) : où le médecin est posté. Pourcentage : sa disponibilité quand il n'est pas posté (rouge sous le seuil). Italique avec bordure : semaine déjà pourvue dans la sandbox.</div>`);
 }
   
+const LOG_CATS=[
+  ['Calcul',/Limite de temps|Modèle infaisable|Aucune solution/],
+  ['Données d\'entrée',/absences reçues|Aucune ligne|Aucune donnée/],
+  ['Postes obligatoires non pourvus',/obligatoire/],
+  ['Cases déjà remplies (plus de place)',/plus de place/],
+  ['Médecin absent (case laissée vide)',/absent, case laissée vide/],
+  ['BOX non couvert',/BOX de/],
+  ['Repos de garde (remplaçant)',/repos de garde/],
+  ['Repos insuffisant entre passages',/repos de \d+ semaine/],
+  ['Passage au-delà du plafond',/\(plafond/],
+  ['Passage plus long que souhaité',/\(souhaité/],
+  ['Passage trop court',/passage de \d+ semaine\(s\) \(minimum/],
+  ['Pas d\'alternance de salle',/pas d'alternance/],
+  ['Postes facultatifs non pourvus',/facultatif/]
+];
+function logHTML(list,idp,vide){
+  if(!list.length)return`<div class="mut">${vide}</div>`;
+  const g={};
+  list.forEach(w=>{const c=(LOG_CATS.find(([,re])=>re.test(w.m))||['Autres'])[0];(g[c]??=[]).push(w);});
+  return[...LOG_CATS.map(c=>c[0]),'Autres'].filter(c=>g[c]).map(c=>{
+    const id='log-'+idp+'-'+c;
+    return`<details id="${id}"${FOLD[id]?' open':''}><summary><b>${c}</b> <span class="mut">(${g[c].length})</span></summary>${g[c].sort((a,b)=>a.m.localeCompare(b.m)).map(w=>`<div class="w ${w.l}">${w.m}</div>`).join('')}</details>`;}).join('');
+}
+  
 function renderResult(){
   const R=RES;
   if(!R){$('#out').innerHTML='';return;}
@@ -697,8 +723,8 @@ function renderResult(){
   if(!R.plan){$('#out').innerHTML=`<section>${wl(R.W)}</section>`;return;}
   const reds=R.W.filter(w=>w.l==='r'),ambs=R.W.filter(w=>w.l==='o');
   $('#out').innerHTML=activePools().map(poolHTML).join('')+bilanHTML()+globalHTML()+
-    `<section><h2>À arbitrer (${reds.length})</h2>${wl(reds)||'<div class="mut">Aucun échec de postage.</div>'}</section>
-     <section><h2>Ajustements automatiques et alertes (${ambs.length})</h2>${wl(ambs)||'<div class="mut">Aucun.</div>'}</section>`;
+    `<section><h2>À arbitrer (${reds.length})</h2>${logHTML(reds,'r','Aucun échec de postage.')}</section>
+     <section><h2>Ajustements automatiques et alertes (${ambs.length})</h2>${logHTML(ambs,'o','Aucun.')}</section>`;
 }
 function updateSend(){
   const n=RES?.edits?RES.edits.length:0;
