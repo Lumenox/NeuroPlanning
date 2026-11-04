@@ -574,6 +574,20 @@ function updateFileName(name) {
 		const allRdvDates = [];
 		let ignoredPatientsCount = 0;
 		conflicts = [];
+
+		  		  
+		// Répare les lignes dont le champ Mail contient un ';' non protégé (22 champs au lieu de 21)
+		const fields = dataRdv.meta.fields;
+		const iMail = fields.indexOf('Mail'); //Trouve la position de la colonne "Mail".
+		dataRdv.data.forEach(row => {
+		  if (!row.__parsed_extra) return; //Si la ligne n'a pas de données en trop (pas de coupure de mail), on ne fait rien.
+		  const vals = fields.map(k => row[k]).concat(row.__parsed_extra);
+		  vals.splice(iMail, 2, `${vals[iMail]} ; ${vals[iMail + 1]}`); // fusionne les 2 morceaux du mail Si la ligne a été coupée en deux à cause du ;, ce code récupère le morceau de gauche (vals[iMail]), le morceau de droite (vals[iMail + 1]), et les fusionne à nouveau en un seul texte de mail correct.
+		  fields.forEach((k, i) => { row[k] = vals[i]; });
+		  delete row.__parsed_extra;
+		});
+		  
+		  
         dataRdv.data.forEach(row => {
           const rawDate = row.Date || row.date || row.Date_RDV;
           const rawRessource = row.Ressource || row.ressource;
