@@ -204,6 +204,87 @@
       </label>
     </div>
 
+    <!-- Bandeau d'actions : le déroulé de l'audit en 4 étapes -->
+    <div id="actionBand" class="hidden space-y-3">
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+
+        <!-- 1. Urgences -->
+        <div class="bg-rose-50 border border-rose-200 rounded-xl p-4 flex flex-col gap-2">
+          <div class="text-[11px] font-bold text-rose-800 uppercase tracking-wider">1 · Urgences garde / congés</div>
+          <div class="flex items-baseline gap-2">
+            <span id="cardUrgentCount" class="text-3xl font-extrabold text-rose-900">0</span>
+            <span id="cardUrgentSub" class="text-xs text-rose-800"></span>
+          </div>
+          <p class="text-[11px] text-rose-700">Consultations programmées un lendemain de garde ou pendant une absence déclarée.</p>
+          <button id="btnMailUrgent" class="mt-auto text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg px-3 py-1.5 flex items-center justify-center gap-1.5 transition disabled:opacity-40 disabled:cursor-not-allowed">
+            <i class="fa-solid fa-envelope"></i> Prévenir par mail
+          </button>
+        </div>
+
+        <!-- 2. Box inutilisés -->
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col gap-2">
+          <div class="text-[11px] font-bold text-amber-800 uppercase tracking-wider">2 · Box inutilisés</div>
+          <div class="flex items-baseline gap-2">
+            <span id="cardUnusedCount" class="text-3xl font-extrabold text-amber-900">0</span>
+            <span id="cardUnusedSub" class="text-xs text-amber-800"></span>
+          </div>
+          <p class="text-[11px] text-amber-700">Prévient les médecins : sans réponse dans le délai, le box sera purgé puis réaffecté.</p>
+          <button id="btnMailUnused" class="mt-auto text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-lg px-3 py-1.5 flex items-center justify-center gap-1.5 transition disabled:opacity-40 disabled:cursor-not-allowed">
+            <i class="fa-solid fa-envelope"></i> Prévenir (délai de réponse)
+          </button>
+        </div>
+
+        <!-- 3. Purge + réaffectation -->
+        <div class="bg-white border border-slate-200 rounded-xl p-4 flex flex-col gap-2">
+          <div class="text-[11px] font-bold text-slate-700 uppercase tracking-wider">3 · Purge et réaffectation</div>
+          <div class="flex items-baseline gap-2">
+            <span id="cardPurgeCount" class="text-3xl font-extrabold text-slate-900">0</span>
+            <span id="cardPurgeSub" class="text-xs text-slate-600"></span>
+          </div>
+          <p class="text-[11px] text-slate-500">À lancer après l'échéance du délai. Décocher les médecins qui ont répondu.</p>
+          <p id="purgeNote" class="hidden text-[11px] text-slate-500 italic">Réservé aux utilisateurs pouvant modifier les colonnes box.</p>
+          <div class="mt-auto flex flex-col gap-1.5">
+            <button id="btnPurge" style="display:none" class="text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg px-3 py-1.5 flex items-center justify-center gap-1.5 transition">
+              <i class="fa-solid fa-broom"></i> Purger / réaffecter les box
+            </button>
+            <button id="btnUndoPurge" style="display:none" class="text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg px-3 py-1.5 flex items-center justify-center gap-1.5 transition">
+              <i class="fa-solid fa-rotate-left"></i> <span id="undoLabel">Annuler la dernière purge</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 4. Réaffectations réalisées -->
+        <div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex flex-col gap-2">
+          <div class="text-[11px] font-bold text-indigo-800 uppercase tracking-wider">4 · Réaffectations réalisées</div>
+          <div class="flex items-baseline gap-2">
+            <span id="cardReportCount" class="text-3xl font-extrabold text-indigo-900">0</span>
+            <span id="cardReportSub" class="text-xs text-indigo-800"></span>
+          </div>
+          <p class="text-[11px] text-indigo-700">Prévient les réaffectés (rien à faire), les non réaffectés et les sous-seuil (à revenir vers la consultation).</p>
+          <div class="mt-auto flex flex-col gap-1.5">
+            <button id="btnMailReport" class="text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg px-3 py-1.5 flex items-center justify-center gap-1.5 transition disabled:opacity-40 disabled:cursor-not-allowed">
+              <i class="fa-solid fa-envelope"></i> Prévenir par mail
+            </button>
+            <button id="btnShowReport" class="text-xs font-semibold text-indigo-700 bg-white hover:bg-indigo-100 border border-indigo-200 rounded-lg px-3 py-1.5 transition disabled:opacity-40 disabled:cursor-not-allowed">
+              Voir le dernier rapport
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Synthèse complète -->
+      <div class="flex flex-wrap items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2.5">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Synthèse complète</span>
+        <button id="btnSummary" class="text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg px-3 py-1.5 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-envelope"></i> Résumé complet
+        </button>
+        <button id="btnExportCsv" class="text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg px-3 py-1.5 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-file-csv"></i> Exporter le CSV de synthèse
+        </button>
+        <span id="actionFeedback" class="text-xs text-slate-600 font-medium hidden"></span>
+      </div>
+    </div>
+
     <!-- Tableau de Résultats Chronologiques -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
@@ -213,18 +294,6 @@
         </h3>
         <div class="flex items-center gap-3">
 		  <span id="resultCounter" class="text-xs text-slate-500 font-medium">0 élément(s) affiché(s)</span>
-		  <button id="btnExportCsv" class="text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg px-3 py-1.5 flex items-center gap-1.5 transition">
-		    <i class="fa-solid fa-file-csv"></i> Exporter CSV
-		  </button>
-		  <button id="btnSummary" class="text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg px-3 py-1.5 flex items-center gap-1.5 transition">
-			  <i class="fa-solid fa-envelope"></i> Résumé
-		  </button>
-		  <button id="btnPurge" style="display:none" class="text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg px-3 py-1.5 flex items-center gap-1.5 transition">
-			  <i class="fa-solid fa-broom"></i> Purger / réaffecter les box
-			</button>
-			<button id="btnUndoPurge" style="display:none" class="text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg px-3 py-1.5 flex items-center gap-1.5 transition">
-			  <i class="fa-solid fa-rotate-left"></i> <span id="undoLabel">Annuler la dernière purge</span>
-			</button>
 		</div>
       </div>
 	<div id="ignoredInfoContainer" class="hidden px-6 py-2.5 bg-amber-50 border-b border-amber-200 text-amber-800 text-xs flex items-center gap-2">
@@ -341,6 +410,7 @@
 	const MAIL_CC = 'neurologie.consultation.hmn@aphp.fr';
 	const MAIL_SEP = ';';
 	const MAIL_DEST_FIELD = 'to';
+	const MAIL_URL_MAX = 7000;   // au-delà, certains clients tronquent : le corps est alors copié dans le presse-papiers
 	document.getElementById('excludeNeuroList').textContent = RESSOURCES_HORS_BOX.join(', ');
     // Utilitaires de nettoyage et normalisation de texte
     function cleanText(str) {
@@ -813,6 +883,7 @@ Object.keys(rdvCounts).forEach(key => {
         // Rendu initial du tableau
         renderTable();
 		renderConflicts();
+		renderActionBand();
 
 		document.getElementById('summaryPanel').classList.add('hidden');
 		document.getElementById('reportPanel').classList.add('hidden');
@@ -925,17 +996,32 @@ function exportResultsCsv() {
     return;
   }
   const catLabels = { GREEN: 'Validé', RED: 'Inoccupé', PURPLE: 'Sans box', YELLOW: 'Non répertorié' };
-  const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const motifOf = c => [c.repos ? 'Lendemain de garde' : null, c.abs ? `Absence déclarée (${c.abs})` : null].filter(Boolean).join(' + ');
 
-  const header = ['Date', 'Heure', 'Box', 'Initiales', 'Nom', 'Patients', 'Categorie', 'Cle_interne'];
+  // colonnes historiques inchangées, puis Type et Detail ajoutées à la fin
+  const header = ['Date', 'Heure', 'Box', 'Initiales', 'Nom', 'Patients', 'Categorie', 'Cle_interne', 'Type', 'Detail'];
   const rows = allResults.map(r => [
     r.date, r.time, r.box, r.init, r.nom, r.patients,
     catLabels[r.category] || r.category,
-    `${r.date}_${r.time}_${r.init}`
+    `${r.date}_${r.time}_${r.init}`,
+    'Box',
+    r.blocked || (r.hasBlur ? 'RDV en zone de flou matin/après-midi' : '')
   ]);
+  conflicts.forEach(c => rows.push([
+    c.date, c.heure, '', c.init, c.nom, 1, 'Garde/Absence', `${c.date}_${c.heure}_${c.init}`, 'Conflit', `${motifOf(c)} : ${c.rdv}`
+  ]));
+  // résultats de la dernière réaffectation, seulement s'ils datent d'aujourd'hui
+  const rep = loadLastReport();
+  if (rep && localIsoOf(rep.at) === todayLocalIso()) {
+    const key = r => `${r.date}_${r.time}_${r.init}`;
+    rep.done.forEach(r => rows.push([r.date, r.time, r.col, r.init, r.nom, r.patients, 'Réaffecté', key(r), 'Réaffectation', `ancien titulaire : ${r.fromNom}`]));
+    rep.left.forEach(r => rows.push([r.date, r.time, '', r.init, r.nom, r.patients, 'Non réaffecté', key(r), 'Réaffectation', r.manual ? 'exclu manuellement' : r.reason]));
+    rep.below.forEach(r => rows.push([r.date, r.time, '', r.init, r.nom, r.patients, 'Sous le seuil', key(r), 'Réaffectation', `moins de ${rep.seuil} patients`]));
+  }
 
+  const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const csv = [header, ...rows].map(row => row.map(esc).join(';')).join('\r\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `analyse_boxs_${new Date().toISOString().slice(0, 10)}.csv`;
@@ -945,12 +1031,26 @@ function exportResultsCsv() {
   URL.revokeObjectURL(a.href);
 }
 
-function buildSummaryText() {
-  const seuil = getSeuil();
-  const delai = getDelai();
-  const limite = addDays(todayLocalIso(), delai);
+// ===== LIGNES DE TEXTE : partagées par le résumé complet et les mails ciblés =====
+const localIsoOf = iso => new Date(iso).toLocaleDateString('sv-SE');   // AAAA-MM-JJ en heure locale
+const periodeLabel = () => csvRange.min ? ` du ${fmtDateShort(csvRange.min)} au ${fmtDateShort(csvRange.max)}` : '';
+const MAIL_SIGNATURE = [
+  "Ceci est encore un prototype et peut faire l'objet d'erreurs : merci de les remonter à RN pour qu'il m'améliore !",
+  '',
+  'Cordialement,',
+  "L'outil d'audit des box (NeuroPlanning)"
+];
+const groupRows = rows => {   // regroupement par (date, créneau) ; allResults est déjà trié
+  const m = new Map();
+  rows.forEach(r => {
+    const k = `${r.date}_${r.time}`;
+    if (!m.has(k)) m.set(k, { date: r.date, time: r.time, items: [] });
+    m.get(k).items.push(r);
+  });
+  return [...m.values()];
+};
 
-  // 1. URGENT : consultations un lendemain de garde / pendant une absence
+function conflictLines() {
   const confGroups = new Map();
   conflicts.forEach(c => {
     const k = `${c.date}_${c.init}`;
@@ -960,54 +1060,48 @@ function buildSummaryText() {
     if (c.abs) g.abs.add(c.abs);
     confGroups.set(k, g);
   });
-  const confLines = [...confGroups.values()].map(g => {
+  return [...confGroups.values()].map(g => {
     const quoi = [g.repos ? 'lendemain de garde' : null,
                   g.abs.size ? `absence déclarée : ${[...g.abs].join(', ')}` : null].filter(Boolean).join(' + ');
     return `- ${fmtDateLong(g.date)} : ${g.nom} (${quoi}) a ${g.n} consultation${g.n > 1 ? 's' : ''} programmée${g.n > 1 ? 's' : ''}.`;
   });
+}
 
-  // Regroupement par (date, créneau) ; allResults est déjà trié
-  const groupRows = rows => {
-    const m = new Map();
-    rows.forEach(r => {
-      const k = `${r.date}_${r.time}`;
-      if (!m.has(k)) m.set(k, { date: r.date, time: r.time, items: [] });
-      m.get(k).items.push(r);
-    });
-    return [...m.values()];
-  };
-  const purples = allResults.filter(r => r.category === 'PURPLE');
-
-  // 2. Sans box, au-dessus du seuil : à réaffecter en priorité
-  const prioLines = groupRows(purples.filter(r => r.patients >= seuil)).map(g => {
-    const who = g.items.map(r => `${r.nom} (${ptsLabel(r.patients)}${r.blocked ? ` ; déjà signalé : ${r.blocked}` : ''})`).join(', ');
+// prio = true : au moins le seuil ; prio = false : sous le seuil
+function noBoxLines(prio) {
+  const seuil = getSeuil();
+  const rows = allResults.filter(r => r.category === 'PURPLE' && (prio ? r.patients >= seuil : r.patients < seuil));
+  return groupRows(rows).map(g => {
+    const who = g.items.map(r => `${r.nom} (${ptsLabel(r.patients)}${prio && r.blocked ? ` ; déjà signalé : ${r.blocked}` : ''})`).join(', ');
     return `- ${fmtDateLong(g.date)}, ${slotLabelOf(g.time)} : pas de box défini pour ${who}.`;
   });
+}
 
-  // 3. Sans box, sous le seuil : probablement téléconsultation
-  const lowLines = groupRows(purples.filter(r => r.patients < seuil)).map(g => {
-    const who = g.items.map(r => `${r.nom} (${ptsLabel(r.patients)})`).join(', ');
-    return `- ${fmtDateLong(g.date)}, ${slotLabelOf(g.time)} : pas de box défini pour ${who}.`;
-  });
-
-  // 4. Box réservés mais apparemment inutilisés, avec délai de réponse
-  const unusedLines = groupRows(allResults.filter(r => r.category === 'RED')).map(g => {
+function unusedLines() {
+  return groupRows(allResults.filter(r => r.category === 'RED')).map(g => {
     const parts = g.items.map(r => r.box.includes(',')
       ? `les box ${r.box} réservés pour ${r.nom}`
       : `le ${r.box} réservé pour ${r.nom}`);
     const nbBox = g.items.reduce((s, r) => s + r.box.split(',').length, 0);
     let ligne = `- ${fmtDateLong(g.date)}, ${slotLabelOf(g.time)} : ${parts.join(' ; ')} ${nbBox > 1 ? 'semblent' : 'semble'} non utilisé${nbBox > 1 ? 's' : ''}.`;
-    if (g.date <= limite) ligne += ' (date trop proche pour attendre le délai ci-dessus)';
     if (g.items.some(r => r.hasBlur)) ligne += ' (un RDV à cheval matin/après-midi existe peut-être : à vérifier)';
     return ligne;
   });
-  const unusedIntro = `Vous avez ${delai} jour${delai > 1 ? 's' : ''} (jusqu'au ${fmtDateShort(limite)}) pour signaler si vous avez une raison de garder ce box ; à défaut, il sera réaffecté.`;
+}
 
+const limiteReponse = () => addDays(todayLocalIso(), getDelai());
+const joursLabel = n => `${n} jour${n > 1 ? 's' : ''}`;
+
+// ===== RÉSUMÉ COMPLET =====
+function buildSummaryText() {
+  const seuil = getSeuil();
+  const delai = getDelai();
+  const unusedIntro = `Vous avez ${joursLabel(delai)} (jusqu'au ${fmtDateShort(limiteReponse())}) pour signaler si vous avez une raison de garder ce box ; à défaut, il sera réaffecté.`;
   const sections = [
-    ['URGENT : CONSULTATIONS PROGRAMMÉES UN LENDEMAIN DE GARDE OU PENDANT UNE ABSENCE', confLines, 'À régler dès que possible.'],
-    [`PATIENTS SANS BOX DÉFINI (${seuil} patients ou plus : consultation à réaffecter en priorité)`, prioLines, ''],
-    [`SANS BOX DÉFINI, MOINS DE ${seuil} PATIENTS (probable téléconsultation : à confirmer, pas de réaffectation prévue)`, lowLines, ''],
-    ['BOX RÉSERVÉS MAIS APPAREMMENT NON UTILISÉS', unusedLines, unusedIntro]
+    ['URGENT : CONSULTATIONS PROGRAMMÉES UN LENDEMAIN DE GARDE OU PENDANT UNE ABSENCE', conflictLines(), 'À régler dès que possible.'],
+    [`PATIENTS SANS BOX DÉFINI (${seuil} patients ou plus : consultation à réaffecter en priorité)`, noBoxLines(true), ''],
+    [`SANS BOX DÉFINI, MOINS DE ${seuil} PATIENTS (probable téléconsultation : à confirmer, pas de réaffectation prévue)`, noBoxLines(false), ''],
+    ['BOX RÉSERVÉS MAIS APPAREMMENT NON UTILISÉS', unusedLines(), unusedIntro]
   ].filter(([, l]) => l.length);
 
   if (!sections.length) {
@@ -1015,6 +1109,140 @@ function buildSummaryText() {
   }
   return sections.map(([titre, l, intro]) => `${titre}\n${intro ? intro + '\n' : ''}${l.join('\n')}`).join('\n\n');
 }
+
+// ===== MAILS CIBLÉS : chacun renvoie { inits, subject, body } =====
+function mailUrgent() {
+  return {
+    inits: new Set(conflicts.map(c => c.init).filter(Boolean)),
+    subject: `[URGENT] [Neuroplanning] Consultations un lendemain de garde ou pendant une absence`,
+    body: [
+      'Bonjour,',
+      '',
+      `Le contrôle automatique des box de consultation${periodeLabel()} a repéré des consultations programmées alors que le médecin est en lendemain de garde ou en absence déclarée.`,
+      'Merci de vérifier et, si besoin, de faire modifier ces consultations dès que possible :',
+      '',
+      ...conflictLines(),
+      '',
+      ...MAIL_SIGNATURE
+    ].join('\n')
+  };
+}
+
+function mailUnused() {
+  const delai = getDelai();
+  return {
+    inits: new Set(allResults.filter(r => r.category === 'RED' && r.init && r.init !== 'N/A').map(r => r.init)),
+    subject: `[Neuroplanning] Box réservés apparemment non utilisés : réponse sous ${joursLabel(delai)}`,
+    body: [
+      'Bonjour,',
+      '',
+      `Le contrôle automatique des box de consultation${periodeLabel()} a repéré des box réservés mais apparemment non utilisés (aucun patient dans la liste des RDV) :`,
+      '',
+      ...unusedLines(),
+      '',
+      `Vous avez ${joursLabel(delai)} (jusqu'au ${fmtDateShort(limiteReponse())}) pour signaler à la consultation si vous avez une raison de garder ce box.`,
+      'À défaut de réponse, ce box sera automatiquement purgé du planning, puis réaffecté.',
+      '',
+      ...MAIL_SIGNATURE
+    ].join('\n')
+  };
+}
+
+function mailReport(rep) {
+  const when = r => slotWhen(r.date, r.time);
+  const sec = (titre, lines) => lines.length ? `${titre}\n${lines.join('\n')}` : null;
+  const sections = [
+    sec("BOX RÉAFFECTÉS (les médecins concernés n'ont rien à faire)",
+      rep.done.map(r => `- ${when(r)} : ${r.col} attribué à ${r.nom} (${ptsLabel(r.patients)}).`)),
+    sec('SANS BOX ET NON RÉAFFECTÉS (merci de revenir vers la consultation pour plus de détails)',
+      rep.left.map(r => `- ${when(r)} : ${r.nom} (${ptsLabel(r.patients)})${r.reason && !r.manual ? ` : ${r.reason}` : ''}.`)),
+    sec(`SANS BOX, MOINS DE ${rep.seuil} PATIENTS (si un box était bien nécessaire, merci de revenir vers la consultation)`,
+      rep.below.map(r => `- ${when(r)} : ${r.nom} (${ptsLabel(r.patients)}).`))
+  ].filter(Boolean);
+  return {
+    inits: new Set([...rep.done, ...rep.left, ...rep.below].map(r => r.init).filter(Boolean)),
+    subject: `[Neuroplanning] Réaffectation des box${rep.periode || ''}`,
+    body: [
+      'Bonjour,',
+      '',
+      `Suite au contrôle des box de consultation${rep.periode || ''}, une purge des box inutilisés puis une réaffectation ont été effectuées dans le planning le ${fmtDateShort(localIsoOf(rep.at))}.`,
+      '',
+      sections.join('\n\n'),
+      '',
+      ...MAIL_SIGNATURE
+    ].join('\n')
+  };
+}
+
+// ===== ENVOI : adresses lues dans commun.profiles, brouillon ouvert via mailto =====
+async function sendMail({ inits, subject, body, feedbackEl, note = '' }) {
+  const say = msg => { feedbackEl.textContent = msg; feedbackEl.classList.remove('hidden'); };
+  if (!currentUser || !(currentUser.role === 'admin' || currentUser.permissions?.can_edit_planning)) {
+    say("Tes droits ne permettent pas d'envoyer ces mails.");
+    return;
+  }
+  if (!inits.size) { say('Personne à prévenir pour cette rubrique.'); return; }
+  say('Récupération des adresses…');
+
+  const { data, error } = await supabaseClient.schema('commun').from('profiles').select('initiales, email');
+  if (error) { say('Erreur profiles : ' + error.message); return; }
+  const mailOf = new Map((data || []).map(p =>
+    [String(p.initiales || '').trim().toUpperCase(), String(p.email || '').trim().toLowerCase()]));
+  const sansMail = [...inits].filter(i => !(mailOf.get(i) || '').includes('@'));
+  const emails = [...new Set([...inits].map(i => mailOf.get(i))
+    .filter(e => e && e.includes('@') && e !== MAIL_CC.toLowerCase()))];
+  if (!emails.length) { say('Aucune adresse trouvée pour : ' + [...inits].join(', ') + ' (table vide ou accès refusé par RLS).'); return; }
+  const manque = sansMail.length ? ` Sans adresse : ${sansMail.join(', ')}.` : '';
+
+  const enc = encodeURIComponent;
+  const build = b => `mailto:?${MAIL_DEST_FIELD}=${enc(emails.join(MAIL_SEP))}&cc=${enc(MAIL_CC)}&subject=${enc(subject)}&body=${enc(b)}`;
+  let url = build(body);
+  if (url.length > MAIL_URL_MAX) {   // trop long pour être pré-rempli : corps dans le presse-papiers
+    try { await navigator.clipboard.writeText(body); } catch {}
+    url = build('Message trop long pour être pré-rempli : il a été copié dans le presse-papiers, colle-le ici (Ctrl+V).');
+    say(`${emails.length} destinataire(s) (${[...inits].join(', ')}). Corps copié : colle-le dans le brouillon.${manque}${note}`);
+  } else {
+    say(`${emails.length} destinataire(s) (${[...inits].join(', ')}).${manque}${note}`);
+  }
+  window.location.href = url;
+}
+
+// ===== DERNIER RAPPORT DE RÉAFFECTATION (mémorisé dans le navigateur pour le mail 3) =====
+const REPORT_KEY = 'auditBoxLastReport';
+function saveLastReport(r) { try { localStorage.setItem(REPORT_KEY, JSON.stringify(r)); } catch { console.warn('Rapport non mémorisé (stockage indisponible).'); } }
+function loadLastReport() { try { return JSON.parse(localStorage.getItem(REPORT_KEY) || 'null'); } catch { return null; } }
+function clearLastReport() { try { localStorage.removeItem(REPORT_KEY); } catch {} }
+
+// ===== BANDEAU D'ACTIONS =====
+function renderActionBand() {
+  const $ = id => document.getElementById(id);
+  const seuil = getSeuil(), delai = getDelai();
+  $('actionBand').classList.remove('hidden');
+
+  const cDocs = new Set(conflicts.map(c => c.init)).size;
+  $('cardUrgentCount').textContent = conflicts.length;
+  $('cardUrgentSub').textContent = conflicts.length ? `consultation(s), ${cDocs} médecin(s)` : 'rien à signaler';
+  $('btnMailUrgent').disabled = !conflicts.length;
+
+  const reds = allResults.filter(r => r.category === 'RED' && r.init && r.init !== 'N/A');
+  const nBox = reds.reduce((s, r) => s + r.box.split(',').length, 0);
+  $('cardUnusedCount').textContent = nBox;
+  $('cardUnusedSub').textContent = nBox ? `box, ${new Set(reds.map(r => r.init)).size} médecin(s) · délai ${joursLabel(delai)}` : 'rien à signaler';
+  $('btnMailUnused').disabled = !nBox;
+
+  const prio = allResults.filter(r => r.category === 'PURPLE' && r.init !== 'N/A' && r.patients >= seuil).length;
+  $('cardPurgeCount').textContent = getPurgeCandidates().length;
+  $('cardPurgeSub').textContent = `demi-journée(s) purgeable(s) · ${prio} médecin(s) prioritaire(s) sans box (${seuil} pt ou plus)`;
+
+  const rep = loadLastReport();
+  $('cardReportCount').textContent = rep ? rep.done.length : 0;
+  $('cardReportSub').textContent = rep
+    ? `réaffecté(s) le ${fmtDateShort(localIsoOf(rep.at))} · ${rep.left.length} non réaffecté(s) · ${rep.below.length} sous le seuil`
+    : 'aucun rapport enregistré sur ce navigateur';
+  $('btnMailReport').disabled = !rep;
+  $('btnShowReport').disabled = !rep;
+}
+
 
 	  
 const BOX_COLS = ['BOX1','BOX2','BOX3','BOX4','BOX5','BOX6','BOX7','BOX8','BOX9'];
@@ -1046,6 +1274,7 @@ const fmtDateLong = d => new Date(d + 'T00:00:00')
 const fmtDateShort = d => String(d).split('-').reverse().join('/');
 const ptsLabel = n => `${n} patient${n > 1 ? 's' : ''}`;
 const boxNum = col => parseInt(String(col).replace(/\D/g, ''), 10) || 99;
+const slotWhen = (d, t) => `${fmtDateLong(d)}, ${slotLabelOf(t)}`;
 const byDateTime = (a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time);
 function intParam(id, def, min) {
   const n = parseInt(document.getElementById(id)?.value, 10);
@@ -1217,17 +1446,22 @@ function openPurgePanel() {
   document.getElementById('purgePanel').classList.remove('hidden');
 }
 
+// Prioritaires non réaffectés : échecs d'écriture, plus de box, bloqués, exclus à la main
+function computeLeft(plan, failed) {
+  return [
+    ...failed.map(a => ({ ...a.row, reason: 'écriture refusée (cellule modifiée entre-temps ou droits insuffisants)' })),
+    ...plan.notAssigned,
+    ...plan.excluded.map(r => ({ ...r, reason: 'exclu manuellement de la réaffectation', manual: true }))
+  ].sort(byDateTime);
+}
+
 // ===== RAPPORT FINAL =====
 function buildReportText({ plan, done, failed, ok, ko, spared, reassignOn }) {
   const seuil = getSeuil();
   const slot = (d, t) => `${fmtDateLong(d)}, ${slotLabelOf(t)}`;
   const sec = (titre, lines) => lines.length ? `${titre}\n${lines.join('\n')}` : null;
 
-  const priorityLeft = [
-    ...failed.map(a => ({ ...a.row, reason: 'écriture refusée (cellule modifiée entre-temps ou droits insuffisants)' })),
-    ...plan.notAssigned,
-    ...plan.excluded.map(r => ({ ...r, reason: 'exclu manuellement de la réaffectation' }))
-  ].sort(byDateTime);
+  const priorityLeft = computeLeft(plan, failed);
 
   const sections = [
     reassignOn ? sec(`BOX RÉAFFECTÉS (${done.length})`, done.map(a =>
@@ -1335,8 +1569,9 @@ async function runPurge() {
   }
 
   // 4bis. Sauvegarde locale (navigateur) pour pouvoir annuler
+  const opAt = new Date().toISOString();
   saveUndoOp({
-    at: new Date().toISOString(),
+    at: opAt,
     by: modifiedBy,
     cells: ok.map(c => ({ id: c.id, col: c.col, raw: c.raw, written: c.written, date: c.date, heure: c.heure, nom: c.nom }))
   });
@@ -1364,7 +1599,15 @@ async function runPurge() {
   const done = plan.assignments.filter(a => okSet.has(`${a.cell.id}|${a.cell.col}`));
   const failed = plan.assignments.filter(a => !okSet.has(`${a.cell.id}|${a.cell.col}`));
   const spared = getPurgeCandidates().filter(r => !isSelectedRow(r, selected));
-  document.getElementById('reportText').value = buildReportText({ plan, done, failed, ok, ko, spared, reassignOn });
+  const reportText = buildReportText({ plan, done, failed, ok, ko, spared, reassignOn });
+  document.getElementById('reportText').value = reportText;
+  if (reassignOn) saveLastReport({
+    at: new Date().toISOString(), opAt, by: modifiedBy, seuil: getSeuil(), periode: periodeLabel(), text: reportText,
+    done: done.map(a => ({ date: a.row.date, time: a.row.time, init: a.row.init, nom: a.row.nom, patients: a.row.patients, col: a.cell.col, fromNom: a.cell.fromNom })),
+    left: computeLeft(plan, failed).map(r => ({ date: r.date, time: r.time, init: r.init, nom: r.nom, patients: r.patients, reason: r.reason, manual: !!r.manual })),
+    below: plan.below.map(r => ({ date: r.date, time: r.time, init: r.init, nom: r.nom, patients: r.patients }))
+  });
+  renderActionBand();
   document.getElementById('purgePanel').classList.add('hidden');
   document.getElementById('reportPanel').classList.remove('hidden');
   document.getElementById('reportPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1455,6 +1698,9 @@ async function undoLastPurge() {
   if (ko.length) rest.push({ ...op, cells: ko });
   storeUndoOps(rest);
   refreshUndoButton();
+  const lastRep = loadLastReport();
+  if (!ko.length && lastRep && lastRep.opAt === op.at) clearLastReport();   // réaffectations annulées : rapport caduc
+  if (allResults.length) renderActionBand();
 
   alert(`${ok.length} cellule(s) restaurée(s).` +
     (ko.length ? `\n${ko.length} ignorée(s) : modifiée(s) depuis la purge ou droits insuffisants (voir console). Elles restent en mémoire, tu peux réessayer.` : '') +
@@ -1499,34 +1745,12 @@ document.getElementById('btnCopySummary').addEventListener('click', async () => 
 });
 
 document.getElementById('btnMailAll').addEventListener('click', async () => {
-  if (!currentUser) return;
-  const fb = document.getElementById('mailFeedback');
-  const say = msg => { fb.textContent = msg; fb.classList.remove('hidden'); };
-  say('Récupération des adresses…');
-	
   const concernes = new Set();
-conflicts.forEach(c => c.init && concernes.add(c.init));
-allResults.forEach(r => {
-  if ((r.category === 'RED' || r.category === 'PURPLE') && r.init && r.init !== 'N/A') concernes.add(r.init);
-});
-if (!concernes.size) { say('Aucune anomalie : personne à prévenir.'); return; }
-	
-  const { data, error } = await supabaseClient.schema('commun').from('profiles').select('initiales, email');
-  if (error) { say('Erreur profiles : ' + error.message); return; }
-
-const mailOf = new Map((data || []).map(p =>
-  [String(p.initiales || '').trim().toUpperCase(), String(p.email || '').trim().toLowerCase()]));
-const sansMail = [...concernes].filter(i => !(mailOf.get(i) || '').includes('@'));
-const emails = [...new Set([...concernes].map(i => mailOf.get(i))
-  .filter(e => e && e.includes('@') && e !== MAIL_CC.toLowerCase()))];
-if (!emails.length) { say('Aucune adresse trouvée pour : ' + [...concernes].join(', ') + ' (table vide ou accès refusé par RLS).'); return; }
-const manque = sansMail.length ? ` Sans adresse : ${sansMail.join(', ')}.` : '';
-
-  const dates = allResults.map(r => r.date).sort();
-	const fmtFR = d => d.split('-').reverse().join('/');
-	const periode = csvRange.min ? ` du ${fmtFR(csvRange.min)} au ${fmtFR(csvRange.max)}` : '';
-	const subject = `${conflicts.length ? '[URGENT] ' : ''}[Neuroplanning] Audit des box${periode}`;
-
+  conflicts.forEach(c => c.init && concernes.add(c.init));
+  allResults.forEach(r => {
+    if ((r.category === 'RED' || r.category === 'PURPLE') && r.init && r.init !== 'N/A') concernes.add(r.init);
+  });
+  const periode = periodeLabel();
   const resume = document.getElementById('summaryText').value.trim();
   const body = [
     'Bonjour à tous,',
@@ -1536,26 +1760,33 @@ const manque = sansMail.length ? ` Sans adresse : ${sansMail.join(', ')}.` : '';
     '',
     resume,
     '',
-    "Ceci est encore un prototype et peut faire l'objet d'erreurs : merci de les remonter à RN pour qu'il m'améliore !",
-	'Le détail complet est en pièce jointe (CSV).',
-    '',
-    'Cordialement,',
-    "L'outil d'audit des box (NeuroPlanning)"
+    ...MAIL_SIGNATURE,
+    'Le détail complet est en pièce jointe (CSV).'
   ].join('\n');
-
-  const enc = encodeURIComponent;
-  const build = b => `mailto:?${MAIL_DEST_FIELD}=${enc(emails.join(MAIL_SEP))}&cc=${enc(MAIL_CC)}&subject=${enc(subject)}&body=${enc(b)}`;
-
-  let url = build(body);
-//  if (url.length > 10000) {   // certains clients tronquent les mailto trop longs
-//    try { await navigator.clipboard.writeText(body); } catch {}
-//    url = build('Message trop long pour être pré-rempli : il a été copié dans le presse-papiers, colle-le ici (Ctrl+V).');
-//      say(`${emails.length} destinataire(s) (${[...concernes].join(', ')}). Corps copié : colle-le dans le mail, puis joins le CSV.${manque}`);
-//  } else {
-//      say(`${emails.length} destinataire(s) (${[...concernes].join(', ')}). Joins le CSV téléchargé au mail.${manque}`);
-//  }
   exportResultsCsv();
-  window.location.href = url;
+  await sendMail({
+    inits: concernes,
+    subject: `${conflicts.length ? '[URGENT] ' : ''}[Neuroplanning] Audit des box${periode}`,
+    body, feedbackEl: document.getElementById('mailFeedback'),
+    note: ' Joins le CSV téléchargé au mail.'
+  });
+});
+
+// --- mails ciblés (un bouton par rubrique) ---
+const actionFb = () => document.getElementById('actionFeedback');
+document.getElementById('btnMailUrgent').addEventListener('click', () => sendMail({ ...mailUrgent(), feedbackEl: actionFb() }));
+document.getElementById('btnMailUnused').addEventListener('click', () => sendMail({ ...mailUnused(), feedbackEl: actionFb() }));
+document.getElementById('btnMailReport').addEventListener('click', () => {
+  const rep = loadLastReport();
+  if (!rep) { alert('Aucun rapport de réaffectation enregistré sur ce navigateur.'); return; }
+  sendMail({ ...mailReport(rep), feedbackEl: actionFb() });
+});
+document.getElementById('btnShowReport').addEventListener('click', () => {
+  const rep = loadLastReport();
+  if (!rep) return;
+  document.getElementById('reportText').value = rep.text;
+  document.getElementById('reportPanel').classList.remove('hidden');
+  document.getElementById('reportPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 	  
 document.getElementById('btnHelp').addEventListener('click', () => {
@@ -1634,8 +1865,10 @@ window.addEventListener('load', async () => {
   document.getElementById('btnAnalyse').disabled = !ok;
   if (!ok) return;
   const peutEnvoyer = currentUser.role === 'admin' || currentUser.permissions?.can_edit_planning;
-  document.getElementById('btnMailAll').style.display = peutEnvoyer ? '' : 'none';
+  ['btnMailAll', 'btnMailUrgent', 'btnMailUnused', 'btnMailReport'].forEach(id =>
+    document.getElementById(id).style.display = peutEnvoyer ? '' : 'none');
   if (canPurge()) document.getElementById('btnPurge').style.display = '';
+  document.getElementById('purgeNote').classList.toggle('hidden', canPurge());
   refreshUndoButton();
 });
 document.getElementById('btnPurge').addEventListener('click', openPurgePanel);
@@ -1667,7 +1900,7 @@ document.getElementById('purgePanel').addEventListener('change', e => {
 
 // Changer le seuil ou le délai remet tout à jour (le résumé n'est régénéré que s'il n'a pas été retouché à la main)
 ['seuilPatients', 'delaiJours'].forEach(id => document.getElementById(id).addEventListener('change', () => {
-  if (allResults.length) renderTable();
+  if (allResults.length) { renderTable(); renderActionBand(); }
   const ta = document.getElementById('summaryText');
   if (!document.getElementById('summaryPanel').classList.contains('hidden') && ta.value === lastSummaryText) {
     lastSummaryText = buildSummaryText();
