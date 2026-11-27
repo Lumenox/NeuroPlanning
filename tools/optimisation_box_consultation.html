@@ -19,6 +19,22 @@
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen p-4 sm:p-6 lg:p-8">
 	
+	<!-- Fenêtre de confirmation (remplace prompt() dont le texte est tronqué quand il est long) -->
+	<div id="confirmModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+	  <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+	    <div class="px-6 py-4 border-b border-slate-200"><h3 id="confirmTitle" class="font-bold text-slate-900"></h3></div>
+	    <pre id="confirmBody" class="px-6 py-4 text-xs font-sans whitespace-pre-wrap text-slate-700 overflow-y-auto flex-1"></pre>
+	    <div class="px-6 py-4 border-t border-slate-200 space-y-2">
+	      <label for="confirmInput" class="text-xs text-slate-700">Tape <strong id="confirmWord"></strong> pour confirmer :</label>
+	      <input id="confirmInput" type="text" autocomplete="off" class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
+	      <div class="flex justify-end gap-2">
+	        <button id="confirmCancel" type="button" class="text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg px-3 py-1.5">Annuler</button>
+	        <button id="confirmOk" type="button" disabled class="text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg px-3 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed">Confirmer</button>
+	      </div>
+	    </div>
+	  </div>
+	</div>
+
 	<div id="auth-msg" class="hidden fixed inset-0 z-50 bg-slate-50 items-center justify-center text-center text-sm text-slate-500 leading-8">
 	  <div>Session introuvable.<br>Redirection vers le planning pour vous connecter…<br>
 	    <a href="index.html" class="text-indigo-600 underline">← Retour au planning</a></div>
@@ -1265,6 +1281,40 @@ function canPurge() {
   return !!currentUser && BOX_COLS.every(c => canEditBoxCol(currentUser.permissions, c));
 }
 
+// Fenêtre de confirmation à saisie : texte défilant, bouton actif seulement si le mot attendu est tapé
+function askConfirm({ title, body, word }) {
+  return new Promise(resolve => {
+    const $ = id => document.getElementById(id);
+    const modal = $('confirmModal'), input = $('confirmInput'), ok = $('confirmOk'), cancel = $('confirmCancel');
+    $('confirmTitle').textContent = title;
+    $('confirmBody').textContent = body;
+    $('confirmWord').textContent = word;
+    input.value = '';
+    ok.disabled = true;
+    modal.classList.remove('hidden');
+    input.focus();
+    const done = v => {
+      modal.classList.add('hidden');
+      input.removeEventListener('input', onInput);
+      input.removeEventListener('keydown', onKey);
+      ok.removeEventListener('click', onOk);
+      cancel.removeEventListener('click', onCancel);
+      resolve(v);
+    };
+    const onInput = () => { ok.disabled = input.value.trim() !== word; };
+    const onKey = e => {
+      if (e.key === 'Enter' && !ok.disabled) done(true);
+      if (e.key === 'Escape') done(false);
+    };
+    const onOk = () => done(true);
+    const onCancel = () => done(false);
+    input.addEventListener('input', onInput);
+    input.addEventListener('keydown', onKey);
+    ok.addEventListener('click', onOk);
+    cancel.addEventListener('click', onCancel);
+  });
+}
+
 // ===== OUTILS COMMUNS (purge, réaffectation, rapport) =====
 const escHtml = s => String(s ?? '').replace(/[&<>"']/g,
   c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1503,18 +1553,18 @@ async function runPurge() {
     .join('\n');
   const reaAll = plan.assignments.map(a =>
     `  • ${fmtDateShort(a.row.date)} ${slotLabelOf(a.row.time)} : ${a.row.nom} (${ptsLabel(a.row.patients)}) → ${a.cell.col}`);
-  const reaShown = reaAll.length > 15 ? [...reaAll.slice(0, 15), `  … et ${reaAll.length - 15} autre(s)`] : reaAll;
-  const answer = prompt(
-    `⚠️ PURGE DU PLANNING\n\n` +
-    `${countCells(items)} box vont être VIDÉS dans neuroplanning.planning, du ${dates[0]} au ${dates[dates.length - 1]} :\n\n` +
-    `${recap}\n\n` +
-    (reassignOn
-      ? `${plan.assignments.length} de ces box seront RÉAFFECTÉS à un médecin sans box :\n${reaShown.join('\n') || '  (aucun)'}\n\n`
-      : `Aucune réaffectation (option décochée).\n\n`) +
-    `Les médecins et dates décochés sont épargnés. Une sauvegarde CSV sera téléchargée avant l'écriture.\n\n` +
-    `Tape PURGER pour confirmer :`
-  );
-  if (answer !== 'PURGER') return;   // annulé ou mal tapé
+  const confirmed = await askConfirm({
+    title: '⚠️ Purge du planning',
+    word: 'PURGER',
+    body:
+      `${countCells(items)} box vont être VIDÉS dans neuroplanning.planning, du ${dates[0]} au ${dates[dates.length - 1]} :\n\n` +
+      `${recap}\n\n` +
+      (reassignOn
+        ? `${plan.assignments.length} de ces box seront RÉAFFECTÉS à un médecin sans box :\n${reaAll.join('\n') || '  (aucun)'}\n\n`
+        : `Aucune réaffectation (option décochée).\n\n`) +
+      `Les médecins et dates décochés sont épargnés. Une sauvegarde CSV sera téléchargée avant l'écriture.`
+  });
+  if (!confirmed) return;   // annulé
 
   // 2. Session toujours valide et identique à celle chargée au démarrage
   const { data: { session } } = await supabaseClient.auth.getSession();
@@ -1649,14 +1699,15 @@ async function undoLastPurge() {
   const op = ops[ops.length - 1];
   if (!op) { alert('Aucune opération à annuler sur ce navigateur.'); return; }
 
-  const answer = prompt(
-    `↩️ ANNULATION\n\n` +
-    `${op.cells.length} cellule(s) du planning vont retrouver leur valeur d'avant la purge (opération du ` +
-    `${new Date(op.at).toLocaleString('fr-FR')}, par ${op.by}).\n\n` +
-    `Seules les cellules encore dans l'état laissé par l'outil seront restaurées ; les autres seront ignorées.\n\n` +
-    `Tape ANNULER pour confirmer :`
-  );
-  if (answer !== 'ANNULER') return;
+  const confirmed = await askConfirm({
+    title: '↩️ Annulation de la dernière purge',
+    word: 'ANNULER',
+    body:
+      `${op.cells.length} cellule(s) du planning vont retrouver leur valeur d'avant la purge (opération du ` +
+      `${new Date(op.at).toLocaleString('fr-FR')}, par ${op.by}).\n\n` +
+      `Seules les cellules encore dans l'état laissé par l'outil seront restaurées ; les autres seront ignorées.`
+  });
+  if (!confirmed) return;
 
   const { data: { session } } = await supabaseClient.auth.getSession();
   if (!session || session.user.id !== currentUser.id) {
