@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audit & Optimization d'attribution des Box - NeuroPlanning</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Supabase JS Client v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- PapaParse for local CSV processing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen p-4 sm:p-6 lg:p-8">
+	
+	<div id="auth-msg" class="hidden fixed inset-0 z-50 bg-slate-50 items-center justify-center text-center text-sm text-slate-500 leading-8">
+	  <div>Session introuvable.<br>Redirection vers le planning pour vous connecter…<br>
+	    <a href="index.html" class="text-indigo-600 underline">← Retour au planning</a></div>
+	</div>
+	
+  <div class="max-w-7xl mx-auto space-y-6">
+    
+    <!-- En-tête principal -->
+    <header class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="p-2 bg-indigo-100 text-indigo-700 rounded-lg text-lg">
+            <i class="fa-solid fa-hospital-user"></i>
+          </span>
+          <h1 class="text-2xl font-bold text-slate-900">Audit & Optimization d'Attribution des Boxs</h1>
+        </div>
+        <p class="text-sm text-slate-500 mt-1">
+          Contrôle d'adéquation entre le planning prévisionnel (Supabase) et les rendez-vous effectifs (CSV).
+        </p>
+      </div>
+      
+      <!-- Connecteur Supabase Status Indicator -->
+      <div id="connectionStatus" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+        <span class="w-2 h-2 rounded-full bg-slate-400"></span> Supabase : Prêt
+      </div>
+    </header>
+
+    <!-- Panneau de chargement et d'action -->
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-500">Sources de Données</h2>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Supabase Database Info (Automatique) -->
+        <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold uppercase text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">Base Supabase</span>
+              <i class="fa-solid fa-database text-slate-400"></i>
+            </div>
+            <p class="text-xs text-slate-600"><strong>Planning :</strong> <code class="text-slate-800">neuroplanning.planning</code></p>
+            <p class="text-xs text-slate-600 mt-1"><strong>Neurologues :</strong> <code class="text-slate-800">commun.neurologues</code></p>
+          </div>
+          <span class="text-[11px] text-emerald-600 font-medium mt-3 flex items-center gap-1">
+            <i class="fa-solid fa-check-circle"></i> Connexion automatique configurée
+          </span>
+        </div>
+
+<!-- Zone de glisser-déposer (Drag & Drop) -->
+<div id="dropZone" class="border-2 border-dashed border-indigo-200 rounded-xl bg-indigo-50/50 p-6 text-center hover:bg-indigo-50 hover:border-indigo-400 transition cursor-pointer relative">
+  <input type="file" id="csvRdv" accept=".csv" class="hidden" />
+  <!-- Bouton d'aide -->
+<div class="flex items-center justify-between mb-4">
+  <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-500">Sources de Données</h2>
+  <button id="btnHelp" type="button" class="w-8 h-8 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 flex items-center justify-center font-bold text-sm shadow-sm transition-all" title="Aide pour l'export CSV">
+    <i class="fa-solid fa-question"></i>
+  </button>
+</div>
+  <div class="flex flex-col items-center justify-center space-y-2 pointer-events-none">
+    <svg class="w-10 h-10 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 0115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+    </svg>
+    <p class="text-sm font-semibold text-slate-700">
+      Glissez-déposez le fichier <span class="text-indigo-600">ListeRdVParRessource.csv</span> ici
+    </p>
+    <p class="text-xs text-slate-500">ou cliquez pour parcourir vos fichiers</p>
+    <p id="fileNameDisplay" class="text-xs font-bold text-emerald-600 mt-2 hidden"></p>
+  </div>
+</div>
+
+        <!-- CSV Upload pour la liste des RDV
+        <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold uppercase text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">Fichier RDV Local</span>
+              <i class="fa-solid fa-file-csv text-slate-400"></i>
+            </div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Liste des RDV par Ressource (CSV)</label>
+            <input type="file" id="csvRdv" accept=".csv" class="block w-full text-xs text-slate-500 file:mr-2 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition cursor-pointer"/>
+          </div>
+          <span class="text-[11px] text-slate-500 mt-2">Format attendu : colonnes Date, Heure, Ressource</span>
+        </div>
+      </div> -->
+
+      <!-- Bouton d'analyse principal -->
+      <button id="btnAnalyse" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-xl shadow-md transition-all duration-200 flex items-center justify-center gap-2">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <span>Charger les données & Lancer l'Analyse</span>
+      </button>
+      <!-- options d'exclusion -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200">
+        <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+          <input type="checkbox" id="excludeAnnule" checked class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
+          <span>Ignorer les RDV <strong>Annulés</strong> (colonne Statut)</span>
+        </label>
+        <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+          <input type="checkbox" id="excludeProtocole" checked class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
+          <span>Ignorer les <strong>Protocoles de recherche clinique</strong> (colonne RDV)</span>
+        </label>
+		<label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+          <input type="checkbox" id="excludeNeuropsy" checked class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
+          <span>Ignorer les RDV de <strong>Neuropsy</strong> (colonne RDV)</span>
+        </label>
+		<label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+          <input type="checkbox" id="excludeNeuro" checked class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
+          <span>Ignorer les RDV de <strong id="excludeNeuroList"></strong>  (colonne Ressource)</span>
+        </label>
+		<label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+		  <input type="checkbox" id="excludeTlc" checked class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
+		  <span>Ignorer les <strong>téléconsultations</strong> (colonne Commentaire)</span>
+		</label>
+		<label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+		  <input type="checkbox" id="excludeHdj" checked class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer">
+		  <span>Ignorer les <strong>HDJ</strong> (colonne Commentaire)</span>
+		</label>
+      </div>
+
+      <!-- Paramètres de l'audit -->
+      <div class="flex flex-wrap items-center gap-x-8 gap-y-2 px-4 py-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700">
+        <label class="flex items-center gap-2">
+          <span>Délai de réponse laissé aux médecins avant réaffectation :</span>
+          <input type="number" id="delaiJours" value="7" min="1" max="90" class="w-16 px-2 py-1 rounded border border-slate-300 text-xs text-center">
+          <span>jour(s)</span>
+        </label>
+        <label class="flex items-center gap-2">
+          <span>Sans box : à réaffecter en priorité à partir de</span>
+          <input type="number" id="seuilPatients" value="3" min="1" max="50" class="w-16 px-2 py-1 rounded border border-slate-300 text-xs text-center">
+          <span>patient(s)</span>
+        </label>
+      </div>
+
+    </div>
+
+    <!-- Cartouches KPI dynamiques avec filtres -->
+    <div id="kpiContainer" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      
+      <!-- GREEN (Vert / Justifiés) -->
+      <label class="cursor-pointer bg-emerald-50 p-4 rounded-xl border border-emerald-200 shadow-sm flex justify-between items-center hover:bg-emerald-100/70 transition">
+        <div class="space-y-1">
+          <span class="text-[11px] font-bold text-emerald-800 uppercase tracking-wider block">Boxs Justifiés (≥ 1 Pt)</span>
+          <div id="kpiOk" class="text-3xl font-extrabold text-emerald-900">0</div>
+        </div>
+        <div class="flex flex-col items-end gap-2">
+          <input type="checkbox" id="filterOk" class="w-5 h-5 text-emerald-600 rounded border-emerald-300 focus:ring-emerald-500 cursor-pointer">
+          <span class="text-[10px] text-emerald-700 font-medium">Filtrer</span>
+        </div>
+      </label>
+		
+		
+      <!-- RED (Rouge / Inutilisés) -->
+      <label class="cursor-pointer bg-rose-50 p-4 rounded-xl border border-rose-200 shadow-sm flex justify-between items-center hover:bg-rose-100/70 transition">
+        <div class="space-y-1">
+          <span class="text-[11px] font-bold text-rose-800 uppercase tracking-wider block">Boxs Inutilisés (0 Pt)</span>
+          <div id="kpiAlert" class="text-3xl font-extrabold text-rose-900">0</div>
+        </div>
+        <div class="flex flex-col items-end gap-2">
+          <input type="checkbox" id="filterAlert" checked class="w-5 h-5 text-rose-600 rounded border-rose-300 focus:ring-rose-500 cursor-pointer">
+          <span class="text-[10px] text-rose-700 font-medium">Filtrer</span>
+        </div>
+      </label>
+
+      <!-- PURPLE (Violet / Patient sans Box) -->
+      <label class="cursor-pointer bg-purple-50 p-4 rounded-xl border border-purple-200 shadow-sm flex justify-between items-center hover:bg-purple-100/70 transition">
+        <div class="space-y-1">
+          <span class="text-[11px] font-bold text-purple-800 uppercase tracking-wider block">Patients Sans Box Défini</span>
+          <div id="kpiNoBox" class="text-3xl font-extrabold text-purple-900">0</div>
+        </div>
+        <div class="flex flex-col items-end gap-2">
+          <input type="checkbox" id="filterNoBox" checked class="w-5 h-5 text-purple-600 rounded border-purple-300 focus:ring-purple-500 cursor-pointer">
+          <span class="text-[10px] text-purple-700 font-medium">Filtrer</span>
+        </div>
+      </label>
+
+      <!-- YELLOW (Jaune / Médecins Inconnus) -->
+      <label class="cursor-pointer bg-amber-50 p-4 rounded-xl border border-amber-200 shadow-sm flex justify-between items-center hover:bg-amber-100/70 transition">
+        <div class="space-y-1">
+          <span class="text-[11px] font-bold text-amber-800 uppercase tracking-wider block">Inconnus / Hors Répertoire</span>
+          <div id="kpiUnknown" class="text-3xl font-extrabold text-amber-900">0</div>
+        </div>
+        <div class="flex flex-col items-end gap-2">
+          <input type="checkbox" id="filterUnknown" checked class="w-5 h-5 text-amber-600 rounded border-amber-300 focus:ring-amber-500 cursor-pointer">
+          <span class="text-[10px] text-amber-700 font-medium">Filtrer</span>
+        </div>
+      </label>
+    </div>
+
+    <!-- Tableau de Résultats Chronologiques -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
+        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+          <i class="fa-solid fa-list-check text-slate-500"></i>
+          Détail de l'Analyse Chronologique
+        </h3>
+        <div class="flex items-center gap-3">
+		  <span id="resultCounter" class="text-xs text-slate-500 font-medium">0 élément(s) affiché(s)</span>
+		  <button id="btnExportCsv" class="text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg px-3 py-1.5 flex items-center gap-1.5 transition">
+		    <i class="fa-solid fa-file-csv"></i> Exporter CSV
+		  </button>
+		  <button id="btnSummary" class="text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg px-3 py-1.5 flex items-center gap-1.5 transition">
+			  <i class="fa-solid fa-envelope"></i> Résumé
+		  </button>
+		  <button id="btnPurge" style="display:none" class="text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg px-3 py-1.5 flex items-center gap-1.5 transition">
+			  <i class="fa-solid fa-broom"></i> Purger / réaffecter les box
+			</button>
+			<button id="btnUndoPurge" style="display:none" class="text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg px-3 py-1.5 flex items-center gap-1.5 transition">
+			  <i class="fa-solid fa-rotate-left"></i> <span id="undoLabel">Annuler la dernière purge</span>
+			</button>
+		</div>
+      </div>
+	<div id="ignoredInfoContainer" class="hidden px-6 py-2.5 bg-amber-50 border-b border-amber-200 text-amber-800 text-xs flex items-center gap-2">
+        <i class="fa-solid fa-circle-info"></i>
+        <span id="ignoredInfoText"></span>
+      </div>
+	<div id="conflictPanel" class="hidden border-b border-rose-200 bg-rose-50">
+	  <button id="btnToggleConflicts" type="button"
+	          class="w-full px-6 py-2.5 flex items-center justify-between text-xs font-semibold text-rose-800 hover:bg-rose-100/60 transition">
+	    <span><i class="fa-solid fa-user-clock mr-2"></i><span id="conflictCount"></span></span>
+	    <i class="fa-solid fa-chevron-down"></i>
+	  </button>
+	  <div id="conflictList" class="hidden overflow-x-auto px-6 pb-4">
+	    <table class="w-full text-left text-xs">
+	      <thead class="text-rose-700 uppercase tracking-wider">
+	        <tr>
+	          <th class="py-2 pr-4">Date</th><th class="py-2 pr-4">Heure</th>
+	          <th class="py-2 pr-4">Médecin</th><th class="py-2 pr-4">RDV</th><th class="py-2">Motif</th>
+	        </tr>
+	      </thead>
+	      <tbody id="conflictBody"></tbody>
+	    </table>
+	  </div>
+	</div>
+	<!-- Fenetre résumé "mailable" -->
+		<div id="summaryPanel" class="hidden px-6 py-4 border-b border-slate-200 bg-indigo-50/40 space-y-2">
+		  <textarea id="summaryText" rows="10" class="w-full text-xs font-mono p-3 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
+		  <div class="flex items-center gap-3">
+		    <button id="btnCopySummary" class="text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg px-3 py-1.5">Copier</button>
+			<button id="btnMailAll" class="text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg px-3 py-1.5 flex items-center gap-1.5">
+			  <i class="fa-solid fa-paper-plane"></i> Envoyer à tous
+			</button>
+			<span id="mailFeedback" class="text-xs text-slate-600 font-medium hidden"></span>
+		    <span id="copyFeedback" class="text-xs text-emerald-600 font-medium hidden">Copié ✓</span>
+		  </div>
+		</div>
+
+		<div id="purgePanel" class="hidden px-6 py-4 border-b border-rose-200 bg-rose-50/50 space-y-3">
+		  <div class="flex items-start justify-between gap-4">
+		    <div>
+		      <h4 class="text-sm font-bold text-rose-900 flex items-center gap-2"><i class="fa-solid fa-broom"></i> Purge et réaffectation des box inutilisés</h4>
+		      <p class="text-xs text-rose-800 mt-1"><strong>Étape 1 :</strong> décoche les médecins qui tiennent à garder leur box (ils sont épargnés). Les box des médecins cochés seront vidés.</p>
+		    </div>
+		    <button id="btnClosePurge" type="button" class="text-rose-700 hover:text-rose-900 text-sm">✕</button>
+		  </div>
+		  <div id="purgeList" class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1"></div>
+		  <div class="border-t border-rose-200 pt-3 space-y-2">
+		    <label class="flex items-start gap-2 text-xs text-slate-800 cursor-pointer">
+		      <input type="checkbox" id="reassignEnabled" checked class="mt-0.5 w-4 h-4 rounded border-indigo-300 text-indigo-600">
+		      <span><strong>Étape 2 :</strong> réaffecter ensuite les box libérés aux médecins sans box (seuil de patients défini plus haut), demi-journée par demi-journée, du plus chargé au moins chargé.</span>
+		    </label>
+		    <div id="reassignPreview" class="space-y-1 pl-6"></div>
+		  </div>
+		  <button id="btnRunPurge" class="text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg px-3 py-1.5">Purger et réaffecter…</button>
+		</div>
+
+		<div id="reportPanel" class="hidden px-6 py-4 border-b border-slate-200 bg-slate-50 space-y-2">
+		  <h4 class="text-sm font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-clipboard-list"></i> Rapport de purge et de réaffectation</h4>
+		  <textarea id="reportText" rows="14" class="w-full text-xs font-mono p-3 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"></textarea>
+		  <div class="flex items-center gap-3">
+		    <button id="btnCopyReport" class="text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg px-3 py-1.5">Copier</button>
+		    <button id="btnCloseReport" class="text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg px-3 py-1.5">Fermer</button>
+		    <span id="reportCopyFeedback" class="text-xs text-emerald-600 font-medium hidden">Copié ✓</span>
+		  </div>
+		</div>
+		
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-100 text-slate-600 border-b border-slate-200 font-semibold text-xs uppercase tracking-wider">
+            <tr>
+              <th class="py-3 px-4">Date</th>
+              <th class="py-3 px-4">Créneau</th>
+              <th class="py-3 px-4">Box Planning</th>
+              <th class="py-3 px-4">Initiales</th>
+              <th class="py-3 px-4">Médecin / Ressource</th>
+              <th class="py-3 px-4 text-center">Patients RDV</th>
+              <th class="py-3 px-4">Statut d'Occupation</th>
+            </tr>
+          </thead>
+          <tbody id="resultBody" class="divide-y divide-slate-100">
+            <tr>
+              <td colspan="7" class="py-12 text-center text-slate-400">
+                <i class="fa-solid fa-arrow-up-from-bracket text-3xl mb-2 text-slate-300 block"></i>
+                Veuillez sélectionner le fichier CSV des RDV et cliquer sur "Lancer l'Analyse".
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Configuration Client Supabase
+    const SUPABASE_URL = 'https://yseaujinbdwxpcelsywr.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_7uC727-tO92zxGsAwCqBnA_E9oX_Xw8';
+    
+    // Initialisation du client Supabase avec le schéma neuroplanning
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      db: { schema: 'neuroplanning' }
+    });
+    let currentUser = null;
+    let allResults = []; // Stockage global pour le filtrage interactif
+	let conflicts = [];
+	let csvRange = { min: null, max: null };
+	let reassignExcluded = new Set();   // `${date}_${heure}_${INIT}` décochés à la main dans l'aperçu
+	let lastSummaryText = '';
+	// Ressources qui ne consultent pas en box (comparaison sans accents, casse ni espaces)
+	const RESSOURCES_HORS_BOX = ['CREANGE', 'YOUSSOV'];
+	// Marqueur de téléconsultation dans la colonne Commentaire (pas de box nécessaire)
+	const MARQUEURS_TLC = ['TLC_ORTIF', 'PAR TEL'];
+	const MARQUEURS_HDJ = ['HDJ'];
+	const MAIL_CC = 'neurologie.consultation.hmn@aphp.fr';
+	const MAIL_SEP = ';';
+	const MAIL_DEST_FIELD = 'to';
+	document.getElementById('excludeNeuroList').textContent = RESSOURCES_HORS_BOX.join(', ');
+    // Utilitaires de nettoyage et normalisation de texte
+    function cleanText(str) {
+      if (!str) return '';
+      return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .toUpperCase()
+                .replace(/[^A-Z0-9]/g, '');
+    }
+	function addDays(iso, n) {  // Utilise l’UTC pour que le changement d’heure du 25 octobre ne décale pas les dates
+	  const d = new Date(iso + 'T00:00:00Z');
+	  if (isNaN(d.getTime())) return null;
+	  d.setUTCDate(d.getUTCDate() + n);
+	  return d.toISOString().slice(0, 10);
+	}
+    // Extrait le nom de famille de la chaîne Ressource (ex: "026NEU2PLAV-PLANTE BORDENEUVE" -> "PLANTE BORDENEUVE")
+    function extractNameFromRessource(ressourceStr) {
+      if (!ressourceStr) return '';
+      const parts = ressourceStr.split('-');
+      let rawName = parts.length > 1 ? parts.slice(1).join('-') : parts[0];
+      rawName = rawName.trim()
+                   .replace(/^(DR|MME|MR|PROF)\.?\s+/i, '')
+                   .replace(/\(.*\)/g, '')
+                   .trim();
+      return cleanText(rawName);
+    }
+
+    // Normalisation de l'heure vers la demi-journée (Matin / Apres-midi)
+    //function getSlotFromTime(timeStr) {
+    //  if (!timeStr) return '09:00:00';
+    //  const hour = parseInt(timeStr.split(':')[0], 10);
+    //  return hour >= 13 ? '13:30:00' : '09:00:00';
+    //}
+	// Normalisation de l'heure avec zone de flou renvoyant null
+	function getSlotFromTime(timeStr) {
+	  if (!timeStr) return '09:00:00';
+	  
+	  const parts = timeStr.split(':');
+	  const hour = parseInt(parts[0], 10);
+	  const minute = parseInt(parts[1] || 0, 10);
+	  const totalMinutes = hour * 60 + minute;
+	
+	  
+	  if (totalMinutes <= 775) {
+	    return '09:00:00'; // Matin (jusqu'à 12h55 inclus)
+	  } 
+	  // 13h25 = 13 * 60 + 25 = 810 minutes
+	  else if (totalMinutes >= 805) {
+	    return '13:30:00'; // Après-midi (à partir de 13h25)
+	  } 
+	  else {
+	    // Zone de flou (entre 12h45 et 13h30) : ecertains du matin consultent à 13h, certains aprem commencent à 13h: on renvoie null pour ne pas l'attribuer par défaut  
+	    return null; 
+	  }
+	}
+
+    // Parsage de fichier CSV local via PapaParse
+	async function parseCSV(file) {
+	  const buf = await file.arrayBuffer();
+	  let text;
+	  try {
+	    text = new TextDecoder('utf-8', { fatal: true }).decode(buf);
+	  } catch {
+	    text = new TextDecoder('windows-1252').decode(buf);
+	  }
+	  return Papa.parse(text, { header: true, skipEmptyLines: true, delimitersToGuess: [',', ';', '\t'] });
+	}
+
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('csvRdv');
+const fileNameDisplay = document.getElementById('fileNameDisplay');
+
+// Clic sur la zone -> déclenche le sélecteur de fichier classique
+dropZone.addEventListener('click', () => fileInput.click());
+
+// Changement via le sélecteur de fichier manuel
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length > 0) {
+    updateFileName(fileInput.files[0].name);
+  }
+});
+
+// Événements de survol (Drag)
+['dragenter', 'dragover'].forEach(eventName => {
+  dropZone.addEventListener(eventName, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.add('border-indigo-600', 'bg-indigo-100/70');
+  }, false);
+});
+
+['dragleave', 'drop'].forEach(eventName => {
+  dropZone.addEventListener(eventName, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropZone.classList.remove('border-indigo-600', 'bg-indigo-100/70');
+  }, false);
+});
+
+// Déposer le fichier (Drop)
+dropZone.addEventListener('drop', (e) => {
+  const dt = e.dataTransfer;
+  const files = dt.files;
+
+  if (files.length > 0) {
+    fileInput.files = files; // Assigne le fichier déposé au FileInput
+    updateFileName(files[0].name);
+  }
+});
+
+async function requireLogin() {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) {
+    const m = document.getElementById('auth-msg');
+    m.classList.remove('hidden'); m.classList.add('flex');
+    setTimeout(() => { location.href = 'index.html'; }, 2000);   // adapte le chemin
+    return false;
+  }
+  const { data: profile, error } = await supabaseClient.schema('commun')
+    .from('profiles').select('*').eq('id', session.user.id).single();
+  if (error || !profile) { alert('Profil introuvable : ' + (error?.message || '')); return false; }
+  currentUser = profile;
+  return true;
+}
+
+async function fetchAllRows(table, orderCols) {
+  const pageSize = 1000;
+  let all = [];
+  let from = 0;
+  while (true) {
+    let query = supabaseClient.from(table).select('*').range(from, from + pageSize - 1);
+    orderCols.forEach(col => { query = query.order(col, { ascending: true }); });
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    all = all.concat(data);
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  return all;
+}
+
+
+// Afficher le nom du fichier sélectionné
+function updateFileName(name) {
+  fileNameDisplay.innerText = `📄 Fichier chargé : ${name}`;
+  fileNameDisplay.classList.remove('hidden');
+}
+
+
+    document.getElementById('btnAnalyse').addEventListener('click', async () => {
+	   if (!currentUser) { alert("Connexion requise : ouvre l'outil depuis le planning."); return; }
+      const fileRdv = document.getElementById('csvRdv').files[0];
+      const statusEl = document.getElementById('connectionStatus');
+
+      if (!fileRdv) {
+        alert("Veuillez d'abord sélectionner le fichier CSV de la liste des RDV par Ressource.");
+        return;
+      }
+
+      // Mise à jour de l'UI
+      statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span> Chargement Supabase...`;
+      statusEl.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200";
+
+      try {
+        // 1. Récupération parallèle depuis Supabase et du CSV local
+        const [planningRes, neuroRes, dataRdv, absRes] = await Promise.all([
+          fetchAllRows('planning', ['id']).then(data => ({ data, error: null })),
+          supabaseClient.schema('commun').from('neurologues').select('*'),
+          parseCSV(fileRdv),
+		  fetchAllRows('absences', ['id']).then(data => ({ data, error: null }))
+        ]);
+
+        if (planningRes.error) throw new Error("Erreur Planning: " + planningRes.error.message);
+        if (neuroRes.error) throw new Error("Erreur Neurologues: " + neuroRes.error.message);
+
+        const dataPlanning = planningRes.data || [];
+		console.log('planning reçu:', dataPlanning.length);
+        const dataNeuro = neuroRes.data || [];
+
+        statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Supabase : Connecté`;
+        statusEl.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200";
+
+        // 2. Traitement des Neurologues : Dictionnaires de recherche
+		const neurologuesMap = {};
+		const ressourceToInit = {};   // remplace cleanNameToInit
+		
+		dataNeuro.forEach(row => {
+		  const init = (row.initiales || '').trim().toUpperCase();
+		  const fullName = (row.nom_complet || row.nom || '').trim();
+		  if (!init || !fullName) return;
+		  neurologuesMap[init] = { nomComplet: fullName, hasRessource: false };
+		
+		  String(row.ressource ?? row.Ressource ?? '').split('|').forEach(r => {
+		    const k = cleanText(r);
+		    if (!k) return;
+		    if (ressourceToInit[k] && ressourceToInit[k] !== init) {
+		      console.warn(`Ressource en double : ${r.trim()} (${ressourceToInit[k]} et ${init})`);
+		    }
+		    ressourceToInit[k] = init;
+			neurologuesMap[init].hasRessource = true;
+		  });
+		});
+
+		function getInitFromRessource(ressourceStr) {
+		  return ressourceToInit[cleanText(ressourceStr)] || null;
+		}
+		// 2.5 Index des conflits potentiels
+        const reposSet = new Set();   // `${date}_${INIT}` : lendemain de garde
+		const absMap   = new Map();   // `${date}_${slot}_${INIT}` -> code (ex. "CF")
+		
+		dataPlanning.forEach(row => {
+		  const d = String(row.date || '').trim().slice(0, 10);
+		  const init = String(row.Garde ?? '').trim().toUpperCase();
+		  if (!d || !init || init === 'NULL') return;
+		  const lendemain = addDays(d, 1);
+	      if (!lendemain) { console.warn('Date planning invalide pour Garde :', JSON.stringify(row.date)); return; }
+		  reposSet.add(`${lendemain}_${init}`);
+		});
+		
+		(absRes.data || []).forEach(a => {
+		  const d = String(a.date || '').trim().slice(0, 10);
+		  const t = a.heure || a.creneau;
+		  const s = t ? getSlotFromTime(String(t)) : null;
+		  if (!d || !s) return;
+		  const up = {};
+		  Object.keys(a).forEach(k => { up[k.toUpperCase()] = a[k]; });
+		  Object.keys(neurologuesMap).forEach(init => {
+		    const code = String(up[init] ?? '').trim();
+		    if (code && code.toUpperCase() !== 'NULL') absMap.set(`${d}_${s}_${init}`, code);
+		  });
+		});
+				  
+        // 3. Traitement du Planning Supabase
+        const allocatedBoxes = {}; // Key: "YYYY-MM-DD_09:00:00_INIT" -> [ "BOX1", "BOX2" ]
+		const allocatedCells = {};
+        dataPlanning.forEach(row => {
+          const dateVal = (row.date || '').trim();
+          const timeVal = (row.heure || row.creneau || '09:00:00').trim();
+          if (!dateVal) return;
+
+          Object.keys(row).forEach(col => {
+            if (col.toUpperCase().startsWith('BOX')) {
+              const init = (row[col] || '').trim().toUpperCase();
+              if (init && init.toUpperCase() !== 'NULL') {
+                const key = `${dateVal}_${timeVal}_${init}`;
+                if (!allocatedBoxes[key]) allocatedBoxes[key] = [];
+                allocatedBoxes[key].push(col.toUpperCase());
+				if (!allocatedCells[key]) allocatedCells[key] = [];
+				allocatedCells[key].push({ id: row.id, col: col, raw: row[col] });
+              }
+            }
+          });
+        });
+
+
+        // 4. Indexation des RDV du fichier CSV
+        const rdvCounts = {}; // Key: "YYYY-MM-DD_09:00:00_KEY" -> Count
+		const unmappedLabels = {};   // clé nettoyée -> libellé brut de la ressource
+        const excludeAnnule = document.getElementById('excludeAnnule').checked;
+		const excludeProtocole = document.getElementById('excludeProtocole').checked;
+		const excludeNeuropsy = document.getElementById('excludeNeuropsy').checked;
+		const excludeNeuro = document.getElementById('excludeNeuro').checked;
+	    const excludeTlc = document.getElementById('excludeTlc').checked;
+		const excludeHdj = document.getElementById('excludeHdj').checked;
+		const ressourcesExclues = RESSOURCES_HORS_BOX.map(cleanText);
+		const allRdvDates = [];
+		let ignoredPatientsCount = 0;
+		const todayIso = todayLocalIso();   // l'outil ne traite que les consultations strictement futures
+		const horsBoxInits = new Set();     // médecins dont la ressource figure dans RESSOURCES_HORS_BOX
+		const blurKeys = new Set();         // `${date}_${INIT}` ayant un RDV en zone de flou matin/après-midi
+		conflicts = [];
+
+		  		  
+		// Répare les lignes dont le champ Mail contient un ';' non protégé (22 champs au lieu de 21)
+		const fields = dataRdv.meta.fields;
+		const iMail = fields.indexOf('Mail'); //Trouve la position de la colonne "Mail".
+		dataRdv.data.forEach(row => {
+		  if (!row.__parsed_extra) return; //Si la ligne n'a pas de données en trop (pas de coupure de mail), on ne fait rien.
+		  const vals = fields.map(k => row[k]).concat(row.__parsed_extra);
+		  vals.splice(iMail, 2, `${vals[iMail]} ; ${vals[iMail + 1]}`); // fusionne les 2 morceaux du mail Si la ligne a été coupée en deux à cause du ;, ce code récupère le morceau de gauche (vals[iMail]), le morceau de droite (vals[iMail + 1]), et les fusionne à nouveau en un seul texte de mail correct.
+		  fields.forEach((k, i) => { row[k] = vals[i]; });
+		  delete row.__parsed_extra;
+		});
+		  
+		  
+        dataRdv.data.forEach(row => {
+          const rawDate = row.Date || row.date || row.Date_RDV;
+          const rawRessource = row.Ressource || row.ressource;
+          if (!rawDate || !rawRessource) return;
+
+          let dateKey = rawDate.trim();
+          if (dateKey.includes('/')) {
+            const p = dateKey.split('/');
+            dateKey = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+          }
+          if (dateKey <= todayIso) return;   // passé ou aujourd'hui : hors périmètre
+          allRdvDates.push(dateKey);
+
+		const rawStatut = row.Statut || row.statut || row.STATUT || '';
+		// « Pas venu » sur un RDV futur n'est pas informatif : ignoré partout (conflits compris)
+		if (cleanText(rawStatut).includes('PASVENU')) return;
+			
+		const isAnnule = cleanText(rawStatut).includes('ANNUL');
+		const initC = getInitFromRessource(rawRessource);
+		if (initC && ressourcesExclues.some(n => cleanText(rawRessource).includes(n))) horsBoxInits.add(initC);
+		if (!isAnnule && initC) {
+		  const slotC = getSlotFromTime(row.Heure || row.heure);
+		  // zone de flou (slot null) : on ne signale que si les DEUX créneaux sont absents
+		  const slots = slotC ? [slotC] : ['09:00:00', '13:30:00'];
+		  const codes = slots.map(s => absMap.get(`${dateKey}_${s}_${initC}`));
+		  const repos = reposSet.has(`${dateKey}_${initC}`);
+		  const abs = codes.every(Boolean) ? codes[0] : null;
+		  if (repos || abs) conflicts.push({
+		    date: dateKey,
+		    heure: String(row.Heure || row.heure || '').padStart(5, '0'),
+		    init: initC,
+		    nom: neurologuesMap[initC]?.nomComplet || initC,
+		    rdv: row.RDV || row.rdv || '',
+		    repos, abs
+		  });
+		}
+        if (excludeAnnule && cleanText(rawStatut).includes('ANNUL')) return;
+		if (excludeProtocole && cleanText(row.RDV || row.rdv) === 'PROTOCOLERECHERCHECLINIQUE') return;
+		if (excludeNeuropsy && cleanText(row.RDV || row.rdv).includes('NEUROPSY')) return;
+		if (excludeTlc) {
+			  const comm = String(row.Commentaire || row.commentaire || '').toUpperCase();
+			  if (MARQUEURS_TLC.some(m => comm.includes(m))) return;
+			}
+		if (excludeHdj) {
+		  const comm = String(row.Commentaire || row.commentaire || '').toUpperCase();
+		  if (MARQUEURS_HDJ.some(m => comm.includes(m))) return;
+		}
+		if (excludeNeuro) {
+			  const resClean = cleanText(row.Ressource || row.ressource);
+			  if (ressourcesExclues.some(nom => resClean.includes(nom))) return;
+			};
+          const slotKey = getSlotFromTime(row.Heure || row.heure);
+		  if (!slotKey) {
+              // (On en profitera pour les compter juste après)
+              ignoredPatientsCount++;
+			  const initB = getInitFromRessource(rawRessource);
+			  if (initB) blurKeys.add(`${dateKey}_${initB}`); 
+              return; 
+          }
+			const init = getInitFromRessource(rawRessource);
+			let keyRef = init;
+			if (!init) {
+			  const resKey = cleanText(rawRessource) || 'RESSOURCENONSPECIFIEE';
+			  unmappedLabels[resKey] = rawRessource.trim();
+			  keyRef = `UNMAPPED_${resKey}`;
+			}
+
+          const key = `${dateKey}_${slotKey}_${keyRef}`;
+          rdvCounts[key] = (rdvCounts[key] || 0) + 1;
+        });
+		console.log('reposSet:', reposSet.size, '| absMap:', absMap.size, '| conflits:', conflicts.length);
+        // 4.5. Détermination de la fenêtre temporelle du fichier RDV
+	const rdvDates = [...allRdvDates].sort();
+	const minDate = rdvDates[0];
+	const maxDate = rdvDates[rdvDates.length - 1];
+    csvRange = { min: minDate, max: maxDate };
+
+	console.log(`Fenêtre temporelle détectée : du ${minDate} au ${maxDate}`);
+
+        // Motif pour lequel un médecin sans box ne doit PAS être réaffecté automatiquement
+        const blockedReason = (d, t, i) => {
+          if (horsBoxInits.has(i)) return 'ressource hors box';
+          if (reposSet.has(`${d}_${i}`)) return 'lendemain de garde';
+          const a = absMap.get(`${d}_${t}_${i}`);
+          return a ? `absence déclarée (${a})` : null;
+        };
+
+        // 5. Unification et catégorisation des données
+        allResults = [];
+        const processedKeys = new Set();
+
+        // A) Analyse des Boxs attribués dans le planning
+        Object.keys(allocatedBoxes).forEach(key => {
+          processedKeys.add(key);
+          const [dateVal, timeVal, init] = key.split('_');
+          if (dateVal <= todayIso) return;   // boxes passés : hors périmètre
+if (minDate && maxDate) {
+    if (dateVal < minDate || dateVal > maxDate) return;
+  }
+processedKeys.add(key);
+          const boxes = allocatedBoxes[key].join(', ');
+          const nbPatients = rdvCounts[key] || 0;
+          const neuroObj = neurologuesMap[init];
+
+          if (!neuroObj) {
+            // Médecin Inconnu ou non répertorié dans la table neurologues
+            allResults.push({
+              date: dateVal, time: timeVal, box: boxes, init: init,
+              nom: `Inconnu (${init})`, patients: nbPatients, category: 'YELLOW'
+            });
+          } else {
+            const nom = neuroObj.nomComplet;
+            if (nbPatients >= 1) {
+              allResults.push({
+                date: dateVal, time: timeVal, box: boxes, init: init,
+                nom: nom, patients: nbPatients, category: 'GREEN'
+              });
+            } else {
+              allResults.push({
+                date: dateVal, time: timeVal, box: boxes, init: init,
+                nom: nom, patients: 0, category: 'RED',
+				cells: allocatedCells[key],
+ 				hasRessource: neuroObj.hasRessource,
+				hasBlur: blurKeys.has(`${dateVal}_${init}`)
+              });
+            }
+          }
+        });
+
+        // B) Analyse des RDV de la liste sans Box au planning
+Object.keys(rdvCounts).forEach(key => {
+          if (!processedKeys.has(key)) {
+            const [dateVal, timeVal, ...rest] = key.split('_');
+ 	    const keyRef = rest.join('_');
+            const nbPatients = rdvCounts[key];
+
+            if (keyRef.startsWith('UNMAPPED_')) {
+              const rawName = keyRef.replace('UNMAPPED_', '');
+              allResults.push({
+                date: dateVal, time: timeVal, box: 'AUCUN', init: 'N/A',
+                nom: `Ressource: ${unmappedLabels[rawName] || rawName}`, patients: nbPatients, category: 'YELLOW'
+              });
+            } else {
+              const neuroObj = neurologuesMap[keyRef];
+              allResults.push({
+                date: dateVal, time: timeVal, box: 'AUCUN', init: keyRef,
+                nom: neuroObj ? neuroObj.nomComplet : keyRef, // <-- Correction ici (neuroObj.nomComplet au lieu de rawName)
+                patients: nbPatients, category: 'PURPLE',
+                blocked: blockedReason(dateVal, timeVal, keyRef)
+              });
+            }
+          }
+        });
+
+        // 6. TRI CHRONOLOGIQUE STRICT (Date -> Heure)
+        allResults.sort((a, b) => {
+          if (a.date !== b.date) return a.date.localeCompare(b.date);
+          return a.time.localeCompare(b.time);
+        });
+		conflicts.sort((a, b) => a.date.localeCompare(b.date) || a.heure.localeCompare(b.heure));
+
+        // 7. Mise à jour des totaux KPI
+        const countGreen = allResults.filter(r => r.category === 'GREEN').length;
+        const countRed = allResults.filter(r => r.category === 'RED').length;
+        const countPurple = allResults.filter(r => r.category === 'PURPLE').length;
+        const countYellow = allResults.filter(r => r.category === 'YELLOW').length;
+
+        document.getElementById('kpiOk').innerText = countGreen;
+        document.getElementById('kpiAlert').innerText = countRed;
+        document.getElementById('kpiNoBox').innerText = countPurple;
+        document.getElementById('kpiUnknown').innerText = countYellow;
+        document.getElementById('kpiContainer').classList.remove('hidden');
+
+
+        //(gestion de l'affichage de la note des omis)
+        const infoContainer = document.getElementById('ignoredInfoContainer');
+        const infoText = document.getElementById('ignoredInfoText');
+        if (ignoredPatientsCount > 0) {
+          infoText.innerHTML = `<strong>${ignoredPatientsCount}</strong> patient${ignoredPatientsCount > 1 ? 's ont été omis' : ' a été omis'} car consultant dans la transition entre matin et aprem (12h55 et 13h25).`;
+          infoContainer.classList.remove('hidden');
+        } else {
+          infoContainer.classList.add('hidden');
+        }
+		
+        // Rendu initial du tableau
+        renderTable();
+		renderConflicts();
+
+		document.getElementById('summaryPanel').classList.add('hidden');
+		document.getElementById('reportPanel').classList.add('hidden');
+		document.getElementById('purgePanel').classList.add('hidden'); 
+
+      } catch (err) {
+        console.error(err);
+        statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span> Erreur Supabase`;
+        statusEl.className = "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200";
+        alert("Une erreur s'est produite lors de la connexion ou du traitement : " + err.message);
+      }
+    });
+
+    function renderTable() {
+      const showGreen = document.getElementById('filterOk').checked;
+      const showRed = document.getElementById('filterAlert').checked;
+      const showPurple = document.getElementById('filterNoBox').checked;
+      const showYellow = document.getElementById('filterUnknown').checked;
+
+      const tbody = document.getElementById('resultBody');
+      tbody.innerHTML = '';
+
+      const filtered = allResults.filter(r => {
+        if (r.category === 'GREEN' && !showGreen) return false;
+        if (r.category === 'RED' && !showRed) return false;
+        if (r.category === 'PURPLE' && !showPurple) return false;
+        if (r.category === 'YELLOW' && !showYellow) return false;
+        return true;
+      });
+
+      document.getElementById('resultCounter').innerText = `${filtered.length} élément(s) affiché(s)`;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400">Aucun résultat ne correspond aux filtres coché(s).</td></tr>`;
+        return;
+      }
+
+      filtered.forEach(item => {
+        const tr = document.createElement('tr');
+        let bgClass = '';
+        let badgeHtml = '';
+
+        switch (item.category) {
+          case 'GREEN':
+            bgClass = 'hover:bg-slate-50 transition';
+            badgeHtml = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                           <i class="fa-solid fa-circle-check"></i> Validé (${item.patients} pt${item.patients > 1 ? 's' : ''})
+                         </span>`;
+            break;
+          case 'RED':
+            bgClass = 'bg-rose-50/60 hover:bg-rose-100/60 transition';
+            badgeHtml = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-200">
+                           <i class="fa-solid fa-triangle-exclamation"></i> Inoccupé (0 patient)
+                         </span>`;
+            break;
+          case 'PURPLE':
+            bgClass = 'bg-purple-50/70 hover:bg-purple-100/70 border-l-4 border-purple-500 transition';
+            badgeHtml = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-200 text-purple-900 border border-purple-300">
+                           <i class="fa-solid fa-bolt"></i> ${item.patients >= getSeuil() ? 'Sans box : à réaffecter en priorité' : 'Sans box : sous le seuil'}${item.blocked ? ' (' + item.blocked + ')' : ''}
+                         </span>`;
+            break;
+          case 'YELLOW':
+            bgClass = 'bg-amber-50/70 hover:bg-amber-100/70 border-l-4 border-amber-400 transition';
+            badgeHtml = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-200 text-amber-900 border border-amber-300">
+                           <i class="fa-solid fa-circle-question"></i> Non répertorié
+                         </span>`;
+            break;
+        }
+
+        tr.className = bgClass;
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-medium text-slate-900">${item.date}</td>
+          <td class="py-3 px-4 text-slate-600">${item.time.startsWith('09') ? 'Matin (09h)' : 'Après-midi (13h30)'}</td>
+          <td class="py-3 px-4 font-mono text-xs font-bold ${item.category === 'PURPLE' ? 'text-purple-700' : 'text-slate-700'}">${item.box}</td>
+          <td class="py-3 px-4"><span class="px-2 py-0.5 bg-slate-200/80 text-slate-800 rounded font-mono text-xs">${item.init}</span></td>
+          <td class="py-3 px-4 font-semibold text-slate-800">${item.nom}</td>
+          <td class="py-3 px-4 text-center font-bold text-base">${item.patients}</td>
+          <td class="py-3 px-4">${badgeHtml}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+function renderConflicts() {
+  const panel = document.getElementById('conflictPanel');
+  const body = document.getElementById('conflictBody');
+  
+  if (!conflicts.length) { panel.classList.add('hidden'); body.innerHTML = ''; return; }
+
+  const esc = s => String(s ?? '').replace(/[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const motif = c => [c.repos ? 'Lendemain de garde' : null,
+                      c.abs ? `Absence déclarée (${c.abs})` : null].filter(Boolean).join(' + ');
+
+  document.getElementById('conflictCount').textContent =
+    `URGENT : ${conflicts.length} consultation${conflicts.length > 1 ? 's' : ''} un lendemain de garde ou pendant une absence déclarée`;
+  body.innerHTML = conflicts.map(c => `
+    <tr class="border-t border-rose-100">
+      <td class="py-1.5 pr-4 font-medium">${esc(c.date)}</td>
+      <td class="py-1.5 pr-4">${esc(c.heure)}</td>
+      <td class="py-1.5 pr-4 font-semibold">${esc(c.nom)} <span class="font-mono text-slate-500">${esc(c.init)}</span></td>
+      <td class="py-1.5 pr-4">${esc(c.rdv)}</td>
+      <td class="py-1.5 text-rose-800 font-semibold">${esc(motif(c))}</td>
+    </tr>`).join('');
+  panel.classList.remove('hidden');
+  document.getElementById('conflictList').classList.remove('hidden');   // déplié d'emblée : c'est l'urgence
+}
+function exportResultsCsv() {
+  if (!allResults.length) {
+    alert("Aucun résultat à exporter : lance d'abord l'analyse.");
+    return;
+  }
+  const catLabels = { GREEN: 'Validé', RED: 'Inoccupé', PURPLE: 'Sans box', YELLOW: 'Non répertorié' };
+  const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+
+  const header = ['Date', 'Heure', 'Box', 'Initiales', 'Nom', 'Patients', 'Categorie', 'Cle_interne'];
+  const rows = allResults.map(r => [
+    r.date, r.time, r.box, r.init, r.nom, r.patients,
+    catLabels[r.category] || r.category,
+    `${r.date}_${r.time}_${r.init}`
+  ]);
+
+  const csv = [header, ...rows].map(row => row.map(esc).join(';')).join('\r\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `analyse_boxs_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(a.href);
+}
+
+function buildSummaryText() {
+  const seuil = getSeuil();
+  const delai = getDelai();
+  const limite = addDays(todayLocalIso(), delai);
+
+  // 1. URGENT : consultations un lendemain de garde / pendant une absence
+  const confGroups = new Map();
+  conflicts.forEach(c => {
+    const k = `${c.date}_${c.init}`;
+    const g = confGroups.get(k) || { date: c.date, nom: c.nom, n: 0, repos: false, abs: new Set() };
+    g.n++;
+    if (c.repos) g.repos = true;
+    if (c.abs) g.abs.add(c.abs);
+    confGroups.set(k, g);
+  });
+  const confLines = [...confGroups.values()].map(g => {
+    const quoi = [g.repos ? 'lendemain de garde' : null,
+                  g.abs.size ? `absence déclarée : ${[...g.abs].join(', ')}` : null].filter(Boolean).join(' + ');
+    return `- ${fmtDateLong(g.date)} : ${g.nom} (${quoi}) a ${g.n} consultation${g.n > 1 ? 's' : ''} programmée${g.n > 1 ? 's' : ''}.`;
+  });
+
+  // Regroupement par (date, créneau) ; allResults est déjà trié
+  const groupRows = rows => {
+    const m = new Map();
+    rows.forEach(r => {
+      const k = `${r.date}_${r.time}`;
+      if (!m.has(k)) m.set(k, { date: r.date, time: r.time, items: [] });
+      m.get(k).items.push(r);
+    });
+    return [...m.values()];
+  };
+  const purples = allResults.filter(r => r.category === 'PURPLE');
+
+  // 2. Sans box, au-dessus du seuil : à réaffecter en priorité
+  const prioLines = groupRows(purples.filter(r => r.patients >= seuil)).map(g => {
+    const who = g.items.map(r => `${r.nom} (${ptsLabel(r.patients)}${r.blocked ? ` ; déjà signalé : ${r.blocked}` : ''})`).join(', ');
+    return `- ${fmtDateLong(g.date)}, ${slotLabelOf(g.time)} : pas de box défini pour ${who}.`;
+  });
+
+  // 3. Sans box, sous le seuil : probablement téléconsultation
+  const lowLines = groupRows(purples.filter(r => r.patients < seuil)).map(g => {
+    const who = g.items.map(r => `${r.nom} (${ptsLabel(r.patients)})`).join(', ');
+    return `- ${fmtDateLong(g.date)}, ${slotLabelOf(g.time)} : pas de box défini pour ${who}.`;
+  });
+
+  // 4. Box réservés mais apparemment inutilisés, avec délai de réponse
+  const unusedLines = groupRows(allResults.filter(r => r.category === 'RED')).map(g => {
+    const parts = g.items.map(r => r.box.includes(',')
+      ? `les box ${r.box} réservés pour ${r.nom}`
+      : `le ${r.box} réservé pour ${r.nom}`);
+    const nbBox = g.items.reduce((s, r) => s + r.box.split(',').length, 0);
+    let ligne = `- ${fmtDateLong(g.date)}, ${slotLabelOf(g.time)} : ${parts.join(' ; ')} ${nbBox > 1 ? 'semblent' : 'semble'} non utilisé${nbBox > 1 ? 's' : ''}.`;
+    if (g.date <= limite) ligne += ' (date trop proche pour attendre le délai ci-dessus)';
+    if (g.items.some(r => r.hasBlur)) ligne += ' (un RDV à cheval matin/après-midi existe peut-être : à vérifier)';
+    return ligne;
+  });
+  const unusedIntro = `Vous avez ${delai} jour${delai > 1 ? 's' : ''} (jusqu'au ${fmtDateShort(limite)}) pour signaler si vous avez une raison de garder ce box ; à défaut, il sera réaffecté.`;
+
+  const sections = [
+    ['URGENT : CONSULTATIONS PROGRAMMÉES UN LENDEMAIN DE GARDE OU PENDANT UNE ABSENCE', confLines, 'À régler dès que possible.'],
+    [`PATIENTS SANS BOX DÉFINI (${seuil} patients ou plus : consultation à réaffecter en priorité)`, prioLines, ''],
+    [`SANS BOX DÉFINI, MOINS DE ${seuil} PATIENTS (probable téléconsultation : à confirmer, pas de réaffectation prévue)`, lowLines, ''],
+    ['BOX RÉSERVÉS MAIS APPAREMMENT NON UTILISÉS', unusedLines, unusedIntro]
+  ].filter(([, l]) => l.length);
+
+  if (!sections.length) {
+    return "Aucune anomalie détectée : tous les box réservés sont utilisés et aucun patient n'est sans box.";
+  }
+  return sections.map(([titre, l, intro]) => `${titre}\n${intro ? intro + '\n' : ''}${l.join('\n')}`).join('\n\n');
+}
+
+	  
+const BOX_COLS = ['BOX1','BOX2','BOX3','BOX4','BOX5','BOX6','BOX7','BOX8','BOX9'];
+
+function canEditBoxCol(p, colKey) {
+  if (!p || !p.can_edit_planning) return false;
+  if (p.editable_columns || p.editable_groups) {
+    if (Array.isArray(p.editable_columns) && p.editable_columns.includes(colKey)) return true;
+    return p.editable_groups?.includes('*') || p.editable_groups?.includes('box') || false;
+  }
+  return true;
+}
+// ===== PURGE DES BOX INUTILISÉS =====
+function todayLocalIso() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+// Droit de purger = pouvoir modifier TOUTES les colonnes box (même règle que canEditCol dans neuroplanning)
+function canPurge() {
+  return !!currentUser && BOX_COLS.every(c => canEditBoxCol(currentUser.permissions, c));
+}
+
+// ===== OUTILS COMMUNS (purge, réaffectation, rapport) =====
+const escHtml = s => String(s ?? '').replace(/[&<>"']/g,
+  c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const slotLabelOf = t => String(t).startsWith('09') ? 'matin' : 'après-midi';
+const fmtDateLong = d => new Date(d + 'T00:00:00')
+  .toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+const fmtDateShort = d => String(d).split('-').reverse().join('/');
+const ptsLabel = n => `${n} patient${n > 1 ? 's' : ''}`;
+const boxNum = col => parseInt(String(col).replace(/\D/g, ''), 10) || 99;
+const byDateTime = (a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time);
+function intParam(id, def, min) {
+  const n = parseInt(document.getElementById(id)?.value, 10);
+  return Number.isFinite(n) && n >= min ? n : def;
+}
+const getSeuil = () => intParam('seuilPatients', 3, 1);
+const getDelai = () => intParam('delaiJours', 7, 1);
+const getSelectedInits = () => new Set([...document.querySelectorAll('.purge-doc:checked')].map(cb => cb.dataset.init));
+
+// Lignes rouges purgeables : dates strictement futures, cellules connues, pas de RDV en zone de flou
+function getPurgeCandidates() {
+  const today = todayLocalIso();
+  return allResults.filter(r => r.category === 'RED' && r.cells?.length && r.date > today && !r.hasBlur);
+}
+
+function groupByDoctor(items) {
+  const m = new Map();
+  items.forEach(r => {
+    if (!m.has(r.init)) m.set(r.init, { init: r.init, nom: r.nom, ok: r.hasRessource, items: [] });
+    m.get(r.init).items.push(r);
+  });
+  return [...m.values()].sort((a, b) => a.nom.localeCompare(b.nom));
+}
+
+const countCells = items => items.reduce((s, r) => s + r.cells.length, 0);
+
+function downloadCsv(filename, header, rows) {
+  const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const csv = [header, ...rows].map(r => r.map(esc).join(';')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }));
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(a.href);
+}
+
+// ===== PLAN DE RÉAFFECTATION (calcul pur : n'écrit rien) =====
+// selectedInits : médecins dont le box inutilisé est purgé ; excludedKeys : réaffectations décochées à la main
+function planReassignment(selectedInits, excludedKeys, enabled) {
+  const plan = { enabled, assignments: [], excluded: [], notAssigned: [], below: [], freedLeft: [] };
+
+  // 1. Box libérés par la purge, regroupés par (date, créneau), dans l'ordre BOX1, BOX2…
+  const pools = new Map();
+  getPurgeCandidates().filter(r => r.hasRessource && selectedInits.has(r.init)).forEach(r => {
+    const k = `${r.date}_${r.time}`;
+    if (!pools.has(k)) pools.set(k, []);
+    r.cells.forEach(c => pools.get(k).push({ ...c, date: r.date, time: r.time, fromInit: r.init, fromNom: r.nom }));
+  });
+  pools.forEach(p => p.sort((a, b) => boxNum(a.col) - boxNum(b.col)));
+  if (!enabled) { plan.freedLeft = [...pools.values()].flat(); return plan; }
+
+  // 2. Candidats = lignes violettes ; on écarte celles sous le seuil et celles bloquées (garde, absence, hors box)
+  const seuil = getSeuil();
+  const byKey = new Map();
+  allResults.filter(r => r.category === 'PURPLE' && r.init && r.init !== 'N/A').forEach(r => {
+    if (r.patients < seuil) { plan.below.push(r); return; }
+    if (r.blocked) { plan.notAssigned.push({ ...r, reason: r.blocked }); return; }
+    const k = `${r.date}_${r.time}`;
+    if (!byKey.has(k)) byKey.set(k, []);
+    byKey.get(k).push(r);
+  });
+
+  // 3. Par demi-journée : le plus de patients d'abord, un box chacun jusqu'à épuisement des box libérés
+  byKey.forEach((cands, k) => {
+    cands.sort((a, b) => b.patients - a.patients || a.nom.localeCompare(b.nom));
+    const pool = pools.get(k) || [];
+    cands.forEach(r => {
+      const ek = `${r.date}_${r.time}_${r.init}`;
+      if (excludedKeys.has(ek)) { plan.excluded.push({ ...r, ek }); return; }
+      const cell = pool.shift();
+      if (cell) plan.assignments.push({ ek, row: r, cell });
+      else plan.notAssigned.push({ ...r, reason: pools.has(k)
+        ? 'tous les box libérés sur ce créneau sont déjà attribués'
+        : 'aucun box libéré sur ce créneau' });
+    });
+  });
+
+  plan.freedLeft = [...pools.values()].flat();   // ce qui reste dans les pools après les shift()
+  plan.assignments.sort((a, b) => byDateTime(a.row, b.row) || b.row.patients - a.row.patients);
+  plan.notAssigned.sort(byDateTime);
+  plan.excluded.sort(byDateTime);
+  plan.below.sort(byDateTime);
+  return plan;
+}
+
+function refreshReassignPreview() {
+  const box = document.getElementById('reassignPreview');
+  if (!document.getElementById('reassignEnabled').checked) { box.innerHTML = ''; return; }
+  const plan = planReassignment(getSelectedInits(), reassignExcluded, true);
+  const line = (ek, checked, html) => `
+    <label class="flex items-start gap-2 text-xs ${checked ? 'text-slate-800' : 'text-slate-400'} cursor-pointer">
+      <input type="checkbox" class="reassign-item mt-0.5 w-4 h-4 rounded border-indigo-300 text-indigo-600"
+             data-ek="${escHtml(ek)}" ${checked ? 'checked' : ''}>
+      <span>${html}</span>
+    </label>`;
+  const quand = r => `${fmtDateShort(r.date)} ${slotLabelOf(r.time)}`;
+  const rows = [
+    ...plan.assignments.map(a => line(a.ek, true,
+      `${quand(a.row)} : <strong>${escHtml(a.row.nom)}</strong> (${ptsLabel(a.row.patients)}) → <span class="font-mono font-bold">${escHtml(a.cell.col)}</span>
+       <em class="text-slate-500">(libéré par ${escHtml(a.cell.fromNom)})</em>`)),
+    ...plan.excluded.map(r => line(r.ek, false,
+      `${quand(r)} : ${escHtml(r.nom)} (${ptsLabel(r.patients)}) : exclu de la réaffectation`))
+  ];
+  box.innerHTML =
+    `<p class="text-[11px] font-bold uppercase tracking-wider text-indigo-700">Réaffectations proposées (${getSeuil()} patients ou plus ; décocher = ne pas réaffecter ce médecin, son box ira au suivant)</p>` +
+    (rows.length ? rows.join('') : '<p class="text-xs text-slate-500">Aucune réaffectation possible avec la sélection actuelle.</p>') +
+    `<p class="text-xs text-slate-600 pt-1">${plan.notAssigned.length} médecin(s) prioritaire(s) sans box disponible ou bloqué(s) ;
+      ${plan.below.length} sous le seuil (ignorés) ; ${plan.freedLeft.length} box libéré(s) resteront vides.</p>`;
+}
+
+function openPurgePanel() {
+  if (!canPurge()) {
+    alert("Tes droits ne permettent pas de modifier les colonnes box : la purge t'est interdite.");
+    return;
+  }
+  if (!allResults.length) {
+    alert("Aucun résultat : lance d'abord l'analyse.");
+    return;
+  }
+  const docs = groupByDoctor(getPurgeCandidates());
+  const list = document.getElementById('purgeList');
+  list.innerHTML = docs.length ? '' :
+    '<p class="text-xs text-slate-500 col-span-full">Aucun box inutilisé purgeable (seules les dates futures sont concernées).</p>';
+
+  docs.forEach(d => {
+    const dates = d.items.map(r => r.date).sort();
+    const label = document.createElement('label');
+    label.className = 'flex items-start gap-2 text-xs ' + (d.ok ? 'text-slate-800 cursor-pointer' : 'text-slate-400');
+    label.innerHTML = `
+      <input type="checkbox" class="purge-doc mt-0.5 w-4 h-4 rounded border-rose-300 text-rose-600"
+             data-init="${escHtml(d.init)}" ${d.ok ? 'checked' : 'disabled'}>
+      <span><strong>${escHtml(d.nom)}</strong> : ${countCells(d.items)} box, ${d.items.length} demi-journée(s),
+        du ${dates[0]} au ${dates[dates.length - 1]}
+        ${d.ok ? '' : '<em class="text-amber-600"> : ressource non renseignée dans commun.neurologues, exclu par sécurité</em>'}</span>`;
+    list.appendChild(label);
+  });
+  reassignExcluded = new Set();
+  refreshReassignPreview();
+  document.getElementById('purgePanel').classList.remove('hidden');
+}
+
+// ===== RAPPORT FINAL =====
+function buildReportText({ plan, done, failed, ok, ko, spared, reassignOn }) {
+  const seuil = getSeuil();
+  const slot = (d, t) => `${fmtDateLong(d)}, ${slotLabelOf(t)}`;
+  const sec = (titre, lines) => lines.length ? `${titre}\n${lines.join('\n')}` : null;
+
+  const priorityLeft = [
+    ...failed.map(a => ({ ...a.row, reason: 'écriture refusée (cellule modifiée entre-temps ou droits insuffisants)' })),
+    ...plan.notAssigned,
+    ...plan.excluded.map(r => ({ ...r, reason: 'exclu manuellement de la réaffectation' }))
+  ].sort(byDateTime);
+
+  const sections = [
+    reassignOn ? sec(`BOX RÉAFFECTÉS (${done.length})`, done.map(a =>
+      `- ${slot(a.row.date, a.row.time)} : ${a.cell.col} → ${a.row.nom} (${ptsLabel(a.row.patients)}) ; ancien titulaire : ${a.cell.fromNom}`)) : null,
+    reassignOn ? sec(`SANS BOX, ${seuil} PATIENTS OU PLUS, NON RÉAFFECTÉS (à prévenir)`, priorityLeft.map(r =>
+      `- ${slot(r.date, r.time)} : ${r.nom} (${ptsLabel(r.patients)}) : ${r.reason}`)) : null,
+    reassignOn ? sec(`SANS BOX, MOINS DE ${seuil} PATIENTS (ignorés ; probable téléconsultation)`, plan.below.map(r =>
+      `- ${slot(r.date, r.time)} : ${r.nom} (${ptsLabel(r.patients)})`)) : null,
+    sec('BOX VIDÉS ET NON RÉATTRIBUÉS', ok.filter(c => !c.dest).map(c =>
+      `- ${slot(c.date, c.heure)} : ${c.col} (ancien titulaire : ${c.nom})`)),
+    sec('BOX CONSERVÉS (médecins épargnés ou non purgeables)', spared.map(r =>
+      `- ${slot(r.date, r.time)} : ${r.box} : ${r.nom}`)),
+    ko.length ? `ÉCHECS D'ÉCRITURE : ${ko.length} cellule(s) non modifiée(s) (voir la console du navigateur).` : null
+  ].filter(Boolean);
+
+  return `RAPPORT DE PURGE${reassignOn ? ' ET DE RÉAFFECTATION' : ''} DU ${fmtDateShort(todayLocalIso())}\n\n` + sections.join('\n\n');
+}
+
+// ===== PURGE (+ RÉAFFECTATION) =====
+async function runPurge() {
+  if (!canPurge()) {
+    alert("Tes droits ne permettent pas de modifier les colonnes box : la purge t'est interdite.");
+    return;
+  }
+  const selected = getSelectedInits();
+  const items = getPurgeCandidates().filter(r => r.hasRessource && selected.has(r.init));
+  if (!items.length) {
+    alert('Aucun médecin sélectionné.');
+    return;
+  }
+  const reassignOn = document.getElementById('reassignEnabled').checked;
+  const plan = planReassignment(selected, reassignExcluded, reassignOn);
+  const target = new Map(plan.assignments.map(a => [`${a.cell.id}|${a.cell.col}`, a.row]));
+
+  // 1. Message récapitulatif + confirmation à taper
+  const dates = items.map(r => r.date).sort();
+  const recap = groupByDoctor(items)
+    .map(d => `  • ${d.nom} : ${countCells(d.items)} box (${d.items.length} demi-journée(s))`)
+    .join('\n');
+  const reaAll = plan.assignments.map(a =>
+    `  • ${fmtDateShort(a.row.date)} ${slotLabelOf(a.row.time)} : ${a.row.nom} (${ptsLabel(a.row.patients)}) → ${a.cell.col}`);
+  const reaShown = reaAll.length > 15 ? [...reaAll.slice(0, 15), `  … et ${reaAll.length - 15} autre(s)`] : reaAll;
+  const answer = prompt(
+    `⚠️ PURGE DU PLANNING\n\n` +
+    `${countCells(items)} box vont être VIDÉS dans neuroplanning.planning, du ${dates[0]} au ${dates[dates.length - 1]} :\n\n` +
+    `${recap}\n\n` +
+    (reassignOn
+      ? `${plan.assignments.length} de ces box seront RÉAFFECTÉS à un médecin sans box :\n${reaShown.join('\n') || '  (aucun)'}\n\n`
+      : `Aucune réaffectation (option décochée).\n\n`) +
+    `Les médecins décochés sont épargnés. Une sauvegarde CSV sera téléchargée avant l'écriture.\n\n` +
+    `Tape PURGER pour confirmer :`
+  );
+  if (answer !== 'PURGER') return;   // annulé ou mal tapé
+
+  // 2. Session toujours valide et identique à celle chargée au démarrage
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session || session.user.id !== currentUser.id) {
+    alert("Session expirée ou changée : recharge la page et reconnecte-toi.");
+    return;
+  }
+  const modifiedBy = `${currentUser.hospital_id || session.user.email} (audit box)`;
+
+  // 3. Sauvegarde avant écriture (restauration manuelle possible) ; dest = médecin réaffecté ou null
+  const cells = items.flatMap(r => r.cells.map(c => ({
+    ...c, date: r.date, heure: r.time, nom: r.nom, dest: target.get(`${c.id}|${c.col}`) || null
+  })));
+  downloadCsv(`sauvegarde_purge_box_${todayLocalIso()}.csv`,
+    ['id', 'date', 'heure', 'colonne', 'valeur_avant', 'medecin', 'nouvelle_valeur'],
+    cells.map(c => [c.id, c.date, c.heure, c.col, c.raw, c.nom, c.dest ? c.dest.init : '']));
+
+  // 4. Écriture cellule par cellule, avec contrôle que la valeur n'a pas changé
+  const btn = document.getElementById('btnRunPurge');
+  btn.disabled = true;
+  btn.textContent = '⏳ Écriture en cours...';
+  const useEmpty = new Set(['BOX1', 'BOX2']);   // colonnes NOT NULL (clé primaire) : on écrit '' d'emblée
+  const ok = [], ko = [];
+  for (const c of cells) {
+    const write = value => supabaseClient
+      .from('planning')
+      .update({ [c.col]: value })
+      .eq('id', c.id)
+      .eq(c.col, c.raw)
+      .select('id');
+
+    let res, written;
+    if (c.dest) {
+      written = c.dest.init;
+      res = await write(written);   // réaffectation : on remplace directement l'ancien médecin par le nouveau
+    } else {
+      written = useEmpty.has(c.col) ? '' : null;
+      res = await write(written);
+      if (res.error && (res.error.code === '23502' || /not-null/i.test(res.error.message || ''))) {
+        useEmpty.add(c.col);
+        written = '';
+        res = await write('');
+      }
+    }
+    if (res.error || !res.data?.length) {
+      ko.push(c);
+      if (res.error) console.warn('Écriture échouée', c, res.error.message);
+    } else {
+      c.written = written;
+      ok.push(c);
+    }
+  }
+
+  // 4bis. Sauvegarde locale (navigateur) pour pouvoir annuler
+  saveUndoOp({
+    at: new Date().toISOString(),
+    by: modifiedBy,
+    cells: ok.map(c => ({ id: c.id, col: c.col, raw: c.raw, written: c.written, date: c.date, heure: c.heure, nom: c.nom }))
+  });
+
+  // 5. Historique (même format que neuroplanning)
+  if (ok.length) {
+    const { error } = await supabaseClient.from('planning_history').insert(
+      ok.map(c => ({
+        modified_by: modifiedBy,
+        row_date: c.date,
+        row_heure: c.heure,
+        col_key: c.col,
+        old_value: String(c.raw).trim(),
+        new_value: c.dest ? c.dest.init : ''
+      }))
+    );
+    if (error) console.warn('Historique non enregistré :', error.message);
+  }
+
+  // 6. Bilan + rapport copiable
+  btn.disabled = false;
+  btn.textContent = 'Purger et réaffecter…';
+  refreshUndoButton();
+  const okSet = new Set(ok.map(c => `${c.id}|${c.col}`));
+  const done = plan.assignments.filter(a => okSet.has(`${a.cell.id}|${a.cell.col}`));
+  const failed = plan.assignments.filter(a => !okSet.has(`${a.cell.id}|${a.cell.col}`));
+  const spared = getPurgeCandidates().filter(r => !(r.hasRessource && selected.has(r.init)));
+  document.getElementById('reportText').value = buildReportText({ plan, done, failed, ok, ko, spared, reassignOn });
+  document.getElementById('purgePanel').classList.add('hidden');
+  document.getElementById('reportPanel').classList.remove('hidden');
+  document.getElementById('reportPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  alert(`${ok.filter(c => !c.dest).length} box vidé(s), ${done.length} réaffecté(s).` +
+    (ko.length ? `\n${ko.length} NON modifié(s) (cellule modifiée entre-temps ou droits insuffisants, voir console).` : '') +
+    `\n\nLe rapport est affiché sous le tableau. Relance l'analyse pour actualiser l'affichage.`);
+}
+// ===== ANNULATION (sauvegarde locale dans le navigateur) =====
+const UNDO_KEY = 'auditBoxUndoOps';
+const UNDO_MAX = 5;   // nombre d'opérations conservées
+function loadUndoOps() {
+  try { return JSON.parse(localStorage.getItem(UNDO_KEY) || '[]'); } catch { return []; }
+}
+function storeUndoOps(ops) {
+  try { localStorage.setItem(UNDO_KEY, JSON.stringify(ops.slice(-UNDO_MAX))); return true; } catch { return false; }
+}
+function saveUndoOp(op) {
+  if (!op.cells.length) return;
+  if (!storeUndoOps([...loadUndoOps(), op])) {
+    console.warn('Sauvegarde locale impossible (navigateur en mode privé ou stockage plein) : seul le CSV permet de revenir en arrière.');
+  }
+}
+function refreshUndoButton() {
+  const btn = document.getElementById('btnUndoPurge');
+  const ops = loadUndoOps();
+  if (!canPurge() || !ops.length) { btn.style.display = 'none'; return; }
+  const last = ops[ops.length - 1];
+  const when = new Date(last.at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  document.getElementById('undoLabel').textContent = `Annuler la dernière purge (${last.cells.length} cellule(s), ${when})`;
+  btn.style.display = '';
+}
+
+async function undoLastPurge() {
+  if (!canPurge()) {
+    alert("Tes droits ne permettent pas de modifier les colonnes box.");
+    return;
+  }
+  const ops = loadUndoOps();
+  const op = ops[ops.length - 1];
+  if (!op) { alert('Aucune opération à annuler sur ce navigateur.'); return; }
+
+  const answer = prompt(
+    `↩️ ANNULATION\n\n` +
+    `${op.cells.length} cellule(s) du planning vont retrouver leur valeur d'avant la purge (opération du ` +
+    `${new Date(op.at).toLocaleString('fr-FR')}, par ${op.by}).\n\n` +
+    `Seules les cellules encore dans l'état laissé par l'outil seront restaurées ; les autres seront ignorées.\n\n` +
+    `Tape ANNULER pour confirmer :`
+  );
+  if (answer !== 'ANNULER') return;
+
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session || session.user.id !== currentUser.id) {
+    alert("Session expirée ou changée : recharge la page et reconnecte-toi.");
+    return;
+  }
+  const modifiedBy = `${currentUser.hospital_id || session.user.email} (annulation audit box)`;
+
+  const ok = [], ko = [];
+  for (const c of op.cells) {
+    let q = supabaseClient.from('planning').update({ [c.col]: c.raw }).eq('id', c.id);
+    // une valeur écrite nulle ne se teste pas avec .eq() : il faut .is(col, null)
+    q = c.written === null ? q.is(c.col, null) : q.eq(c.col, c.written);
+    const { data, error } = await q.select('id');
+    if (error || !data?.length) {
+      ko.push(c);
+      if (error) console.warn('Annulation échouée', c, error.message);
+    } else {
+      ok.push(c);
+    }
+  }
+
+  if (ok.length) {
+    const { error } = await supabaseClient.from('planning_history').insert(
+      ok.map(c => ({
+        modified_by: modifiedBy,
+        row_date: c.date,
+        row_heure: c.heure,
+        col_key: c.col,
+        old_value: String(c.written ?? ''),
+        new_value: String(c.raw).trim()
+      }))
+    );
+    if (error) console.warn('Historique non enregistré :', error.message);
+  }
+
+  // on garde en mémoire uniquement ce qui n'a pas pu être restauré (pour réessayer)
+  const rest = ops.slice(0, -1);
+  if (ko.length) rest.push({ ...op, cells: ko });
+  storeUndoOps(rest);
+  refreshUndoButton();
+
+  alert(`${ok.length} cellule(s) restaurée(s).` +
+    (ko.length ? `\n${ko.length} ignorée(s) : modifiée(s) depuis la purge ou droits insuffisants (voir console). Elles restent en mémoire, tu peux réessayer.` : '') +
+    `\n\nRelance l'analyse pour actualiser l'affichage.`);
+}
+
+
+
+
+	  
+    // Écouteurs de changement d'état des cases à cocher
+    ['filterOk', 'filterAlert', 'filterNoBox', 'filterUnknown'].forEach(id => {
+      document.getElementById(id).addEventListener('change', renderTable);
+    });
+document.getElementById('btnToggleConflicts').addEventListener('click', () =>
+  document.getElementById('conflictList').classList.toggle('hidden'));
+document.getElementById('btnExportCsv').addEventListener('click', exportResultsCsv);
+document.getElementById('btnSummary').addEventListener('click', () => {
+  if (!allResults.length) {
+    alert("Aucun résultat : lance d'abord l'analyse.");
+    return;
+  }
+  const panel = document.getElementById('summaryPanel');
+  if (panel.classList.contains('hidden')) {
+    lastSummaryText = buildSummaryText();
+    document.getElementById('summaryText').value = lastSummaryText;
+  }
+  panel.classList.toggle('hidden');
+});
+
+document.getElementById('btnCopySummary').addEventListener('click', async () => {
+  const ta = document.getElementById('summaryText');
+  try {
+    await navigator.clipboard.writeText(ta.value);
+  } catch {
+    ta.select();
+    document.execCommand('copy');   // repli si le presse-papiers moderne est indisponible
+  }
+  const fb = document.getElementById('copyFeedback');
+  fb.classList.remove('hidden');
+  setTimeout(() => fb.classList.add('hidden'), 1500);
+});
+
+document.getElementById('btnMailAll').addEventListener('click', async () => {
+  if (!currentUser) return;
+  const fb = document.getElementById('mailFeedback');
+  const say = msg => { fb.textContent = msg; fb.classList.remove('hidden'); };
+  say('Récupération des adresses…');
+	
+  const concernes = new Set();
+conflicts.forEach(c => c.init && concernes.add(c.init));
+allResults.forEach(r => {
+  if ((r.category === 'RED' || r.category === 'PURPLE') && r.init && r.init !== 'N/A') concernes.add(r.init);
+});
+if (!concernes.size) { say('Aucune anomalie : personne à prévenir.'); return; }
+	
+  const { data, error } = await supabaseClient.schema('commun').from('profiles').select('initiales, email');
+  if (error) { say('Erreur profiles : ' + error.message); return; }
+
+const mailOf = new Map((data || []).map(p =>
+  [String(p.initiales || '').trim().toUpperCase(), String(p.email || '').trim().toLowerCase()]));
+const sansMail = [...concernes].filter(i => !(mailOf.get(i) || '').includes('@'));
+const emails = [...new Set([...concernes].map(i => mailOf.get(i))
+  .filter(e => e && e.includes('@') && e !== MAIL_CC.toLowerCase()))];
+if (!emails.length) { say('Aucune adresse trouvée pour : ' + [...concernes].join(', ') + ' (table vide ou accès refusé par RLS).'); return; }
+const manque = sansMail.length ? ` Sans adresse : ${sansMail.join(', ')}.` : '';
+
+  const dates = allResults.map(r => r.date).sort();
+	const fmtFR = d => d.split('-').reverse().join('/');
+	const periode = csvRange.min ? ` du ${fmtFR(csvRange.min)} au ${fmtFR(csvRange.max)}` : '';
+	const subject = `${conflicts.length ? '[URGENT] ' : ''}[Neuroplanning] Audit des box${periode}`;
+
+  const resume = document.getElementById('summaryText').value.trim();
+  const body = [
+    'Bonjour à tous,',
+    '',
+    `Voici le contrôle automatique des box de consultation${periode}.`,
+    `Vérifiez si ces alertes sont valides et nécessitent une intervention.`,
+    '',
+    resume,
+    '',
+    "Ceci est encore un prototype et peut faire l'objet d'erreurs : merci de les remonter à RN pour qu'il m'améliore !",
+	'Le détail complet est en pièce jointe (CSV).',
+    '',
+    'Cordialement,',
+    "L'outil d'audit des box (NeuroPlanning)"
+  ].join('\n');
+
+  const enc = encodeURIComponent;
+  const build = b => `mailto:?${MAIL_DEST_FIELD}=${enc(emails.join(MAIL_SEP))}&cc=${enc(MAIL_CC)}&subject=${enc(subject)}&body=${enc(b)}`;
+
+  let url = build(body);
+//  if (url.length > 10000) {   // certains clients tronquent les mailto trop longs
+//    try { await navigator.clipboard.writeText(body); } catch {}
+//    url = build('Message trop long pour être pré-rempli : il a été copié dans le presse-papiers, colle-le ici (Ctrl+V).');
+//      say(`${emails.length} destinataire(s) (${[...concernes].join(', ')}). Corps copié : colle-le dans le mail, puis joins le CSV.${manque}`);
+//  } else {
+//      say(`${emails.length} destinataire(s) (${[...concernes].join(', ')}). Joins le CSV téléchargé au mail.${manque}`);
+//  }
+  exportResultsCsv();
+  window.location.href = url;
+});
+	  
+document.getElementById('btnHelp').addEventListener('click', () => {
+  const helpWindow = window.open('', '_blank');
+  
+  if (!helpWindow) {
+    alert("Veuillez autoriser les fenêtres surgissantes (pop-ups) pour afficher l'aide.");
+    return;
+  }
+
+  const helpHtml = `
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Guide d'Export CSV - NeuroPlanning</title>
+      <script src="https://cdn.tailwindcss.com"><\/script>
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+      </style>
+    </head>
+    <body class="bg-slate-50 text-slate-800 p-6 sm:p-10 max-w-4xl mx-auto space-y-6">
+      
+      <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+        <div class="flex items-center gap-3 border-b border-slate-100 pb-4">
+          <span class="p-3 bg-indigo-50 text-indigo-600 rounded-xl text-xl">
+            <i class="fa-solid fa-circle-info"></i>
+          </span>
+          <div>
+            <h1 class="text-xl font-bold text-slate-900">Procédure d'Export du CSV Rendez-Vous</h1>
+            <p class="text-xs text-slate-500">Guide pas-à-pas pour générer le fichier requis.</p>
+          </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 text-sm text-slate-700 leading-relaxed space-y-2">
+          <p class="font-medium text-indigo-900 flex items-center gap-2">
+            <i class="fa-solid fa-list-ol"></i> Étapes à suivre :
+          </p>
+          <ul class="list-disc list-inside space-y-1.5 pl-2 text-slate-600">
+            <li>Cliquez sur <strong>service patients</strong>, puis <strong>liste de travail rendez-vous</strong> <em>(si cette option n'apparaît pas, il faut en faire la demande auprès du service informatique)</em>.</li>
+            <li>Choisissez la <strong>liste des RDV par ressource</strong>.</li>
+            <li>Filtrez la <strong>bonne période</strong> et la <strong>consultation neurologie</strong>.</li>
+            <li>Cliquez sur <strong>rafraîchir</strong> puis exportez le <strong>CSV</strong>.</li>
+          </ul>
+        </div>
+
+        <!-- Capture d'écran / PNG -->
+        <div class="space-y-2">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Capture d'illustration</h2>
+          <div class="border border-slate-200 rounded-xl overflow-hidden shadow-sm bg-slate-100">
+            <img src="tools/optimisation.png" alt="Guide d'exportation CSV" class="w-full h-auto block" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'p-8 text-center text-slate-400 text-sm\'><i class=\'fa-solid fa-image text-2xl block mb-2\'><\/i>L\'image <b>tools/optimisation.png<\/b> n\'a pas pu être chargée. Vérifiez qu\'elle se trouve dans le même dossier que le fichier HTML.<\/div>';" />
+          </div>
+        </div>
+
+        <div class="text-center pt-2">
+          <button onclick="window.close()" class="px-5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg text-xs transition">
+            Fermer cette fenêtre
+          </button>
+        </div>
+      </div>
+
+    </body>
+    </html>
+  `;
+
+  helpWindow.document.write(helpHtml);
+  helpWindow.document.close();
+});
+
+window.addEventListener('load', async () => {
+  const ok = await requireLogin();
+  document.getElementById('btnAnalyse').disabled = !ok;
+  if (!ok) return;
+  const peutEnvoyer = currentUser.role === 'admin' || currentUser.permissions?.can_edit_planning;
+  document.getElementById('btnMailAll').style.display = peutEnvoyer ? '' : 'none';
+  if (canPurge()) document.getElementById('btnPurge').style.display = '';
+  refreshUndoButton();
+});
+document.getElementById('btnPurge').addEventListener('click', openPurgePanel);
+document.getElementById('btnRunPurge').addEventListener('click', runPurge);
+document.getElementById('btnUndoPurge').addEventListener('click', undoLastPurge);
+document.getElementById('btnClosePurge').addEventListener('click', () => document.getElementById('purgePanel').classList.add('hidden'));
+
+// Aperçu de réaffectation : se recalcule quand on (dé)coche un médecin ou une réaffectation
+document.getElementById('purgePanel').addEventListener('change', e => {
+  const t = e.target;
+  if (t.classList.contains('reassign-item')) {
+    t.checked ? reassignExcluded.delete(t.dataset.ek) : reassignExcluded.add(t.dataset.ek);
+  }
+  if (t.classList.contains('reassign-item') || t.classList.contains('purge-doc') || t.id === 'reassignEnabled') {
+    refreshReassignPreview();
+  }
+});
+
+// Changer le seuil ou le délai remet tout à jour (le résumé n'est régénéré que s'il n'a pas été retouché à la main)
+['seuilPatients', 'delaiJours'].forEach(id => document.getElementById(id).addEventListener('change', () => {
+  if (allResults.length) renderTable();
+  const ta = document.getElementById('summaryText');
+  if (!document.getElementById('summaryPanel').classList.contains('hidden') && ta.value === lastSummaryText) {
+    lastSummaryText = buildSummaryText();
+    ta.value = lastSummaryText;
+  }
+  if (!document.getElementById('purgePanel').classList.contains('hidden')) refreshReassignPreview();
+}));
+
+document.getElementById('btnCloseReport').addEventListener('click', () => document.getElementById('reportPanel').classList.add('hidden'));
+document.getElementById('btnCopyReport').addEventListener('click', async () => {
+  const ta = document.getElementById('reportText');
+  try { await navigator.clipboard.writeText(ta.value); } catch { ta.select(); document.execCommand('copy'); }
+  const fb = document.getElementById('reportCopyFeedback');
+  fb.classList.remove('hidden');
+  setTimeout(() => fb.classList.add('hidden'), 1500);
+});  
+	  
+  </script>
+</body>
+</html>
