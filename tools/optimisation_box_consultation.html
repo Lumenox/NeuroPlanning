@@ -641,8 +641,7 @@ function updateFileName(name) {
           allRdvDates.push(dateKey);
 
 		const rawStatut = row.Statut || row.statut || row.STATUT || '';
-		// « Pas venu » sur un RDV futur n'est pas informatif : ignoré partout (conflits compris)
-		if (cleanText(rawStatut).includes('PASVENU')) return;
+		// NB : sur un RDV futur, le statut par défaut est « Pas venu » : il ne doit surtout pas être exclu
 			
 		const isAnnule = cleanText(rawStatut).includes('ANNUL');
 		const initC = getInitFromRessource(rawRessource);
