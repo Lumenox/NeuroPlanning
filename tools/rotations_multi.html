@@ -33,6 +33,7 @@ td.fixed{font-style:italic;outline:1px dashed var(--mut);outline-offset:-3px}
 .banner .w{margin-bottom:6px;background:#fff}
 .mut{color:var(--mut)}#msg{min-height:18px;color:var(--red);font-size:12px}
 summary{cursor:pointer;list-style-position:inside}summary h2{display:inline}
+label[title],th[title],div.mut[title]{cursor:help}th[title]{text-decoration:underline dotted;text-underline-offset:3px}
 progress{vertical-align:middle}.pool{border-top:1px solid var(--line);margin-top:12px;padding-top:6px}.pool:first-child{border-top:0;margin-top:0}
 details{margin:4px 0}summary{cursor:pointer}
 </style>
@@ -72,9 +73,9 @@ details{margin:4px 0}summary{cursor:pointer}
 
 <section>
   <div class="row">
-    <button id="b-run">Optimiser</button>
-    <button id="b-stop" class="ghost" disabled>Annuler</button>
-    <button id="b-send" disabled>Envoyer vers la sandbox</button>
+    <button id="b-run" title="Lance l'optimisation globale (peut durer jusqu'au temps maximum réglé plus haut)">Optimiser</button>
+    <button id="b-stop" class="ghost" disabled title="Abandonne le calcul en cours sans rien récupérer">Annuler</button>
+    <button id="b-send" disabled title="Envoie les cases vers la sandbox, qui les enregistre ensuite : rien n'est écrit définitivement avant ta validation">Envoyer vers la sandbox</button>
     <progress id="prog" max="100" value="0" hidden style="width:200px"></progress>
     <span id="status" class="mut"></span>
   </div>
@@ -124,6 +125,9 @@ const DEFAULTS={
   seuil:70,                 // % minimal de créneaux libres dans la semaine pour être éligible (1 mercredi par semaine rabaisse quasi systé autour de 70%)
   tempsMax:60,              // secondes
   ecart:1,                  // écart à l'optimum toléré (%) : l'optimisation s'arrête quand il est atteint
+  congeMode:'aucun',        // équité et congés : 'aucun' (salle seule) | 'conges' (salle + congés comptés) | 'presence' (quota proportionnel à la présence)
+  congePoids:1,             // intensité de la prise en compte des congés (0 à 1)
+  congeTypes:['CA','CF'],   // types d'absence comptés comme congés pour l'équité
   pools:[
     {id:'VASC',label:'USI / UNV',fam:'V',pmin:2,psou:3,pcap:4,opt:2,alt:2,
      salles:[
@@ -150,7 +154,7 @@ const DEFAULTS={
   rules:{Mardi_matin:{FF:'BOX',AT:'Salle'}}
 };
 const LS='rotations_v3_params';
-const SCALAR=['repos','penaliteDepassement','seuil','tempsMax','ecart','quotas','avant','fin','rules'];
+const SCALAR=['repos','penaliteDepassement','seuil','tempsMax','ecart','congeMode','congePoids','congeTypes','quotas','avant','fin','rules'];
 const POOLF=['pmin','psou','pcap','opt','alt'];
 const PEN_REQ=100,BAL=0.3,LAM=0.02;   // coût d'un poste obligatoire vide ; déséquilibre d'un mixte entre familles ; petit bonus de présence
 function loadP(){
@@ -190,8 +194,9 @@ function prepare(){
     .sort((a,b)=>(a.date+a.heure).localeCompare(b.date+b.heure))
     .map(r=>({r,key:r.date+'_'+r.heure,cr:JOURS[wd(r.date)]+(r.heure==='09:00:00'?'_matin':'_aprem')}));
   if(!slots.length)return{err:'Aucune ligne de planning reçue : ouvre ce générateur depuis l\'onglet sandbox de Neuroplanning.'};
-  const absent=new Map();
-  D.absences.forEach(a=>D.cols.forEach(c=>{if(a[c]&&String(a[c]).trim()){const k=a.date+'_'+a.heure;if(!absent.has(k))absent.set(k,new Set());absent.get(k).add(norm(c));}}));
+  const absent=new Map(),absType=new Map();
+  D.absences.forEach(a=>D.cols.forEach(c=>{if(a[c]&&String(a[c]).trim()){const k=a.date+'_'+a.heure;if(!absent.has(k))absent.set(k,new Set());absent.get(k).add(norm(c));
+    if(!absType.has(k))absType.set(k,new Map());absType.get(k).set(norm(c),typeOf(a[c]));}}));
   const repos=new Map();
   D.rows.forEach(r=>{const g=norm(r.Garde);if(!g)return;const k=nextDay(r.date)+'_'+r.heure;if(!repos.has(k))repos.set(k,new Set());repos.get(k).add(g);});
   const wk=new Map();slots.forEach((s,i)=>{const m=monday(s.r.date);if(!wk.has(m))wk.set(m,[]);wk.get(m).push(i);});
@@ -201,7 +206,7 @@ function prepare(){
   const ad=D.absences.map(a=>a.date).filter(Boolean).sort();
   if(!ad.length)W0.push({l:'r',m:'Aucune ligne d\'absences reçue : tous les médecins seront considérés disponibles.'});
   else if(ad[ad.length-1]<last||ad[0]>first)W0.push({l:'r',m:`Les absences reçues couvrent du ${ad[0]} au ${ad[ad.length-1]}, mais la sandbox va du ${first} au ${last} : les congés hors de cette plage sont ignorés. Dans l'index, envoie absencesData (et non currentFilteredAbs).`});
-  const Cx={slots,absent,repos,weeks,W0,spec:D.spec,cache:{},fixed:{},others:{}};
+  const Cx={slots,absent,absType,repos,weeks,W0,spec:D.spec,cache:{},congeC:{},fixed:{},others:{}};
   // semaines déjà pourvues, par groupe
   P.pools.forEach(p=>{
     Cx.fixed[p.id]=weeks.map(()=>({}));Cx.others[p.id]=weeks.map(()=>({}));
@@ -219,6 +224,23 @@ function prepare(){
     });
   });
   return{ctx:Cx};
+}
+// ── congés et équité ──────────────────────────────────────────────────────────────
+const CONGE_TYPES=['CA','CF','Ens','Rech','Autre'];
+const typeOf=v=>{const t=norm(v);return CONGE_TYPES.find(x=>x.toUpperCase()===t)||'Autre';};
+// semaines de congé (types retenus) d'un médecin dans la sandbox : somme, par semaine, de la part de créneaux concernés
+function congeOf(m){
+  if(C.congeC[m]!==undefined)return C.congeC[m];
+  let t=0;
+  C.weeks.forEach(w=>{let n=0;w.ix.forEach(i=>{const ty=C.absType.get(C.slots[i].key)?.get(m);if(ty&&P.congeTypes.includes(ty))n++;});t+=n/w.ix.length;});
+  return C.congeC[m]=t;
+}
+// équité : ratio = (semaines en salle + add) / den. add et den dépendent du mode choisi pour les congés.
+function eqOf(m){
+  const L=congeOf(m),Wn=C.weeks.length,av=P.avant[m]||0,w=Math.min(1,Math.max(0,Number(P.congePoids)));
+  if(P.congeMode==='conges')return{add:av+w*L,den:q(m)};
+  if(P.congeMode==='presence')return{add:av,den:q(m)*Math.max(0.2,1-w*L/Wn)};
+  return{add:av,den:q(m)};
 }
 // part de créneaux libres d'un médecin sur une semaine (BOX récurrents exclus, absences et postes comptés)
 function freeOf(m,wi){
@@ -366,11 +388,11 @@ function buildJoint(pools){
       for(let k=1;k<mn&&w+k<Wn;k++){const co={};T(co,m,p,w,1);T(co,m,p,w-1,-1);T(co,m,p,w+k,-1);M.rule(co,0,10);}}
   }));
   // équité GLOBALE : (déjà fait + total toutes salles) / quota, écart max-min minimal, pour tous les médecins
-  const mine=m=>{const co={};X.forEach((k,kk)=>{if(kk.startsWith(m+'|'))co[k]=1/q(m);});return co;};
+  const mine=m=>{const d=eqOf(m).den,co={};X.forEach((k,kk)=>{if(kk.startsWith(m+'|'))co[k]=1/d;});return co;};
   const eq=members.filter(m=>q(m)>0&&Object.keys(mine(m)).length);
   if(eq.length>=2){
     const tmax=M.v(0,1e4,false,1),tmin=M.v(0,1e4,false,-1);
-    eq.forEach(m=>{const co=mine(m),h=(P.avant[m]||0)/q(m);
+    eq.forEach(m=>{const co=mine(m),e=eqOf(m),h=e.add/e.den;
       M.con(Object.assign({},co,{[tmax]:-1}),-Infinity,-h);
       const c2={};Object.keys(co).forEach(k=>c2[k]=-co[k]);c2[tmin]=1;M.con(c2,-Infinity,h);});
   }
@@ -555,7 +577,7 @@ function finalize(){
   // postes vides : obligatoires = à arbitrer (rouge) ; facultatifs = avertissement groupé par salle (orange)
   pools.forEach(pool=>pool.salles.forEach(r=>{
     const opt=[];
-    RES.plan.forEach(w=>{const n=r.cols.filter(c=>w.seats[c]).length;
+    RES.plan.forEach((w,wi)=>{const n=r.cols.filter(c=>w.seats[c]).length+(C.others[pool.id][wi][r.id]||0);   // + médecins hors liste déjà postés dans la sandbox
       if(n<r.min)RES.W.push({l:'r',m:`${pool.label} · semaine du ${w.mon} : ${r.id} ${n}/${r.min} poste(s) obligatoire(s) pourvu(s).`});
       else if(n<r.max)opt.push(w.mon);});
     if(opt.length)RES.W.push({l:'o',m:`${r.id} : poste facultatif non pourvu (${opt.length} semaine(s) : ${opt.slice(0,8).join(', ')}${opt.length>8?'…':''}). Ordre de sacrifice : priorité la plus basse d'abord — à arbitrer à la main.`});
@@ -564,7 +586,7 @@ function finalize(){
   const members=[...new Set(pools.flatMap(p=>p.membres))],rooms=pools.flatMap(p=>p.salles);
   const cnt={};members.forEach(m=>{cnt[m]={};rooms.forEach(r=>cnt[m][r.id]=0);});
   RES.plan.forEach(w=>Object.entries(w.seats).forEach(([c,m])=>{const ci=CI[c];if(m&&ci&&cnt[m])cnt[m][ci.room.id]++;}));
-  const rows=members.map(m=>{const tot=Object.values(cnt[m]).reduce((a,b)=>a+b,0)+(P.avant[m]||0);return{m,by:cnt[m],avant:P.avant[m]||0,tot,q:q(m),r:q(m)>0?tot/q(m):null};});
+  const rows=members.map(m=>{const salle=Object.values(cnt[m]).reduce((a,b)=>a+b,0),tot=salle+(P.avant[m]||0),e=eqOf(m);return{m,by:cnt[m],avant:P.avant[m]||0,conge:congeOf(m),tot,q:q(m),r:q(m)>0?(salle+e.add)/e.den:null};});
   const rs=rows.filter(b=>b.r!=null&&b.tot>0).map(b=>b.r),mean=rs.reduce((a,b)=>a+b,0)/(rs.length||1);
   RES.bilan={rows,rooms,mean,sd:Math.sqrt(rs.reduce((a,b)=>a+(b-mean)**2,0)/(rs.length||1))};
 }
@@ -575,8 +597,38 @@ function finalize(){
 // ═══════════════════════════════════════════════════════════════════════════════
 //  9. INTERFACE
 // ═══════════════════════════════════════════════════════════════════════════════
+// ─── AIDE : texte affiché au survol de chaque paramètre (une seule source ; à corriger ici si une règle change) ───
+const AIDE={
+ repos:`Nombre minimal de semaines SANS salle entre deux passages d'un même médecin, quelle que soit la salle (temps réservé aux BIP et aux consultations). Avec 2 : après un passage, le médecin ne revient pas en salle avant 2 semaines. Interdit aussi d'enchaîner directement deux salles différentes (ex. C puis HDJ). Règle stricte, sauf pour les semaines déjà remplies dans la sandbox, qui ne sont jamais modifiées.`,
+ penaliteDepassement:`Coût ajouté chaque fois qu'un passage dépasse la durée souhaitée de son groupe. Plus la valeur est haute, plus le calcul évite les passages trop longs, au prix de postes facultatifs plus souvent vides ou d'une équité un peu moins bonne. 0 = aucune gêne. Réglage commun à tous les groupes.`,
+ seuil:`Part minimale de demi-journées libres dans la semaine pour qu'un médecin puisse être placé en salle. Comptent comme non libres : les absences (congés, enseignement…) et les demi-journées déjà occupées (BIP, consultations, gardes…). Les BOX récurrents déclarés dans « Récurrences » ne comptent pas. Ex. 70 % = libre au moins 7 demi-journées sur 10. Baisser = plus de choix, mais plus de risque de médecin absent certains jours (signalé en rouge).`,
+ tempsMax:`Durée maximale du calcul, en secondes. Si elle est atteinte, la meilleure solution trouvée est conservée (message orange « optimalité non prouvée »). Plus long = solution potentiellement meilleure, avec des gains qui diminuent. Le bouton Annuler abandonne le calcul sans rien récupérer.`,
+ ecart:`Le calcul s'arrête dès qu'il est prouvé que la solution est à moins de ce pourcentage de la meilleure possible (mesuré sur le coût total du modèle). 1 % = rapide ; 0 = pousse jusqu'au temps maximum.`,
+ congeMode:`Comment les congés entrent dans l'équité. Les congés tombent toujours hors salle : à salle égale, qui part beaucoup a moins de semaines pour les BIP et consultations. « Ignorer » : seule la salle est équilibrée. « Congés comptés comme de la salle » : on équilibre salle + congés × poids ; avec un poids de 1, tous ont la même capacité hors salle, mais qui a plus de congés fait moins de salle. « Quota proportionnel à la présence » : le quota est réduit au prorata des semaines de congé (un médecin absent 20 % du temps a un quota réduit de 20 % × poids). Les deux derniers modes dépendent de la qualité des congés saisis.`,
+ congePoids:`Intensité de la prise en compte des congés, de 0 à 1. 0 = congés ignorés ; 1 = une semaine de congé compte comme une semaine de salle (mode « congés comptés comme de la salle ») ou réduit le quota au prorata de la durée (mode « proportionnel »). Sans effet si les congés sont ignorés.`,
+ congeTypes:`Types d'absence considérés comme des congés pour l'équité (colonne type du tableau d'absences). « Autre » regroupe tout ce qui n'est ni CA, ni CF, ni Ens, ni Rech. Ne change pas l'éligibilité des médecins, qui dépend de toutes les absences.`,
+ pmin:`Durée minimale d'un passage, en semaines : un passage qui commence dure au moins ce nombre de semaines (1 = pas de minimum). Les passages coupés par le début ou la fin de la période ne sont pas concernés.`,
+ psou:`Durée souhaitée d'un passage, en semaines. Aucune pénalité jusqu'à cette durée ; au-delà, chaque semaine en plus est pénalisée (voir « Pénalité au-delà du souhaité »). Il n'y a pas de préférence entre une durée plus courte et la durée souhaitée.`,
+ pcap:`Durée maximale absolue d'un passage, en semaines : jamais dépassée par le calcul (seules des semaines déjà remplies dans la sandbox peuvent la dépasser).`,
+ opt:`Priorité des postes facultatifs (ceux situés entre le minimum et le maximum d'une salle). Chaque poste facultatif vide une semaine coûte cette valeur au calcul : plus elle est haute, plus le groupe est rempli en priorité ; la plus basse est sacrifiée en premier quand les effectifs manquent. À comparer à l'équité (coût 1 par unité d'écart) : trop haute, elle dégrade l'équité.`,
+ alt:`Pénalité quand un médecin fait deux passages successifs dans la même salle d'un groupe (ex. USI puis USI) : elle favorise l'alternance USI/UNV. Sans effet s'il n'y a qu'une salle (HDJ) ; 0 = aucune préférence. Ce n'est pas une règle stricte : si les postes l'exigent, la même salle peut se répéter (alerte orange). Les passages d'avant la sandbox ne sont pas connus.`,
+ smin:`Postes à pourvoir obligatoirement dans cette salle chaque semaine. Un poste obligatoire vide est un échec signalé en rouge, à arbitrer à la main.`,
+ smax:`Postes souhaités dans cette salle, jamais dépassés. Les postes entre le minimum et le maximum sont facultatifs : pourvus si les effectifs le permettent, sinon signalés en orange.`,
+ membres:`Médecins éligibles à ce groupe. Un médecin présent dans plusieurs groupes (mixte) est placé là où il est le plus utile, avec un équilibre souple entre les familles de salles. Seules les initiales de la liste des neurologues sont acceptées.`,
+ remplacants:`Médecins pouvant remplacer un médecin du groupe en repos de garde (lendemain de garde) sur un créneau. Le remplaçant doit être libre à ce créneau, hors repos de garde et pas déjà en salle cette semaine ; le moins chargé passe en premier. Vide = tous les membres du groupe.`,
+ quota:`Charge relative du médecin. 1 = charge normale ; 0,5 = moitié moins de semaines en salle (cas des mixtes) ; 0 = jamais placé (sauf s'il est déjà posté dans la sandbox). L'équité compare, pour tous, le total en salle (plus « déjà fait », et selon le mode les congés) divisé par le quota.`,
+ avant:`Nombre de semaines déjà passées en salle avant le début de la sandbox, toutes salles confondues. Sert à l'équité : qui a déjà beaucoup fait en fera moins.`,
+ fin:`Nombre de semaines consécutives en salle qui précèdent immédiatement la sandbox (0 à 3). Sert à respecter le repos et la durée maximale à la frontière. 0 si le médecin n'était pas en salle la semaine précédente.`,
+ rules:`BOX : le médecin est en box à ce créneau (récurrence) : jamais posté en salle à ce moment, et ce créneau ne compte pas dans le seuil de disponibilité. Salle : couvre le médecin en BOX, dans la même salle, s'il est libre.`,
+ spec:`Spécialité reçue de l'index, si renseignée. Sert uniquement à d'éventuelles pénalités de spécialité ; sans effet par défaut.`,
+ bilanConge:`Semaines de congé (types retenus) dans la période de la sandbox, d'après les absences reçues. Information ; n'entre dans « Total / quota » que selon le mode choisi. Incomplet si les absences ne couvrent pas toute la période.`,
+ bilanTotal:`Semaines en salle sur la période, plus « déjà fait ».`,
+ bilanRatio:`Indicateur d'équité utilisé par le calcul, selon le mode choisi pour les congés : (salle + déjà fait, + congés × poids en mode « congés comptés comme de la salle ») divisé par le quota (ou par le quota réduit en mode « proportionnel »). Vert : proche de la moyenne.`,
+ reset:`Efface les réglages enregistrés dans ce navigateur et remet les valeurs par défaut écrites dans le fichier.`,
+ prof:`Ajoute aux groupes les médecins selon leur profil reçu de l'index (vascu → USI/UNV ; général → C et HDJ ; HDJ → HDJ ; mixte → les trois, quota 0,5 s'il n'en a pas). Ajoute seulement, ne retire personne.`
+};
 const GENERAL=[['repos','Repos minimal entre deux passages (sem.)',0,6,1],['penaliteDepassement','Pénalité au-delà du souhaité',0,5,0.1],
-  ['seuil','Disponibilité minimale par semaine (%)',50,100,5],['tempsMax','Temps de calcul maximum (s)',5,900,5],['ecart','Écart à l\'optimum toléré (%)',0,20,0.5]];
+  ['seuil','Disponibilité minimale par semaine (%)',50,100,5],['tempsMax','Temps de calcul maximum (s)',5,900,5],['ecart','Écart à l\'optimum toléré (%)',0,20,0.5],['congePoids','Poids des congés dans l\'équité (0 à 1)',0,1,0.25]];
 const POOL_LABELS={pmin:'Durée minimale de passage (sem.)',psou:'Durée souhaitée (sem.)',pcap:'Plafond absolu (sem.)',opt:'Priorité des postes facultatifs',alt:'Pénalité sans alternance de salle'};
 function chips(el,pool,key,after){
   el.innerHTML='';
@@ -610,7 +662,7 @@ function applyProfils(){
 }
 function renderQuotas(){
   const ms=allMembers();
-  $('#quotas').innerHTML='<table><tr><th>Médecin</th><th>Spécialité</th><th>Quota</th><th>Déjà fait</th><th>Juste avant</th></tr>'+
+  $('#quotas').innerHTML='<table><tr><th>Médecin</th><th title="'+AIDE.spec+'">Spécialité</th><th title="'+AIDE.quota+'">Quota</th><th title="'+AIDE.avant+'">Déjà fait</th><th title="'+AIDE.fin+'">Juste avant</th></tr>'+
     ms.map(m=>`<tr><td class="l">${m}</td><td class="mut">${D.spec[m]||'–'}</td>
       <td><input type="number" step="0.25" min="0" data-k="quotas" data-m="${m}" value="${q(m)}"></td>
       <td><input type="number" step="1" min="0" data-k="avant" data-m="${m}" value="${P.avant[m]||0}"></td>
@@ -618,25 +670,29 @@ function renderQuotas(){
   $('#quotas').querySelectorAll('input').forEach(e=>e.onchange=()=>{P[e.dataset.k][e.dataset.m]=Number(e.value);saveP();});
   const t=['<table><tr><th></th>'+ms.map(m=>`<th>${m}</th>`).join('')+'</tr>'];
   CRENEAUX.forEach(cr=>t.push(`<tr><td class="l">${cr}</td>`+ms.map(m=>{const v=P.rules[cr]?.[m]||'';
-    return `<td><select data-cr="${cr}" data-m="${m}"><option value=""></option><option${v==='BOX'?' selected':''}>BOX</option><option${v==='Salle'?' selected':''}>Salle</option></select></td>`;}).join('')+'</tr>'));
+    return `<td><select data-cr="${cr}" data-m="${m}" title="${AIDE.rules}"><option value=""></option><option${v==='BOX'?' selected':''}>BOX</option><option${v==='Salle'?' selected':''}>Salle</option></select></td>`;}).join('')+'</tr>'));
   $('#rules').innerHTML=t.join('')+'</table>';
   $('#rules').querySelectorAll('[data-cr]').forEach(e=>e.onchange=()=>{const o=P.rules[e.dataset.cr]??={};if(e.value)o[e.dataset.m]=e.value;else delete o[e.dataset.m];saveP();});
 }
 function renderParams(){
   const g=$('#p-general');
-  g.innerHTML=GENERAL.map(([k,l,mn,mx,st])=>`<label>${l}<input type="number" data-g="${k}" min="${mn}" max="${mx}" step="${st}" value="${P[k]}"></label>`).join('')+
-    `<button class="ghost" id="b-reset">Valeurs par défaut</button>`;
+  g.innerHTML=GENERAL.map(([k,l,mn,mx,st])=>`<label title="${AIDE[k]}">${l}<input type="number" data-g="${k}" min="${mn}" max="${mx}" step="${st}" value="${P[k]}"></label>`).join('')+
+    `<label title="${AIDE.congeMode}">Congés et équité<select data-gs="congeMode">${[['aucun','Ignorer les congés'],['conges','Congés comptés comme de la salle'],['presence','Quota proportionnel à la présence']].map(([v,l])=>`<option value="${v}"${P.congeMode===v?' selected':''}>${l}</option>`).join('')}</select></label>
+     <label title="${AIDE.congeTypes}">Types d'absence comptés comme congés<span class="chips">${CONGE_TYPES.map(t=>`<label style="flex-direction:row;align-items:center;gap:3px"><input type="checkbox" data-ct="${t}"${P.congeTypes.includes(t)?' checked':''}>${t}</label>`).join('')}</span></label>
+     <button class="ghost" id="b-reset" title="${AIDE.reset}">Valeurs par défaut</button>`;
+  g.querySelectorAll('[data-gs]').forEach(e=>e.onchange=()=>{P[e.dataset.gs]=e.value;saveP();});
+  g.querySelectorAll('[data-ct]').forEach(e=>e.onchange=()=>{const t=e.dataset.ct;P.congeTypes=P.congeTypes.filter(x=>x!==t);if(e.checked)P.congeTypes.push(t);saveP();});
   const np=Object.keys(D.profil).length;
-  $('#prof-box').innerHTML=np?`<button class="ghost" id="b-prof">Remplir les groupes depuis les profils (${np} neurologues)</button> <span class="mut">vascu → USI/UNV · général → C + HDJ · HDJ → HDJ · mixte → les trois (quota 0,5 si non renseigné). Ajoute seulement, ne retire personne.</span>`:'<span class="mut">Aucun profil reçu de l\'index : remplis les groupes à la main (ou ajoute un champ « profil » aux neurologues).</span>';
+  $('#prof-box').innerHTML=np?`<button class="ghost" id="b-prof" title="${AIDE.prof}">Remplir les groupes depuis les profils (${np} neurologues)</button> <span class="mut">vascu → USI/UNV · général → C + HDJ · HDJ → HDJ · mixte → les trois (quota 0,5 si non renseigné). Ajoute seulement, ne retire personne.</span>`:'<span class="mut">Aucun profil reçu de l\'index : remplis les groupes à la main (ou ajoute un champ « profil » aux neurologues).</span>';
   if(np)$('#b-prof').onclick=applyProfils;
   g.querySelectorAll('[data-g]').forEach(e=>e.onchange=()=>{P[e.dataset.g]=Number(e.value);saveP();});
   $('#b-reset').onclick=()=>{try{localStorage.removeItem(LS);}catch(e){}P=loadP();renderParams();};
   $('#pools-box').innerHTML=P.pools.map(p=>`<div class="pool"><h3>${p.label}</h3>
-    <div class="row">${POOLF.map(f=>`<label>${POOL_LABELS[f]}<input type="number" min="0" max="20" step="${f==='alt'?0.1:1}" data-pool="${p.id}" data-pf="${f}" value="${p[f]}"></label>`).join('')}</div>
-    <div class="row" style="margin-top:8px">${p.salles.map(r=>`<label>${r.id} : postes minimum<input type="number" min="0" max="${r.cols.length}" data-pool="${p.id}" data-room="${r.id}" data-f="min" value="${r.min}"></label>
-      <label>${r.id} : postes maximum<input type="number" min="0" max="${r.cols.length}" data-pool="${p.id}" data-room="${r.id}" data-f="max" value="${r.max}"></label>`).join('')}</div>
-    <div class="mut" style="margin:8px 0 4px">Médecins en rotation</div><div class="chips" id="c-${p.id}-m"></div>
-    <div class="mut" style="margin:8px 0 4px">Remplaçants possibles (repos de garde) — vide = tous les membres du groupe</div><div class="chips" id="c-${p.id}-r"></div></div>`).join('');
+    <div class="row">${POOLF.map(f=>`<label title="${AIDE[f]}">${POOL_LABELS[f]}<input type="number" min="0" max="20" step="${f==='alt'?0.1:1}" data-pool="${p.id}" data-pf="${f}" value="${p[f]}"></label>`).join('')}</div>
+    <div class="row" style="margin-top:8px">${p.salles.map(r=>`<label title="${AIDE.smin}">${r.id} : postes minimum<input type="number" min="0" max="${r.cols.length}" data-pool="${p.id}" data-room="${r.id}" data-f="min" value="${r.min}"></label>
+      <label title="${AIDE.smax}">${r.id} : postes maximum<input type="number" min="0" max="${r.cols.length}" data-pool="${p.id}" data-room="${r.id}" data-f="max" value="${r.max}"></label>`).join('')}</div>
+    <div class="mut" title="${AIDE.membres}" style="margin:8px 0 4px">Médecins en rotation</div><div class="chips" id="c-${p.id}-m"></div>
+    <div class="mut" title="${AIDE.remplacants}" style="margin:8px 0 4px">Remplaçants possibles (repos de garde) — vide = tous les membres du groupe</div><div class="chips" id="c-${p.id}-r"></div></div>`).join('');
   $('#pools-box').querySelectorAll('input[data-pf]').forEach(e=>e.onchange=()=>{P.pools.find(x=>x.id===e.dataset.pool)[e.dataset.pf]=Number(e.value);saveP();});
   $('#pools-box').querySelectorAll('input[data-room]').forEach(e=>e.onchange=()=>{
     const p=P.pools.find(x=>x.id===e.dataset.pool),r=p.salles.find(x=>x.id===e.dataset.room);r[e.dataset.f]=Number(e.value);saveP();});
@@ -676,9 +732,9 @@ function poolHTML(pool){
 function bilanHTML(){
   const B=RES.bilan,rooms=B.rooms;
   const bil=B.rows.map(x=>{const ok=x.r==null||x.tot===0||Math.abs(x.r-B.mean)<=B.sd+1e-9;
-    return`<tr><td class="l">${x.m}</td>${rooms.map(r=>`<td>${x.by[r.id]}</td>`).join('')}<td>${x.avant}</td><td>${x.tot}</td><td>${x.q}</td><td class="${ok?'ok':'bad'}">${x.r==null?'–':x.r.toFixed(2)}</td></tr>`;}).join('');
-  return`<section><h2>Bilan d'équilibrage (toutes salles)</h2><div class="scroll"><table><tr><th>Médecin</th>${rooms.map(r=>`<th>${r.id}</th>`).join('')}<th>Déjà fait</th><th>Total</th><th>Quota</th><th>Total / quota</th></tr>${bil}</table></div>
-    <div class="mut" style="margin-top:4px">Vert : dans la moyenne ± 1 écart-type (${B.mean.toFixed(2)} ± ${B.sd.toFixed(2)}). Un total de 9 semaines vaut 9 semaines quelle que soit la salle.</div></section>`;
+    return`<tr><td class="l">${x.m}</td>${rooms.map(r=>`<td>${x.by[r.id]}</td>`).join('')}<td>${x.avant}</td><td>${x.conge.toFixed(1)}</td><td>${x.tot}</td><td>${x.q}</td><td class="${ok?'ok':'bad'}">${x.r==null?'–':x.r.toFixed(2)}</td></tr>`;}).join('');
+  return`<section><h2>Bilan d'équilibrage (toutes salles)</h2><div class="scroll"><table><tr><th>Médecin</th>${rooms.map(r=>`<th>${r.id}</th>`).join('')}<th title="${AIDE.avant}">Déjà fait</th><th title="${AIDE.bilanConge}">Congés (sem.)</th><th title="${AIDE.bilanTotal}">Total</th><th title="${AIDE.quota}">Quota</th><th title="${AIDE.bilanRatio}">Total / quota</th></tr>${bil}</table></div>
+    <div class="mut" style="margin-top:4px">Vert : dans la moyenne ± 1 écart-type (${B.mean.toFixed(2)} ± ${B.sd.toFixed(2)}). Un total de 9 semaines vaut 9 semaines quelle que soit la salle. Congés dans l'équité : ${({aucun:'ignorés',conges:'comptés comme de la salle (poids '+P.congePoids+')',presence:'quota proportionnel à la présence (poids '+P.congePoids+')'})[P.congeMode]||'ignorés'}.</div></section>`;
 }
 
 function globalHTML(){
