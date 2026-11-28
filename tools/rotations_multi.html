@@ -79,6 +79,10 @@ details{margin:4px 0}summary{cursor:pointer}
     <progress id="prog" max="100" value="0" hidden style="width:200px"></progress>
     <span id="status" class="mut"></span>
   </div>
+  <div id="conv-wrap" hidden style="margin-top:8px">
+    <canvas id="conv" width="520" height="150" style="border:1px solid var(--line);border-radius:4px;max-width:100%" title="Courbe de convergence du calcul global. Bleu : meilleur plan trouvé jusqu'ici (coût en pénalités, plus bas = mieux). Gris : borne inférieure prouvée (aucun plan ne peut faire mieux). Quand les deux se rejoignent, le plan est optimal ; une courbe bleue plate longtemps signale un plafond."></canvas>
+    <div id="convtxt" class="mut"></div>
+  </div>
 </section>
 <div id="out"></div>
 
@@ -317,14 +321,16 @@ class Model{
 //  4. SOLVEUR (HiGHS en WebAssembly, dans un Worker pour ne pas figer la page)
 // ═══════════════════════════════════════════════════════════════════════════════
 const WORKER_SRC=[
- "let highs=null;",
+ "let highs=null,cur=0;",
+ "const RE=/^\\s*[A-Z]?\\s+\\d+\\s+\\d+\\s+\\d+\\s+[\\d.]+%\\s+(\\S+)\\s+(\\S+)\\s+(\\S+)\\s+\\d+\\s+\\d+\\s+\\d+\\s+\\d+\\s+([\\d.]+)s\\s*$/;",
+ "const LOGF=l=>{if(!cur)return;const m=RE.exec(l);if(m)postMessage({id:cur,log:{bound:parseFloat(m[1]),best:parseFloat(m[2]),gap:m[3],t:parseFloat(m[4])}});};",
  "self.onmessage=async(e)=>{const {id,bases,lp,options}=e.data;",
  " try{",
  "  if(!highs){const errs=[];",
- "   for(const b of bases){try{importScripts(b+'highs.js');highs=await Module({locateFile:f=>b+f});break;}catch(x){errs.push(b+' : '+(x&&x.message||x));highs=null;}}",
+ "   for(const b of bases){try{importScripts(b+'highs.js');highs=await Module({locateFile:f=>b+f,print:LOGF,printErr:()=>{}});break;}catch(x){errs.push(b+' : '+(x&&x.message||x));highs=null;}}",
  "   if(!highs)throw new Error('HiGHS introuvable. '+errs.join(' | '));}",
  "  if(lp==null){postMessage({id,ok:true});return;}",
- "  const sol=highs.solve(lp,options);postMessage({id,ok:true,sol});",
+ "  cur=id;const sol=highs.solve(lp,options);cur=0;postMessage({id,ok:true,sol});",
  " }catch(err){postMessage({id,ok:false,error:String(err&&err.message||err)});}",
  "};"
 ].join('\n');
@@ -332,15 +338,42 @@ let worker=null,seq=0;const pending=new Map();
 function getWorker(){
   if(worker)return worker;
   worker=new Worker(URL.createObjectURL(new Blob([WORKER_SRC],{type:'text/javascript'})));
-  worker.onmessage=e=>{const p=pending.get(e.data.id);if(!p)return;pending.delete(e.data.id);e.data.ok?p.res(e.data):p.rej(new Error(e.data.error));};
+  worker.onmessage=e=>{const p=pending.get(e.data.id);if(!p)return;if(e.data.log){if(p.onLog)p.onLog(e.data.log);return;}pending.delete(e.data.id);e.data.ok?p.res(e.data):p.rej(new Error(e.data.error));};
   worker.onerror=e=>{pending.forEach(p=>p.rej(new Error('Erreur du calcul : '+(e.message||'worker'))));pending.clear();};
   return worker;
 }
-function solveLP(lp,options){
+function solveLP(lp,options,onLog){
   return new Promise((res,rej)=>{
-    const id=++seq;pending.set(id,{res,rej});
+    const id=++seq;pending.set(id,{res,rej,onLog});
     getWorker().postMessage({id,bases:HIGHS_BASES.map(b=>new URL(b,location.href).href),lp,options});
   });
+}
+const CONV={pts:[],lastImp:0};
+function convReset(){CONV.pts=[];CONV.lastImp=0;$('#conv-wrap').hidden=false;$('#convtxt').textContent='En attente des premières solutions…';drawConv();}
+function convAdd(l){
+  const p=CONV.pts[CONV.pts.length-1];
+  if(Number.isFinite(l.best)&&(!p||!Number.isFinite(p.best)||l.best<p.best-1e-9))CONV.lastImp=l.t;
+  CONV.pts.push(l);drawConv();
+  const f=CONV.pts.filter(x=>Number.isFinite(x.best)),last=CONV.pts[CONV.pts.length-1];
+  if(!f.length){$('#convtxt').textContent=`${Math.round(last.t)} s — aucune solution complète pour l'instant`;return;}
+  const b=f[f.length-1].best;
+  $('#convtxt').textContent=`${Math.round(last.t)} s · meilleur coût ${b.toFixed(2)} · borne ${Number.isFinite(last.bound)?last.bound.toFixed(2):'—'} · écart ${last.gap} · dernière amélioration il y a ${Math.round(last.t-CONV.lastImp)} s`;
+}
+function drawConv(){
+  const cv=$('#conv');if(!cv)return;const g=cv.getContext('2d'),W=cv.width,H=cv.height,L=46,B=18,T=8,R=8;
+  const cs=getComputedStyle(document.body);g.clearRect(0,0,W,H);g.fillStyle=cs.color||'#222';g.font='10px sans-serif';
+  const pts=CONV.pts,tmax=Math.max(P.tempsMax||60,pts.length?pts[pts.length-1].t:0);
+  const fin=pts.filter(p=>Number.isFinite(p.best));
+  let lo=0,hi=1;
+  if(fin.length){const bl=fin[fin.length-1].best,bd=pts.filter(p=>Number.isFinite(p.bound)).map(p=>p.bound);
+    lo=Math.min(bl,...(bd.length?bd:[bl]));const span=Math.max(bl-lo,0.05*Math.abs(bl)+1);hi=Math.min(Math.max(...fin.map(p=>p.best)),bl+4*span);lo-=0.05*span;}
+  const X=t=>L+(W-L-R)*t/tmax,Y=v=>T+(H-T-B)*(1-(Math.min(Math.max(v,lo),hi)-lo)/((hi-lo)||1));
+  g.strokeStyle='#bbb';g.beginPath();g.moveTo(L,T);g.lineTo(L,H-B);g.lineTo(W-R,H-B);g.stroke();
+  g.fillText(hi.toFixed(1),2,T+8);g.fillText(lo.toFixed(1),2,H-B);g.fillText('0',L,H-4);g.fillText(Math.round(tmax)+' s',W-R-28,H-4);
+  const line=(key,col)=>{g.strokeStyle=col;g.lineWidth=2;g.beginPath();let on=false,py=0;
+    pts.forEach(p=>{if(!Number.isFinite(p[key])){return;}const x=X(p.t),y=Y(p[key]);if(!on){g.moveTo(x,y);on=true;}else{g.lineTo(x,py);g.lineTo(x,y);}py=y;});
+    if(on){g.lineTo(X(pts[pts.length-1].t),py);}g.stroke();g.lineWidth=1;};
+  line('bound','#8a8f98');line('best','#2563eb');
 }
 function cancelSolve(){
   if(worker){worker.terminate();worker=null;}
@@ -497,7 +530,8 @@ async function optimize(){
   try{
     say('Optimisation globale : qui est en salle chaque semaine, tous groupes ensemble');
     const b1=buildJoint(pools);
-    const s1=await solveLP(b1.M.toLP(),{output_flag:false,time_limit:P.tempsMax,mip_rel_gap:P.ecart/100});
+    convReset();
+    const s1=await solveLP(b1.M.toLP(),{output_flag:true,log_to_console:true,time_limit:P.tempsMax,mip_rel_gap:P.ecart/100},convAdd);
     const st=s1.sol.Status;
     if(/infeasible/i.test(st))throw new Error(`Modèle infaisable (${st}). Vérifie les semaines déjà pourvues et les règles.`);
     if(!s1.sol.Columns||!Object.keys(s1.sol.Columns).length)throw new Error(`Aucune solution trouvée (${st}). Augmente le temps de calcul.`);
