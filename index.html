@@ -4646,20 +4646,33 @@ window.addEventListener('message', async (e) => {
     const medecins = listeMedecins.map(m => m.initiales);
 
 
-	    // Congés prévisionnels (schéma gardes). Un échec ne doit pas bloquer le générateur.
+    // Congés prévisionnels (schéma gardes) + conversion uid → initiales via commun.profiles
     let congesPrevisionnels = [];
     try {
-      const { data, error } = await _supabase
-        .schema('gardes')
-        .from('conges_previsionnels')
-        .select('medecin_uid, date_debut, date_fin');
-      if (error) throw error;
-      congesPrevisionnels = data || [];
+      const [{ data: conges, error: e1 }, { data: profs, error: e2 }] = await Promise.all([
+        _supabase.schema('gardes').from('conges_previsionnels')
+          .select('medecin_uid, date_debut, date_fin'),
+        _supabase.schema('commun').from('profiles').select('id, initiales')
+      ]);
+      if (e1) throw e1;
+      if (e2) throw e2;
+
+      const uid2init = {};
+      (profs || []).forEach(p => { if (p.id && p.initiales) uid2init[p.id] = p.initiales.trim().toUpperCase(); });
+
+      const inconnus = new Set();
+      (conges || []).forEach(c => {
+        const init = uid2init[c.medecin_uid];
+        if (!init) { inconnus.add(c.medecin_uid); return; }
+        congesPrevisionnels.push({ initiales: init, date_debut: c.date_debut, date_fin: c.date_fin });
+      });
+      if (inconnus.size) {
+        toast(`Congés prévisionnels : ${inconnus.size} médecin(s) sans profil lisible, ignoré(s)`, 'warning');
+      }
     } catch (err) {
       console.warn('Congés prévisionnels non chargés :', err.message);
       toast('Congés prévisionnels non chargés : ' + err.message, 'warning');
     }
-	  
     // Envoi des données vers rotations_usi_unv.html
     rotationsWindow.postMessage({
       type: 'rotations:init',
