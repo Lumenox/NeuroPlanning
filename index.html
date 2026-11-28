@@ -4645,13 +4645,29 @@ window.addEventListener('message', async (e) => {
     const absences = absencesData;
     const medecins = listeMedecins.map(m => m.initiales);
 
+
+	    // Congés prévisionnels (schéma gardes). Un échec ne doit pas bloquer le générateur.
+    let congesPrevisionnels = [];
+    try {
+      const { data, error } = await _supabase
+        .schema('gardes')
+        .from('conges_previsionnels')
+        .select('medecin_uid, date_debut, date_fin');
+      if (error) throw error;
+      congesPrevisionnels = data || [];
+    } catch (err) {
+      console.warn('Congés prévisionnels non chargés :', err.message);
+      toast('Congés prévisionnels non chargés : ' + err.message, 'warning');
+    }
+	  
     // Envoi des données vers rotations_usi_unv.html
     rotationsWindow.postMessage({
       type: 'rotations:init',
       rows: rows,
       absences: absences,
       medecins: medecins,
-	neurologues: listeMedecins
+	  neurologues: listeMedecins,
+	congesPrevisionnels: congesPrevisionnels 
     }, location.origin);
   }
 
