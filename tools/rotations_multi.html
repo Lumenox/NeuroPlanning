@@ -128,6 +128,7 @@ const DEFAULTS={
   congeMode:'aucun',        // équité et congés : 'aucun' (salle seule) | 'conges' (salle + congés comptés) | 'presence' (quota proportionnel à la présence)
   congePoids:1,             // intensité de la prise en compte des congés (0 à 1)
   congeTypes:['CA','CF'],   // types d'absence comptés comme congés pour l'équité
+  congesPrev:false,         // ajouter les congés prévisionnels (gardes.conges_previsionnels) envoyés par l'index, sans toucher au planning
   pools:[
     {id:'VASC',label:'USI / UNV',fam:'V',pmin:2,psou:3,pcap:4,opt:2,alt:2,
      salles:[
@@ -154,7 +155,7 @@ const DEFAULTS={
   rules:{Mardi_matin:{FF:'BOX',AT:'Salle'}}
 };
 const LS='rotations_v3_params';
-const SCALAR=['repos','penaliteDepassement','seuil','tempsMax','ecart','congeMode','congePoids','congeTypes','quotas','avant','fin','rules'];
+const SCALAR=['repos','penaliteDepassement','seuil','tempsMax','ecart','congeMode','congePoids','congeTypes','congesPrev','quotas','avant','fin','rules'];
 const POOLF=['pmin','psou','pcap','opt','alt'];
 const PEN_REQ=100,BAL=0.3,LAM=0.02;   // coût d'un poste obligatoire vide ; déséquilibre d'un mixte entre familles ; petit bonus de présence
 function loadP(){
@@ -179,7 +180,7 @@ function saveP(){
   }catch(e){}
 }
 let P=loadP();
-let D={rows:[],absences:[],cols:[],medecins:[],spec:{},profil:{}};
+let D={rows:[],absences:[],cols:[],medecins:[],spec:{},profil:{},prev:[],prevInfo:{n:0,inconnus:[]}};
 let C=null,RES=null,running=false,lastSent=new Map();
 const q=m=>Number(P.quotas[m]??1);
 const activePools=()=>P.pools.filter(p=>p.membres.length);
@@ -197,13 +198,32 @@ function prepare(){
   const absent=new Map(),absType=new Map();
   D.absences.forEach(a=>D.cols.forEach(c=>{if(a[c]&&String(a[c]).trim()){const k=a.date+'_'+a.heure;if(!absent.has(k))absent.set(k,new Set());absent.get(k).add(norm(c));
     if(!absType.has(k))absType.set(k,new Map());absType.get(k).set(norm(c),typeOf(a[c]));}}));
+  // congés prévisionnels (option) : ajoutés aux absences en mémoire uniquement, le planning n'est jamais modifié
+  let prevAdded=0;
+  if(P.congesPrev&&D.prev.length){
+    const byDate=new Map();slots.forEach(s=>{if(!byDate.has(s.r.date))byDate.set(s.r.date,[]);byDate.get(s.r.date).push(s);});
+    D.prev.forEach(c=>{
+      for(let d=c.debut;d<=c.fin;d=nextDay(d)){
+        (byDate.get(d)||[]).forEach(s=>{
+          if(!absent.has(s.key))absent.set(s.key,new Set());
+          if(!absType.has(s.key))absType.set(s.key,new Map());
+          if(!absent.get(s.key).has(c.m)){absent.get(s.key).add(c.m);absType.get(s.key).set(c.m,'CA');prevAdded++;}
+        });
+      }});
+  }
   const repos=new Map();
   D.rows.forEach(r=>{const g=norm(r.Garde);if(!g)return;const k=nextDay(r.date)+'_'+r.heure;if(!repos.has(k))repos.set(k,new Set());repos.get(k).add(g);});
   const wk=new Map();slots.forEach((s,i)=>{const m=monday(s.r.date);if(!wk.has(m))wk.set(m,[]);wk.get(m).push(i);});
   const weeks=[...wk.entries()].map(([mon,ix])=>({mon,ix}));
   // couverture des absences
   const first=slots[0].r.date,last=slots[slots.length-1].r.date;
-  const ad=D.absences.map(a=>a.date).filter(Boolean).sort();
+  const ad=D.absences.map(a=>a.date).filter(Boolean);
+  if(P.congesPrev)D.prev.forEach(c=>{ad.push(c.debut);ad.push(c.fin);});
+  ad.sort();
+  if(P.congesPrev){
+    if(!D.prev.length)W0.push({l:'r',m:'Option « congés prévisionnels » cochée, mais l\'index n\'en a envoyé aucun (champ congesPrevisionnels du message rotations:init).'});
+    else W0.push({l:'o',m:`Congés prévisionnels pris en compte : ${D.prev.length} périodes, ${prevAdded} créneaux ajoutés aux absences du planning (comptés comme CA pour l'équité).`+(D.prevInfo.inconnus.length?` ${D.prevInfo.inconnus.length} identifiant(s) médecin non reconnu(s), ignoré(s) : ${D.prevInfo.inconnus.slice(0,4).join(', ')}…`:'')});
+  }
   if(!ad.length)W0.push({l:'r',m:'Aucune ligne d\'absences reçue : tous les médecins seront considérés disponibles.'});
   else if(ad[ad.length-1]<last||ad[0]>first)W0.push({l:'r',m:`Les absences reçues couvrent du ${ad[0]} au ${ad[ad.length-1]}, mais la sandbox va du ${first} au ${last} : les congés hors de cette plage sont ignorés. Dans l'index, envoie absencesData (et non currentFilteredAbs).`});
   const Cx={slots,absent,absType,repos,weeks,W0,spec:D.spec,cache:{},congeC:{},fixed:{},others:{}};
@@ -606,6 +626,7 @@ const AIDE={
  ecart:`Le calcul s'arrête dès qu'il est prouvé que la solution est à moins de ce pourcentage de la meilleure possible (mesuré sur le coût total du modèle). 1 % = rapide ; 0 = pousse jusqu'au temps maximum.`,
  congeMode:`Comment les congés entrent dans l'équité. Les congés tombent toujours hors salle : à salle égale, qui part beaucoup a moins de semaines pour les BIP et consultations. « Ignorer » : seule la salle est équilibrée. « Congés comptés comme de la salle » : on équilibre salle + congés × poids ; avec un poids de 1, tous ont la même capacité hors salle, mais qui a plus de congés fait moins de salle. « Quota proportionnel à la présence » : le quota est réduit au prorata des semaines de congé (un médecin absent 20 % du temps a un quota réduit de 20 % × poids). Les deux derniers modes dépendent de la qualité des congés saisis.`,
  congePoids:`Intensité de la prise en compte des congés, de 0 à 1. 0 = congés ignorés ; 1 = une semaine de congé compte comme une semaine de salle (mode « congés comptés comme de la salle ») ou réduit le quota au prorata de la durée (mode « proportionnel »). Sans effet si les congés sont ignorés.`,
+ congesPrev:`Ajoute en mémoire, pour ce calcul seulement, les congés de la table gardes.conges_previsionnels (envoyée par l'index) aux absences du planning. Ils rendent les médecins indisponibles ces jours-là, entrent dans le comptage des congés de l'équité (comptés comme CA) et prolongent la période d'absences connue. Le planning n'est pas modifié. Un congé déjà présent dans le planning n'est pas compté deux fois.`,
  congeTypes:`Types d'absence considérés comme des congés pour l'équité (colonne type du tableau d'absences). « Autre » regroupe tout ce qui n'est ni CA, ni CF, ni Ens, ni Rech. Ne change pas l'éligibilité des médecins, qui dépend de toutes les absences.`,
  pmin:`Durée minimale d'un passage, en semaines : un passage qui commence dure au moins ce nombre de semaines (1 = pas de minimum). Les passages coupés par le début ou la fin de la période ne sont pas concernés.`,
  psou:`Durée souhaitée d'un passage, en semaines. Aucune pénalité jusqu'à cette durée ; au-delà, chaque semaine en plus est pénalisée (voir « Pénalité au-delà du souhaité »). Il n'y a pas de préférence entre une durée plus courte et la durée souhaitée.`,
@@ -679,8 +700,10 @@ function renderParams(){
   g.innerHTML=GENERAL.map(([k,l,mn,mx,st])=>`<label title="${AIDE[k]}">${l}<input type="number" data-g="${k}" min="${mn}" max="${mx}" step="${st}" value="${P[k]}"></label>`).join('')+
     `<label title="${AIDE.congeMode}">Congés et équité<select data-gs="congeMode">${[['aucun','Ignorer les congés'],['conges','Congés comptés comme de la salle'],['presence','Quota proportionnel à la présence']].map(([v,l])=>`<option value="${v}"${P.congeMode===v?' selected':''}>${l}</option>`).join('')}</select></label>
      <label title="${AIDE.congeTypes}">Types d'absence comptés comme congés<span class="chips">${CONGE_TYPES.map(t=>`<label style="flex-direction:row;align-items:center;gap:3px"><input type="checkbox" data-ct="${t}"${P.congeTypes.includes(t)?' checked':''}>${t}</label>`).join('')}</span></label>
+     <label title="${AIDE.congesPrev}" style="flex-direction:row;align-items:center;gap:5px"><input type="checkbox" id="c-prev"${P.congesPrev?' checked':''}>Ajouter les congés prévisionnels (gardes)</label>
      <button class="ghost" id="b-reset" title="${AIDE.reset}">Valeurs par défaut</button>`;
   g.querySelectorAll('[data-gs]').forEach(e=>e.onchange=()=>{P[e.dataset.gs]=e.value;saveP();});
+  $('#c-prev').onchange=e=>{P.congesPrev=e.target.checked;saveP();try{const pr=prepare();$('#banner').innerHTML=pr.ctx?pr.ctx.W0.map(w=>`<div class="w ${w.l}">${w.m}</div>`).join(''):'';}catch(x){}};
   g.querySelectorAll('[data-ct]').forEach(e=>e.onchange=()=>{const t=e.dataset.ct;P.congeTypes=P.congeTypes.filter(x=>x!==t);if(e.checked)P.congeTypes.push(t);saveP();});
   const np=Object.keys(D.profil).length;
   $('#prof-box').innerHTML=np?`<button class="ghost" id="b-prof" title="${AIDE.prof}">Remplir les groupes depuis les profils (${np} neurologues)</button> <span class="mut">vascu → USI/UNV · général → C + HDJ · HDJ → HDJ · mixte → les trois (quota 0,5 si non renseigné). Ajoute seulement, ne retire personne.</span>`:'<span class="mut">Aucun profil reçu de l\'index : remplis les groupes à la main (ou ajoute un champ « profil » aux neurologues).</span>';
@@ -811,12 +834,20 @@ const host=()=>window.opener||(window.parent!==window?window.parent:null);
 window.addEventListener('message',e=>{
   if(e.origin!==location.origin||e.data?.type!=='rotations:init')return;
   const d=e.data,neu=Array.isArray(d.neurologues)?d.neurologues:[];
-  D={rows:d.rows||[],absences:d.absences||[],cols:d.medecins||[],medecins:(d.medecins||[]).map(norm),spec:{},profil:{}};
+  D={rows:d.rows||[],absences:d.absences||[],cols:d.medecins||[],medecins:(d.medecins||[]).map(norm),spec:{},profil:{},prev:[],prevInfo:{n:0,inconnus:[]}};
+  // congés prévisionnels : [{medecin_uid | initiales, date_debut, date_fin}], uid → initiales via neurologues[].uid (ou id / medecin_uid / user_id)
+  const uid2m={};neu.forEach(n=>{if(!n||!n.initiales)return;[n.uid,n.medecin_uid,n.user_id,n.id].forEach(u=>{if(u)uid2m[String(u)]=norm(n.initiales);});});
+  (Array.isArray(d.congesPrevisionnels)?d.congesPrevisionnels:[]).forEach(c=>{
+    const m=c.initiales?norm(c.initiales):uid2m[String(c.medecin_uid||c.uid||'')];
+    const a=String(c.date_debut||'').slice(0,10),b=String(c.date_fin||c.date_debut||'').slice(0,10);
+    if(!m||!D.medecins.includes(m)){D.prevInfo.inconnus.push(c.medecin_uid||c.initiales||'?');return;}
+    if(a&&b&&a<=b)D.prev.push({m,debut:a,fin:b});});
+  D.prevInfo.inconnus=[...new Set(D.prevInfo.inconnus)];
   neu.forEach(n=>{if(n&&n.initiales&&n.specialite)D.spec[norm(n.initiales)]=String(n.specialite).toLowerCase();
     if(n&&n.initiales&&n.profil)D.profil[norm(n.initiales)]=String(n.profil).trim().toLowerCase().replace('é','e');});
   RES=null;lastSent=new Map();$('#out').innerHTML='';
   const ds=D.rows.map(r=>r.date).filter(Boolean).sort();
-  $('#src').textContent=`${D.rows.length} lignes de sandbox${ds.length?` (du ${ds[0]} au ${ds[ds.length-1]})`:''}, ${D.absences.length} lignes d'absences, ${D.cols.length} neurologues${neu.length?', spécialités reçues':''}.`;
+  $('#src').textContent=`${D.rows.length} lignes de sandbox${ds.length?` (du ${ds[0]} au ${ds[ds.length-1]})`:''}, ${D.absences.length} lignes d'absences, ${D.cols.length} neurologues${neu.length?', spécialités reçues':''}, ${D.prev.length} congés prévisionnels reçus.`;
   renderParams();
   try{const pr=prepare();$('#banner').innerHTML=pr.ctx?pr.ctx.W0.map(w=>`<div class="w ${w.l}">${w.m}</div>`).join(''):'';}catch(x){}
 });
